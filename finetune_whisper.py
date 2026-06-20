@@ -75,6 +75,21 @@ LANG_CONFIG = {
         "learning_rate": 5e-5,
         "warmup_steps":  25,
     },
+    "ur": {
+        "hf_model":      "openai/whisper-large-v3",
+        "whisper_lang":  "ur",
+        "task":          "transcribe",
+        "fleurs_config": "ur_pk",
+        "cv_config":     "ur",
+        "ct2_name":      "whisper-large-v3-ur-ct2",
+        "lora_r":        8,
+        "lora_alpha":    16,
+        "lora_dropout":  0.05,
+        "batch_size":    2,
+        "grad_accum":    1,
+        "learning_rate": 5e-5,
+        "warmup_steps":  50,
+    },
 }
 
 
