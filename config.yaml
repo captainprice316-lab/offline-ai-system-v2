@@ -1,0 +1,111 @@
+device: cuda         # Windows RTX 5060 — CUDA for transformers models; CT2/faster-whisper also uses CUDA
+
+# ── Model paths (relative to project root) ────────────────────────────────────
+paths:
+  whisper_model:      models/whisper-large-v3-turbo-ct2
+  indictrans_model:   models/indictrans2-indic-en-1B
+  nllb_model:         models/nllb-200-distilled-600M
+  fasttext_model:     models/langid/lid.176.bin
+  mms_lid_model:      models/mms-lid-256             # auto-used if directory exists
+  qwen_model:         models/qwen2.5-1.5b-instruct   # auto-used if directory exists (download with: python download_models.py qwen)
+  whisper_model_pa:   models/whisper-large-v3-pa-ct2               # Punjabi  — fine-tuned large-v3; outputs English translation (not Gurmukhi) — pa excluded from nllb_langs
+  whisper_model_zh:   models/belle-whisper-large-v3-turbo-zh-ct2  # Mandarin — auto-selected by MMS-LID; download with: python download_lang_models.py zh
+  whisper_model_ps:   models/whisper-medium-pashto-ct2            # Pashto   — auto-selected by MMS-LID; download with: python download_lang_models.py ps
+  keyword_dictionary: alerts/keyword_dictionary.json
+  input_dir:          input_audio
+  output_dir:         output
+  log_dir:            logs
+  database:           database/transcripts.db
+
+# ── ASR tuning ─────────────────────────────────────────────────────────────────
+asr:
+  beam_size: 2
+  best_of: 1
+  temperature: 0.0
+  condition_on_previous_text: false
+  word_timestamps: true
+  vad_filter: false   # VAD already done in Stage 1 (vad_module.py) — no double processing
+  vad_parameters:
+    threshold: 0.45
+    min_speech_duration_ms: 250
+    min_silence_duration_ms: 500
+  initial_prompt: >
+    Military radio communication. Languages include Hindi, Punjabi (Gurmukhi
+    and Romanised), Dogri, Urdu, Pashto, Nepali, Kashmiri, Mandarin.
+    Punjabi phrases: ਹਾਂ ਜੀ, ਕੀ ਗੱਲ, ਠੀਕ ਹੈ, ਸਾਡੇ, ਤੁਹਾਡੇ.
+    Radio callsigns, grid references, tactical orders, unit identifiers.
+    Transcribe exactly as spoken.
+  initial_prompt_pa: >
+    ਫੌਜੀ ਰੇਡੀਓ ਸੰਚਾਰ। ਗੁਰਮੁਖੀ ਲਿਪੀ ਵਿੱਚ ਲਿਖੋ।
+    Military radio communication in Punjabi (Gurmukhi script).
+    Common phrases: ਹਾਂ ਜੀ, ਨਹੀਂ ਜੀ, ਠੀਕ ਹੈ, ਸਮਝ ਗਿਆ, ਅੱਗੇ ਵਧੋ, ਰੁਕੋ, ਅੱਗੇ, ਪਿੱਛੇ,
+    ਕਿੱਥੇ ਹੋ, ਦੱਸੋ, ਖ਼ਬਰ ਕੀ ਹੈ, ਹਮਲਾ, ਫ਼ੌਜ, ਦੁਸ਼ਮਣ, ਸੈਨਿਕ.
+    Callsigns, grid references, unit identifiers. Transcribe in Gurmukhi script.
+
+# ── VAD ────────────────────────────────────────────────────────────────────────
+vad:
+  sampling_rate: 16000
+  threshold: 0.30
+  min_speech_duration_ms: 250
+  min_silence_duration_ms: 600
+  speech_pad_ms: 100
+
+# ── Audio preprocessing ────────────────────────────────────────────────────────
+preprocessing:
+  target_sr: 16000
+  normalize: true
+  noise_reduce: true
+  noise_reduce_stationary: true
+  prop_decrease: 0.75        # 0.4 = light · 0.75 = medium · 0.95 = aggressive
+  bandpass_filter: true      # restrict to 300–3400 Hz radio telephony bandwidth
+  bandpass_low_hz: 300
+  bandpass_high_hz: 3400
+  trim_silence_db: 20
+
+# ── Chunking ───────────────────────────────────────────────────────────────────
+chunking:
+  max_chunk_duration: 29
+  min_chunk_duration: 1.0
+  use_vad_segments: true
+
+# ── Language routing ───────────────────────────────────────────────────────────
+# NOTE: actual routing is in language_module.py (NLLB_LANGS / INDIC_LANGS sets)
+# All Indic langs route via NLLB-200 (IndicTrans2 has DynamicCache incompatibility)
+# Exception: doi (Dogri) uses IndicTrans2 (not in NLLB-200 distilled vocab)
+language:
+  indic_langs:   [doi]
+  nllb_langs:    [hi, ur, ne, bn, mai, ks, sd, si, ps, zh, my, bo, fa, ar]   # pa excluded: fine-tuned whisper-large-v3-pa-ct2 outputs English directly
+  fallback_route: nllb
+  confidence_threshold: 0.60
+
+# ── Translation ────────────────────────────────────────────────────────────────
+translation:
+  max_input_tokens: 256
+  max_output_tokens: 256
+  unload_after_use: true
+  back_translation: false   # disable to save ~1.2 GB RAM (NLLB loads twice if true)
+
+# ── Memory management ─────────────────────────────────────────────────────────
+memory:
+  sequential_model_loading: true
+  gc_after_each_model: true
+  use_mms_lid: true
+
+# ── Diarization ────────────────────────────────────────────────────────────────
+diarization:
+  enabled: true
+  max_speakers: 4     # auto-detect up to this many; 2 is typical for radio intercepts
+
+# ── ISUM ───────────────────────────────────────────────────────────────────────
+isum:
+  enabled: true
+  model: ollama        # priority: ollama (gemma3:12b) → qwen → rule_based
+  ollama_model: gemma3:12b
+  ollama_url: http://localhost:11434
+  max_summary_sentences: 4
+
+# ── Database ───────────────────────────────────────────────────────────────────
+database:
+  enabled: true
+  store_segments: true
+  store_words: false        # set true on lab server (large storage)
