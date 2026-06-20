@@ -1,0 +1,55 @@
+# Python
+venv/
+__pycache__/
+*.py[cod]
+*.pyo
+src/__pycache__/
+
+# Models (large binaries — not tracked in git)
+models/
+
+# Runtime outputs and logs
+output/
+logs/
+database/
+robustness_cache/
+
+# Training data, checkpoints, fine-tune runs
+finetune_runs/
+training/
+training data/
+
+# Audio test data
+eval_audio/
+eval_data/
+input_audio/
+
+# Documents/papers (binary, not source)
+*.pdf
+*.docx
+*.pptx
+*.zip
+
+# TeX aux files
+*.aux
+*.log
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+
+# Claude metadata
+.claude/
+memory/
+
+# HuggingFace cache
+models/_hf_cache/
+
+# Lock/temp files
+~$*
+*.lock
+
+# Windows
+Thumbs.db
+.DS_Store
