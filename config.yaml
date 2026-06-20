@@ -12,6 +12,7 @@ paths:
   whisper_model_zh:   models/belle-whisper-large-v3-turbo-zh-ct2  # Mandarin — auto-selected by MMS-LID; download with: python download_lang_models.py zh
   whisper_model_ps:   models/whisper-medium-pashto-ct2            # Pashto   — auto-selected by MMS-LID; download with: python download_lang_models.py ps
   whisper_model_ur:   models/whisper-large-v3-ur-ct2             # Urdu     — fine-tuned large-v3; eval WER 22.3% vs baseline ~74%
+  whisper_model_ne:   models/whisper-large-v3-ne-ct2             # Nepali   — fine-tuned large-v3
   keyword_dictionary: alerts/keyword_dictionary.json
   input_dir:          input_audio
   output_dir:         output
