@@ -8,12 +8,13 @@ paths:
   fasttext_model:     models/langid/lid.176.bin
   mms_lid_model:      models/mms-lid-256             # auto-used if directory exists
   qwen_model:         models/qwen2.5-1.5b-instruct   # auto-used if directory exists (download with: python download_models.py qwen)
-  whisper_model_pa:   models/whisper-large-v3-pa-ct2               # Punjabi  — fine-tuned large-v3; outputs English translation (not Gurmukhi) — pa excluded from nllb_langs
+  whisper_model_pa:   models/whisper-large-v3-pa-ct2               # Punjabi  — fine-tuned large-v3; outputs Gurmukhi (tokenizer fix 2026-06-23 restored correct task token)
   whisper_model_zh:   models/whisper-large-v3-zh-ct2              # Mandarin — fine-tuned large-v3; eval WER 8.97% at step 400 (best ckpt)
   whisper_model_ps:   models/whisper-medium-pashto-ct2            # Pashto   — auto-selected by MMS-LID; download with: python download_lang_models.py ps
   whisper_model_ur:   models/whisper-large-v3-ur-ct2             # Urdu     — fine-tuned large-v3; eval WER 22.3% vs baseline ~74%
   whisper_model_ne:   models/whisper-large-v3-ne-ct2             # Nepali   — fine-tuned large-v3; eval WER 54.4% vs baseline ~74%
   whisper_model_hi:   models/whisper-large-v3-hi-ct2             # Hindi    — fine-tuned large-v3; eval WER 23.1% vs baseline ~75%
+  whisper_model_ks:   models/whisper-large-v3-ks-ct2             # Kashmiri — fine-tuned large-v3; IndicVoices 20k samples, whisper_lang=ur proxy; best eval_loss=0.9356 (ckpt-1500)
   keyword_dictionary: alerts/keyword_dictionary.json
   input_dir:          input_audio
   output_dir:         output
@@ -77,7 +78,7 @@ chunking:
 # Exception: doi (Dogri) uses IndicTrans2 (not in NLLB-200 distilled vocab)
 language:
   indic_langs:   [doi]
-  nllb_langs:    [hi, ur, ne, bn, mai, ks, sd, si, ps, zh, my, bo, fa, ar]   # pa excluded: fine-tuned whisper-large-v3-pa-ct2 outputs English directly
+  nllb_langs:    [pa, hi, ur, ne, bn, mai, ks, sd, si, ps, zh, my, bo, fa, ar]   # pa restored 2026-06-23: tokenizer fix makes it output Gurmukhi → NLLB needed
   fallback_route: nllb
   confidence_threshold: 0.60
 

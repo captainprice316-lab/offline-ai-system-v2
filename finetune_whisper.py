@@ -136,6 +136,24 @@ LANG_CONFIG = {
         "warmup_steps":  50,
         "max_grad_norm": 0.5,   # prevent fp16 gradient spike (seen in zh at step ~820)
     },
+    "ks": {
+        "hf_model":        "openai/whisper-large-v3",
+        "whisper_lang":    "ur",   # Nastaliq proxy — Kashmiri shares Arabic/Nastaliq script with Urdu; gives computable WER
+        "task":            "transcribe",
+        "fleurs_config":   None,   # FLEURS has no Kashmiri config
+        "cv_config":       None,
+        "custom_dataset":  "humair025/KashmiriSpeech-IndicVoices",  # IndicVoices Kashmiri; 160k samples
+        "ct2_name":        "whisper-large-v3-ks-ct2",
+        "lora_r":          8,
+        "lora_alpha":      16,
+        "lora_dropout":    0.05,
+        "batch_size":      1,
+        "grad_accum":      2,      # effective batch = 2; lower per-step VRAM
+        "learning_rate":   5e-5,
+        "warmup_steps":    50,
+        "max_grad_norm":   0.5,
+        "train_samples":   20000,  # increased from 8k; more data needed for low-resource language
+    },
 }
 
 
@@ -194,28 +212,63 @@ def load_datasets(lang: str, cfg: dict, use_cv: bool, token: Optional[str]) -> d
 
     splits = {"train": [], "validation": []}
 
-    # FLEURS -- no token required
-    print("\n  [data] Loading FLEURS ...")
-    for split in ("train", "validation"):
-        try:
-            ds = load_dataset(
-                "google/fleurs",
-                cfg["fleurs_config"],
-                split=split,
-                cache_dir=str(data_dir / "fleurs"),
-            )
-            # Audio(decode=False) returns raw {bytes, path} dict without calling
-            # torchaudio -- required because torchaudio 2.11+ needs torchcodec.
-            ds = ds.cast_column("audio", Audio(decode=False))
-            ds = ds.rename_column("transcription", "text")
-            ds = ds.select_columns(["audio", "text"])
-            splits[split].append(ds)
-            print(f"         FLEURS {split}: {len(ds):,} samples")
-        except Exception as e:
-            print(f"         [WARN] FLEURS {split}: {e}")
+    # ── Custom dataset (e.g. IndicVoices for Kashmiri) ────────────────────────
+    if cfg.get("custom_dataset"):
+        print(f"\n  [data] Loading custom dataset: {cfg['custom_dataset']} ...")
+        for split in ("train", "validation"):
+            try:
+                ds = load_dataset(
+                    cfg["custom_dataset"],
+                    split=split,
+                    token=token,
+                    cache_dir=str(data_dir / "custom"),
+                )
+                # audio is in audio_filepath (Audio feature); decode=False avoids torchcodec
+                ds = ds.cast_column("audio_filepath", Audio(decode=False))
+                # filter by duration (2–20 s), drop corrupt entries
+                before = len(ds)
+                ds = ds.filter(lambda x: x["duration"] is not None and 2.0 <= x["duration"] <= 20.0)
+                print(f"         duration filter: {before:,} -> {len(ds):,} samples")
+                # keep only needed columns, normalise names to match prepare()
+                # drop existing 'text' column then use 'normalized' (cleaner for ASR)
+                ds = ds.remove_columns(["text"])
+                ds = ds.rename_column("audio_filepath", "audio")
+                ds = ds.rename_column("normalized", "text")
+                ds = ds.select_columns(["audio", "text"])
+                # subsample to match FLEURS-scale sizes (fast eval, reasonable train time)
+                train_cap = cfg.get("train_samples", 3000)
+                if split == "train" and len(ds) > train_cap:
+                    ds = ds.shuffle(seed=42).select(range(train_cap))
+                elif split == "validation" and len(ds) > 300:
+                    ds = ds.shuffle(seed=42).select(range(300))
+                splits[split].append(ds)
+                print(f"         custom {split}: {len(ds):,} samples")
+            except Exception as e:
+                print(f"         [WARN] custom {split}: {e}")
 
-    # Common Voice -- token required
-    if use_cv:
+    # ── FLEURS -- no token required ───────────────────────────────────────────
+    if cfg.get("fleurs_config"):
+        print("\n  [data] Loading FLEURS ...")
+        for split in ("train", "validation"):
+            try:
+                ds = load_dataset(
+                    "google/fleurs",
+                    cfg["fleurs_config"],
+                    split=split,
+                    cache_dir=str(data_dir / "fleurs"),
+                )
+                # Audio(decode=False) returns raw {bytes, path} dict without calling
+                # torchaudio -- required because torchaudio 2.11+ needs torchcodec.
+                ds = ds.cast_column("audio", Audio(decode=False))
+                ds = ds.rename_column("transcription", "text")
+                ds = ds.select_columns(["audio", "text"])
+                splits[split].append(ds)
+                print(f"         FLEURS {split}: {len(ds):,} samples")
+            except Exception as e:
+                print(f"         [WARN] FLEURS {split}: {e}")
+
+    # ── Common Voice -- token required ────────────────────────────────────────
+    if use_cv and cfg.get("cv_config"):
         if not token:
             print("\n  [data] No HuggingFace token -- skipping Common Voice.")
             print("         Run: huggingface-cli login")
@@ -350,22 +403,27 @@ def train(lang: str, args: argparse.Namespace) -> Path:
 
     # Processor
     print("\n  Loading processor ...")
+    whisper_lang = cfg.get("whisper_lang")   # None = no forced language token
     try:
         processor = WhisperProcessor.from_pretrained(
-            cfg["hf_model"], language=cfg["whisper_lang"], task=cfg["task"],
+            cfg["hf_model"], language=whisper_lang, task=cfg["task"],
         )
     except Exception:
         # Community model may not have processor -- fall back to base arch
         base_arch = "openai/whisper-large-v3" if "large" in cfg["hf_model"] else "openai/whisper-medium"
         print(f"  [WARN] Processor not found in repo, using {base_arch}")
         processor = WhisperProcessor.from_pretrained(
-            base_arch, language=cfg["whisper_lang"], task=cfg["task"],
+            base_arch, language=whisper_lang, task=cfg["task"],
         )
 
-    # forced_decoder_ids for generation during eval (different from training config)
-    forced_decoder_ids = processor.get_decoder_prompt_ids(
-        language=cfg["whisper_lang"], task=cfg["task"]
-    )
+    # forced_decoder_ids for generation during eval (None when whisper_lang unset)
+    if whisper_lang:
+        forced_decoder_ids = processor.get_decoder_prompt_ids(
+            language=whisper_lang, task=cfg["task"]
+        )
+    else:
+        forced_decoder_ids = None
+        print("  [INFO] No forced language token — model will auto-detect language from audio")
 
     # Datasets
     token  = _hf_token()
@@ -516,12 +574,25 @@ def merge_and_convert(lang: str, adapter_dir: Path) -> bool:
     print(f"\n  [OK] CT2 model saved -> {ct2_dir}")
     print(f"       model.bin: {size_mb:.0f} MB")
 
+    # Copy tokenizer.json — ct2-transformers-converter does not include it,
+    # but faster-whisper needs it to look up language/task token IDs correctly.
+    # Without it, faster-whisper falls back to openai/whisper-tiny whose token
+    # ordering differs from large-v3 (transcribe=50359 vs 50360), causing the
+    # model to translate instead of transcribe for every non-English language.
+    import json as _json
+    tok_src = merged_dir / "tokenizer.json"
+    if tok_src.exists():
+        import shutil as _shutil
+        _shutil.copy2(str(tok_src), str(ct2_dir / "tokenizer.json"))
+        print(f"  [OK] tokenizer.json copied -> {ct2_dir}")
+    else:
+        print(f"  [WARN] tokenizer.json not found in {merged_dir}; faster-whisper may use wrong token IDs")
+
     # Write preprocessor_config.json so faster-whisper reads the correct
     # feature_size (n_mels). The CT2 converter omits this file, causing a
     # shape mismatch crash at runtime for large-v3 models (128 vs 80 bins).
     # WhisperProcessor.save_pretrained writes processor_config.json (nested),
     # so we extract the feature_extractor block and write the flat format.
-    import json as _json
     proc_cfg_path = merged_dir / "processor_config.json"
     if proc_cfg_path.exists():
         proc_cfg = _json.loads(proc_cfg_path.read_text(encoding="utf-8"))
@@ -545,7 +616,7 @@ def main():
     )
     parser.add_argument("lang",
         choices=list(LANG_CONFIG),
-        help="Language code: pa (Punjabi) or ps (Pashto)")
+        help="Language code: pa, ps, ur, ne, zh, hi, ks")
     parser.add_argument("--steps",      type=int, default=1000,
         help="Training steps (default: 1000)")
     parser.add_argument("--save-steps", type=int, default=200,
