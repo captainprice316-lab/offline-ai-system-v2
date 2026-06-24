@@ -8,51 +8,117 @@ M.Tech Research Project · IIT Indore
 ## Overview
 
 VANI processes radio intercepts in multiple Indic and foreign languages, producing:
-- Real-time transcription via Whisper ASR
-- Automatic language identification (Hindi, Punjabi, Dogri, Urdu, Pashto, Mandarin, Nepali, Burmese)
-- English translation via IndicTrans2 and NLLB
+- Real-time transcription via language-specific fine-tuned Whisper ASR models
+- Automatic language identification (MMS-LID, 256 languages)
+- English translation via NLLB-200
 - Keyword-based threat detection
-- Structured Intelligence Summary (ISUM) reports
+- Structured Intelligence Summary (ISUM) reports via Gemma 3:12B
 - Searchable transcript database
 
 All processing is **fully offline** — no internet connection required after setup.
 
 ---
 
+## Supported Languages
+
+| Language | ISO | ASR Model | Eval WER (FT) | Eval WER (Baseline) | Translation |
+|----------|-----|-----------|---------------|---------------------|-------------|
+| Punjabi | pa | whisper-large-v3-pa-ct2 ★ | 59.94% | 105.83% | NLLB-200 |
+| Pashto | ps | whisper-medium-pashto-ct2 ★ | 39.72% | 95.07% | NLLB-200 |
+| Urdu | ur | whisper-large-v3-ur-ct2 ★ | 19.82% | 24.44% | NLLB-200 |
+| Nepali | ne | whisper-large-v3-ne-ct2 ★ | 53.92% | 94.55% | NLLB-200 |
+| Mandarin | zh | whisper-large-v3-zh-ct2 ★ | 16.03% | 100.03%† | NLLB-200 |
+| Hindi | hi | whisper-large-v3-hi-ct2 ★ | 19.78% | 30.29% | NLLB-200 |
+| Kashmiri | ks | whisper-large-v3-ks-ct2 ★ | —‡ | —‡ | NLLB-200 |
+| Dogri | doi | whisper-large-v3-turbo-ct2 | — | — | IndicTrans2 |
+| Burmese | my | whisper-large-v3-turbo-ct2 | — | — | NLLB-200 |
+
+★ Fine-tuned with LoRA (r=8, α=16) on FLEURS / IndicVoices. See `docs/FINETUNE_REPORT.md`.  
+† Baseline turbo model translates Mandarin to English by default; fine-tuned large-v3 transcribes correctly.  
+‡ Whisper has no `ks` vocabulary token — trained with `whisper_lang="ur"` Nastaliq proxy on IndicVoices (20k samples). WER vs Kashmiri refs is not meaningful; eval loss 0.936 at checkpoint-1500.
+
+### Cross-model comparison (100-sample test, 23 June 2026)
+
+| Language | FT Whisper WER | SeamlessM4T v2 WER | FT Whisper wins? |
+|----------|--------------|--------------------|-----------------|
+| Punjabi | 59.94% | 19.77% | No |
+| Pashto | **39.72%** | 44.4% | **Yes** |
+| Urdu | 19.82% | 16.9% | No |
+| Nepali | 53.92% | 28.46% | No |
+| Mandarin | **16.03%** | 100.0%§ | **Yes** |
+| Hindi | 19.78% | 15.44% | No |
+
+§ SeamlessM4T Mandarin WER = 100.0% is a script-normalisation mismatch in evaluation, not a model failure.  
+Full results: `docs/model_comparison_results.json` · `docs/model_comparison_report.md`
+
+---
+
 ## Project Structure
 
 ```
-offline_ai_system/
-├── app.py                          # Streamlit UI entry point
-├── config.yaml                     # All configuration
-├── requirements.txt
-├── models/
-│   ├── whisper_medium/             # faster-whisper CTranslate2 format
-│   ├── indictrans2-indic-en-1B/    # IndicTrans2 translation model
-│   ├── nllb-200-distilled-600M/    # NLLB translation model
-│   └── langid/lid.176.bin          # FastText language ID model
-├── src/
-│   ├── pipeline.py                 # Main orchestration pipeline
-│   ├── vad_module.py               # Silero VAD
-│   ├── preprocessing.py            # Audio preprocessing
-│   ├── chunker.py                  # VAD-aware audio chunking
-│   ├── asr_module.py               # Whisper ASR
-│   ├── language_module.py          # LangID + routing
-│   ├── translation_module.py       # IndicTrans2 + NLLB
-│   ├── keyword_module.py           # Keyword detection
-│   ├── isum_module.py              # ISUM generation
-│   ├── database.py                 # SQLite storage
-│   ├── search.py                   # Transcript search
-│   └── utils.py                    # Shared utilities
-├── ui/
-│   └── streamlit_helpers.py        # Reusable UI components
-├── alerts/
-│   └── keyword_dictionary.json     # Multilingual keyword dictionary
-├── database/
-│   └── transcripts.db              # SQLite database
-├── input_audio/                    # Place input WAV files here
-├── output/                         # Pipeline JSON outputs
-└── logs/                           # System logs
+offline_ai_system_v2/
+├── app.py                           # Streamlit UI entry point
+├── finetune_whisper.py              # LoRA fine-tuning script (all languages)
+├── run_full_pipeline_batch.py       # Batch pipeline runner
+├── config.yaml                      # All configuration
+│
+├── docs/
+│   ├── FINETUNE_REPORT.md           # Full fine-tuning + eval report
+│   ├── model_comparison_results.json# Raw 7-language cross-model eval data
+│   └── model_comparison_report.md   # Cross-model comparison report
+│
+├── models/                          # Deployed CT2 models (int8 quantized)
+│   ├── whisper-large-v3-pa-ct2/     # Punjabi   — eval WER 59.94%
+│   ├── whisper-medium-pashto-ct2/   # Pashto    — eval WER 39.72%
+│   ├── whisper-large-v3-ur-ct2/     # Urdu      — eval WER 19.82%
+│   ├── whisper-large-v3-ne-ct2/     # Nepali    — eval WER 53.92%
+│   ├── whisper-large-v3-zh-ct2/     # Mandarin  — eval WER 16.03%
+│   ├── whisper-large-v3-hi-ct2/     # Hindi     — eval WER 19.78%
+│   ├── whisper-large-v3-ks-ct2/     # Kashmiri  — eval_loss 0.936
+│   ├── whisper-large-v3-turbo-ct2/  # Dogri/Burmese fallback
+│   ├── nllb-200-distilled-600M/     # Translation model
+│   ├── mms-lid-256/                 # MMS language ID (256 languages)
+│   └── langid/lid.176.bin           # FastText language ID fallback
+│
+├── finetune_runs/                   # LoRA checkpoints
+│   ├── pa/adapter/                  # Punjabi   (ckpt-1000)
+│   ├── ps/adapter/                  # Pashto    (ckpt-1000)
+│   ├── ur/adapter/                  # Urdu      (ckpt-1000)
+│   ├── ne/adapter/                  # Nepali    (ckpt-1000)
+│   ├── zh/adapter/checkpoint-400/   # Mandarin  (best ckpt, step 400)
+│   ├── hi/adapter/                  # Hindi     (ckpt-600)
+│   └── ks/adapter/                  # Kashmiri  (ckpt-1500, ur proxy)
+│
+├── scripts/
+│   ├── eval/
+│   │   ├── compare_all_models.py    # Cross-model evaluation (Whisper vs SeamlessM4T)
+│   │   ├── eval_fleurs.py           # WER evaluation on FLEURS
+│   │   ├── ablation_eval.py         # Ablation study
+│   │   └── robustness_eval.py       # Noise/distortion robustness eval
+│   ├── paper/                       # Paper and presentation generators
+│   └── utils/
+│       ├── download_models.py       # Download base models from HuggingFace
+│       ├── download_lang_models.py  # Download language-specific models
+│       └── download_fleurs.py       # Pre-download FLEURS datasets
+│
+├── src/                             # Core pipeline modules
+│   ├── pipeline.py                  # 10-stage orchestration pipeline
+│   ├── asr_module.py                # Whisper ASR (faster-whisper)
+│   ├── language_module.py           # MMS-LID + script-cascade routing
+│   ├── translation_module.py        # NLLB-200 translation
+│   ├── vad_module.py                # Silero VAD
+│   ├── preprocessing.py             # Bandpass + noise reduction
+│   ├── chunker.py                   # VAD-aware chunking
+│   ├── keyword_module.py            # Keyword/entity detection
+│   ├── isum_module.py               # ISUM via Gemma 3:12B (Ollama)
+│   ├── database.py                  # SQLite storage
+│   └── search.py                    # Transcript search
+│
+├── alerts/keyword_dictionary.json   # Multilingual keyword dictionary
+├── input_audio/                     # Drop input WAV files here
+├── output/                          # Pipeline JSON outputs
+├── database/transcripts.db          # SQLite transcript database
+└── logs/                            # System logs
 ```
 
 ---
@@ -62,41 +128,27 @@ offline_ai_system/
 ### 1. Install dependencies
 
 ```bash
-# Create virtual environment
 python -m venv venv
 venv\Scripts\activate        # Windows
 source venv/bin/activate     # Linux/Mac
 
-# Install PyTorch (CPU)
-pip install torch==2.2.2 --index-url https://download.pytorch.org/whl/cpu
+# PyTorch with CUDA (RTX 5060 / CUDA 12.x)
+pip install torch --index-url https://download.pytorch.org/whl/cu124
 
-# Install all other dependencies
 pip install -r requirements.txt
 ```
 
 ### 2. Download models (one time, requires internet)
 
 ```bash
-# Whisper medium (CTranslate2 format for faster-whisper)
-python -c "from faster_whisper import WhisperModel; WhisperModel('medium', device='cpu', compute_type='int8', download_root='models/whisper_medium')"
+# Base Whisper model (CTranslate2 format)
+python scripts/utils/download_models.py
 
-# FastText language ID
-# Download lid.176.bin from https://fasttext.cc/docs/en/language-identification.html
-# Place at: models/langid/lid.176.bin
+# Language-specific fine-tuned models
+python scripts/utils/download_lang_models.py
 
-# IndicTrans2 (from HuggingFace)
-python -c "
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
-AutoTokenizer.from_pretrained('ai4bharat/indictrans2-indic-en-1B', cache_dir='models/indictrans2-indic-en-1B')
-AutoModelForSeq2SeqLM.from_pretrained('ai4bharat/indictrans2-indic-en-1B', cache_dir='models/indictrans2-indic-en-1B')
-"
-
-# NLLB
-python -c "
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
-AutoTokenizer.from_pretrained('facebook/nllb-200-distilled-600M', cache_dir='models/nllb-200-distilled-600M')
-AutoModelForSeq2SeqLM.from_pretrained('facebook/nllb-200-distilled-600M', cache_dir='models/nllb-200-distilled-600M')
-"
+# Pre-download FLEURS eval datasets (optional)
+python scripts/utils/download_fleurs.py
 ```
 
 ### 3. Run
@@ -105,66 +157,63 @@ AutoModelForSeq2SeqLM.from_pretrained('facebook/nllb-200-distilled-600M', cache_
 streamlit run app.py
 ```
 
----
-
-## Usage
-
-1. Open browser at `http://localhost:8501`
-2. Upload a `.wav` audio file in the **PROCESS** tab
-3. Click **RUN PIPELINE**
-4. View results across all tabs:
-   - **PROCESS** — transcript, translation, keyword highlights
-   - **ISUM REPORT** — structured 5W intelligence summary
-   - **SEARCH** — fuzzy keyword search across all intercepts
-   - **DASHBOARD** — threat statistics and language distribution
-   - **HISTORY** — all processed intercepts
+Open `http://localhost:8501`.
 
 ---
 
-## Supported Languages
+## Fine-Tuning
 
-| Language | ISO Code | ASR | Translation |
-|----------|----------|-----|-------------|
-| Hindi | hi | ✓ | IndicTrans2 |
-| Punjabi | pa | ✓ | IndicTrans2 |
-| Dogri | doi | ✓ | IndicTrans2 |
-| Urdu | ur | ✓ | IndicTrans2 |
-| Nepali | ne | ✓ | IndicTrans2 |
-| Kashmiri | ks | ✓ | IndicTrans2 |
-| Pashto | ps | ✓ | NLLB |
-| Mandarin | zh | ✓ | NLLB |
-| Burmese | my | ✓ | NLLB |
+All 7 language models were fine-tuned using LoRA (r=8, α=16, target=q_proj+v_proj, 0.25% trainable params) on an RTX 5060 8 GB:
+
+```bash
+# Fine-tune a language (e.g. Urdu)
+python finetune_whisper.py --lang ur
+
+# Fine-tune with custom settings
+python finetune_whisper.py --lang hi --steps 600 --max-grad-norm 0.5
+```
+
+The script automatically merges LoRA weights, converts to CT2 int8, and copies `tokenizer.json` into the CT2 directory (required for correct task-token lookup on large-v3 models).
+
+See `docs/FINETUNE_REPORT.md` for full training details, eval results, and the CT2 tokenizer bug fix.
 
 ---
 
-## Lab Server Upgrade
+## Pipeline Architecture
 
-Change only two lines in `config.yaml`:
-```yaml
-device: cuda                         # was: cpu
-translation:
-  unload_after_use: false            # was: true (keep models in GPU VRAM)
+```
+Audio Input
+  → Stage 1:  VAD (Silero)
+  → Stage 2:  Preprocessing (bandpass 300–3400 Hz, noise reduction)
+  → Stage 3:  MMS-LID language detection (256-language model)
+  → Stage 3.5: Language-specific Whisper model selection
+       pa → whisper-large-v3-pa-ct2   → NLLB-200
+       ps → whisper-medium-pashto-ct2 → NLLB-200
+       ur → whisper-large-v3-ur-ct2   → NLLB-200
+       ne → whisper-large-v3-ne-ct2   → NLLB-200
+       zh → whisper-large-v3-zh-ct2   → NLLB-200
+       hi → whisper-large-v3-hi-ct2   → NLLB-200
+       ks → whisper-large-v3-ks-ct2   → NLLB-200
+       doi → whisper-large-v3-turbo   → IndicTrans2
+  → Stage 4:  ASR transcription
+  → Stage 5:  Script-cascade override (Arabic-script detection for Urdu/Kashmiri)
+  → Stage 6:  Translation → English
+  → Stage 7:  Speaker diarization
+  → Stage 8:  Keyword/entity detection
+  → Stage 9:  ISUM summary (Gemma 3:12B via Ollama)
+  → Stage 10: SQLite DB + JSON report export
 ```
 
 ---
 
-## Architecture
+## Hardware
 
-```
-Audio → VAD → Preprocessing → Chunking → Whisper ASR
-                                              ↓
-                               LangID (Whisper + FastText voting)
-                                              ↓
-                                       Translation
-                                              ↓
-                                    Keyword Detection
-                                              ↓
-                                   ISUM Generation
-                                              ↓
-                               SQLite DB + JSON Output
-                                              ↓
-                                       VANI UI
-```
+| Component | Spec |
+|-----------|------|
+| GPU | NVIDIA RTX 5060 8 GB VRAM |
+| OS | Windows 11 |
+| Runtime | CUDA · faster-whisper · CTranslate2 int8 |
+| Fine-tuning | ~5.5 GB VRAM per model · 1–3h per language |
 
 ---
 
