@@ -260,10 +260,10 @@ def slide_04_results_overview(prs):
         txbox(s, h, cols[i], y+0.05, 1.8, 0.3, font_size=11, bold=True, color=RGBColor(0xFF,0xFF,0xFF))
 
     rows = [
-        ("Punjabi  (pa)", "Gurmukhi",    "large-v3",       "FLEURS pa_in",      "1000", "59.94%",  "1479 MB"),
-        ("Pashto   (ps)", "Nastaliq",    "medium-pashto",  "FLEURS ps_af",      "1000", "39.72%",  " 734 MB"),
+        ("Punjabi  (pa)", "Gurmukhi",    "large-v3",       "FLEURS pa_in",      "3000", "55.67%",  "1479 MB"),
+        ("Pashto   (ps)", "Nastaliq",    "medium-pashto",  "FLEURS ps_af",      "2000", "38.55%",  " 734 MB"),
         ("Urdu     (ur)", "Nastaliq",    "large-v3",       "FLEURS ur_pk",      "1000", "19.82%",  "1479 MB"),
-        ("Nepali   (ne)", "Devanagari",  "large-v3",       "FLEURS ne_np",      "1000", "53.92%",  "1479 MB"),
+        ("Nepali   (ne)", "Devanagari",  "large-v3",       "FLEURS ne_np",      "2000", "49.24%",  "1479 MB"),
         ("Mandarin (zh)", "Simplified",  "large-v3",       "FLEURS cmn_hans",   " 400", "16.03%",  "1479 MB"),
         ("Hindi    (hi)", "Devanagari",  "large-v3",       "FLEURS hi_in",      " 600", "19.78%",  "1479 MB"),
         ("Kashmiri (ks)", "Nastaliq",    "large-v3",       "IndicVoices 20k",   "1500", "N/A†",    "1479 MB"),
@@ -295,8 +295,8 @@ def slide_05_wer_chart(prs):
     hline(s, 1.3)
 
     langs  = ["Mandarin (zh)", "Urdu (ur)",   "Hindi (hi)",   "Pashto (ps)",  "Nepali (ne)", "Punjabi (pa)"]
-    ftwer  = [16.03,           19.82,          19.78,          39.72,          53.92,          59.94]
-    bswer  = [100.03,          24.44,          30.29,          95.07,          94.55,          105.83]
+    ftwer  = [16.03,           19.82,          19.78,          38.55,          49.24,          55.67]
+    bswer  = [100.03,          24.44,          30.29,          94.23,          94.55,          105.79]
 
     bar_max_in = 5.0
     scale = bar_max_in / 100.0
@@ -332,9 +332,9 @@ def slide_05_wer_chart(prs):
           font_size=14, bold=True, color=C_GOLD)
     improvements = [
         ("Mandarin", "100% → 16.0%", "-84.0 pp"),
-        ("Pashto",   "95% → 39.7%",  "-55.4 pp"),
-        ("Punjabi",  "106% → 60.0%", "-45.9 pp"),
-        ("Nepali",   "95% → 53.9%",  "-40.6 pp"),
+        ("Pashto",   "94% → 38.6%",  "-55.7 pp"),
+        ("Punjabi",  "106% → 55.7%", "-50.1 pp"),
+        ("Nepali",   "95% → 49.2%",  "-45.3 pp"),
         ("Hindi",    "30% → 19.8%",  "-10.5 pp"),
         ("Urdu",     "24% → 19.8%",  "-4.6 pp"),
     ]
@@ -359,21 +359,21 @@ def slide_06_language_deep(prs):
 
     # Three language cards per row — two rows
     cards = [
-        ("Punjabi (pa)", "59.94%", C_RED,
-         ["Base: whisper-large-v3", "Dataset: FLEURS pa_in (~2,500)", "Steps: 1000",
-          "71.6% → 65.8% → 61.3% (train)", "Eval WER: 59.94% vs baseline 105.83%"]),
+        ("Punjabi (pa)", "55.67%", C_RED,
+         ["Base: whisper-large-v3", "Dataset: FLEURS pa_in (~2,500)", "Steps: 3000",
+          "71.6% → 61.3% → 56.7% (train)", "Eval WER: 55.67% vs baseline 105.79%"]),
         ("Urdu (ur)", "19.82%", C_GREEN,
          ["Base: whisper-large-v3", "Dataset: FLEURS ur_pk (2,109)", "Steps: 1000",
           "24.44% baseline → 19.82% eval", "SeamlessM4T: 16.9%"]),
         ("Hindi (hi)", "19.78%", C_GREEN,
          ["Base: whisper-large-v3", "Dataset: FLEURS hi_in (2,120)", "Steps: 600",
           "30.29% baseline → 19.78% eval", "SeamlessM4T: 15.44%"]),
-        ("Pashto (ps)", "39.72%", C_GOLD,
-         ["Base: pashto-ghag-medium", "Dataset: FLEURS ps_af (~2,000)", "Steps: 1000",
-          "95.07% baseline → 39.72% eval", "FT beats SeamlessM4T (44.4%)"]),
-        ("Nepali (ne)", "53.92%", C_GOLD,
-         ["Base: whisper-large-v3", "Dataset: FLEURS ne_np (3,332)", "Steps: 1000",
-          "94.55% baseline → 53.92% eval", "SeamlessM4T: 28.46%"]),
+        ("Pashto (ps)", "38.55%", C_GOLD,
+         ["Base: pashto-ghag-medium", "Dataset: FLEURS ps_af (~2,000)", "Steps: 2000",
+          "94.23% baseline → 38.55% eval", "FT beats SeamlessM4T (44.4%)"]),
+        ("Nepali (ne)", "49.24%", C_GOLD,
+         ["Base: whisper-large-v3", "Dataset: FLEURS ne_np (3,332)", "Steps: 2000",
+          "94.55% baseline → 49.24% eval", "SeamlessM4T: 28.46%"]),
         ("Mandarin (zh)", "16.03%", C_GREEN,
          ["Base: whisper-large-v3", "Dataset: FLEURS cmn_hans (3,246)", "Steps: 400 (best)",
           "100.03% baseline → 16.03% eval", "FT beats SeamlessM4T (100% WER norm issue)"]),

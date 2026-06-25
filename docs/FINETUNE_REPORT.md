@@ -33,10 +33,10 @@ Six language-specific Whisper ASR models were fine-tuned using LoRA (Low-Rank Ad
 
 | # | Language | Script | Base Model | Dataset | Train Samples | Steps | Train WER | Eval WER† | Model Size |
 |---|----------|--------|------------|---------|--------------|-------|-----------|-----------|------------|
-| 1 | Punjabi (pa) | Gurmukhi | whisper-large-v3 | FLEURS pa_in | ~2,500 | 1000 | 61.3%‡ | 59.94% | 1479 MB |
-| 2 | Pashto (ps) | Arabic/Nastaliq | pashto-ghag-whisper-medium | FLEURS ps_af | ~2,000 | 1000 | 38.9% | 39.72% | 734 MB |
+| 1 | Punjabi (pa) | Gurmukhi | whisper-large-v3 | FLEURS pa_in | ~2,500 | 3000 | 56.67%‡ | **55.67%** | 1479 MB |
+| 2 | Pashto (ps) | Arabic/Nastaliq | pashto-ghag-whisper-medium | FLEURS ps_af | ~2,000 | 2000 | 38.55% | **38.55%** | 734 MB |
 | 3 | Urdu (ur) | Nastaliq | whisper-large-v3 | FLEURS ur_pk | 2,109 | 1000 | **22.3%** | **19.82%** | 1479 MB |
-| 4 | Nepali (ne) | Devanagari | whisper-large-v3 | FLEURS ne_np | 3,332 | 1000 | 54.3% | 53.92% | 1479 MB |
+| 4 | Nepali (ne) | Devanagari | whisper-large-v3 | FLEURS ne_np | 3,332 | 2000 | 52.14% | **49.24%** | 1479 MB |
 | 5 | Mandarin (zh) | Simplified Han | whisper-large-v3 | FLEURS cmn_hans_cn | 3,246 | 400§ | **8.97%** | 16.03%¶ | 1479 MB |
 | 6 | Hindi (hi) | Devanagari | whisper-large-v3 | FLEURS hi_in | 2,120 | 600 | **23.1%** | **19.78%** | 1479 MB |
 | 7 | Kashmiri (ks) | Nastaliq | whisper-large-v3 | IndicVoices | 20,000 | 1500** | ~84.5%†† | 103.58%‡‡ | 1479 MB |
@@ -59,10 +59,10 @@ Six language-specific Whisper ASR models were fine-tuned using LoRA (Low-Rank Ad
 
 | Language | Whisper Baseline | Whisper Fine-Tuned | SeamlessM4T v2 | FT Improvement |
 |----------|-----------------|-------------------|----------------|----------------|
-| Punjabi (pa) | 105.83% | 59.94% | 19.77% | −45.9 pp |
-| Pashto (ps) | 95.07% | **39.72%** | 44.4% | −55.4 pp |
+| Punjabi (pa) | 105.79% | **55.67%** | 19.77% | −50.1 pp |
+| Pashto (ps) | 94.23% | **38.55%** | 44.4% | −55.7 pp |
 | Urdu (ur) | 24.44% | 19.82% | **16.9%** | −4.6 pp |
-| Nepali (ne) | 94.55% | 53.92% | **28.46%** | −40.6 pp |
+| Nepali (ne) | 94.55% | **49.24%** | 28.46% | −45.3 pp |
 | Mandarin (zh) | 100.03% | **16.03%** | 100.0% | −84.0 pp |
 | Hindi (hi) | 30.29% | 19.78% | **15.44%** | −10.5 pp |
 | Kashmiri (ks) | 98.64% | 103.58%† | — | — |
@@ -73,10 +73,10 @@ Six language-specific Whisper ASR models were fine-tuned using LoRA (Low-Rank Ad
 
 | Language | Whisper+NLLB-200 | SeamlessM4T S2TT | Winner |
 |----------|-----------------|-----------------|--------|
-| Punjabi (pa) | 39.09 | **58.72** | SeamlessM4T |
-| Pashto (ps) | **44.40** | 43.92 | Whisper+NLLB |
+| Punjabi (pa) | 41.54 | **58.72** | SeamlessM4T |
+| Pashto (ps) | **44.48** | 43.92 | Whisper+NLLB |
 | Urdu (ur) | 51.34 | **54.91** | SeamlessM4T |
-| Nepali (ne) | 47.67 | **56.02** | SeamlessM4T |
+| Nepali (ne) | 47.72 | **56.02** | SeamlessM4T |
 | Mandarin (zh) | 42.85 | **53.42** | SeamlessM4T |
 | Hindi (hi) | 53.71 | **56.05** | SeamlessM4T |
 | Kashmiri (ks) | — | — | — (no English refs; SM4T lacks `kas`) |
@@ -94,10 +94,10 @@ Six language-specific Whisper ASR models were fine-tuned using LoRA (Low-Rank Ad
 ### 1. Punjabi (pa) — `whisper-large-v3-pa-ct2`
 - **Base:** `openai/whisper-large-v3`
 - **Dataset:** FLEURS `pa_in` (Punjabi, India)
-- **Training:** 1000 steps, ~5.5 GB VRAM
-- **WER progression:** — → 71.6% (step 200) → 61.3% (step 1000)
-- **Eval WER:** 59.94% fine-tuned vs 105.83% baseline (−45.9 pp) · SeamlessM4T: 19.77%
-- **Translation:** Whisper+NLLB chrF 39.09 · SeamlessM4T S2TT chrF 58.72
+- **Training:** 3000 steps, ~5.5 GB VRAM
+- **WER progression:** — → 71.6% (step 200) → 61.3% (step 1000) → 58.1% (step 2000) → 56.67% (step 3000)
+- **Eval WER:** 55.67% fine-tuned vs 105.79% baseline (−50.1 pp) · SeamlessM4T: 19.77%
+- **Translation:** Whisper+NLLB chrF 41.54 · SeamlessM4T S2TT chrF 58.72
 - **Pipeline role:** MMS-LID routes `pa` → Gurmukhi transcription → NLLB-200 → English
 - **Note:** Previously observed as "outputs English directly" — this was due to the `tokenizer.json` bug (see Finding 7) where faster-whisper was injecting the translate token instead of transcribe. Fixed 2026-06-23; model now correctly transcribes in Gurmukhi and is routed through NLLB-200.
 
@@ -106,10 +106,10 @@ Six language-specific Whisper ASR models were fine-tuned using LoRA (Low-Rank Ad
 ### 2. Pashto (ps) — `whisper-medium-pashto-ct2`
 - **Base:** `Nasimbahar/pashto-ghag-whisper-medium-asr` (domain-specific Pashto model)
 - **Dataset:** FLEURS `ps_af` (Pashto, Afghanistan)
-- **Training:** 1000 steps, ~3.5 GB VRAM
-- **Best WER:** 38.9%
-- **Eval WER:** 39.72% fine-tuned vs 95.07% baseline (−55.4 pp) · SeamlessM4T: 44.4%
-- **Translation:** Whisper+NLLB chrF 44.40 · SeamlessM4T S2TT chrF 43.92 — only language where Whisper+NLLB wins on translation
+- **Training:** 2000 steps, ~3.5 GB VRAM
+- **Best WER:** 38.55%
+- **Eval WER:** 38.55% fine-tuned vs 94.23% baseline (−55.7 pp) · SeamlessM4T: 44.4%
+- **Translation:** Whisper+NLLB chrF 44.48 · SeamlessM4T S2TT chrF 43.92 — only language where Whisper+NLLB wins on translation
 - **Pipeline role:** MMS-LID routes `ps` → Nastaliq transcription → NLLB-200 → English
 - **Note:** Started from a specialized Pashto base model rather than generic large-v3. Fine-tuned model beats SeamlessM4T on both ASR and translation.
 
@@ -130,10 +130,10 @@ Six language-specific Whisper ASR models were fine-tuned using LoRA (Low-Rank Ad
 ### 4. Nepali (ne) — `whisper-large-v3-ne-ct2`
 - **Base:** `openai/whisper-large-v3`
 - **Dataset:** FLEURS `ne_np` (Nepali, Nepal) — 3,332 train / 305 val
-- **Training:** 1000 steps, ~6h 44m, ~5.5 GB VRAM
-- **WER progression:** ~74% (baseline) → 63.6% (step 200) → 56.9% (step 400) → **54.3% (step 1000)**
-- **Eval WER:** 53.92% fine-tuned vs 94.55% baseline (−40.6 pp) · SeamlessM4T: 28.46%
-- **Translation:** Whisper+NLLB chrF 47.67 · SeamlessM4T S2TT chrF 56.02
+- **Training:** 2000 steps, ~6h 44m, ~5.5 GB VRAM
+- **WER progression:** ~74% (baseline) → 63.6% (step 200) → 56.9% (step 400) → 54.3% (step 1000) → **49.24% (step 2000)**
+- **Eval WER:** 49.24% fine-tuned vs 94.55% baseline (−45.3 pp) · SeamlessM4T: 28.46%
+- **Translation:** Whisper+NLLB chrF 47.72 · SeamlessM4T S2TT chrF 56.02
 - **Pipeline role:** MMS-LID routes `ne` → Devanagari transcription → NLLB-200 → English
 - **Note:** Nepali is a relatively lower-resource language; WER remains higher than Urdu/Hindi. SeamlessM4T has a larger lead here than for other languages.
 
@@ -247,4 +247,4 @@ offline_ai_system_v2/
 
 ---
 
-*Generated: 23 June 2026 · Updated with cross-model eval: 23 June 2026 · VANI v2 · RTX 5060 8 GB*
+*Generated: 23 June 2026 · Updated with cross-model eval: 23 June 2026 · Extended training + re-eval: 25 June 2026 · VANI v2 · RTX 5060 8 GB*

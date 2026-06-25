@@ -23,10 +23,10 @@ All processing is **fully offline** — no internet connection required after se
 
 | Language | ISO | ASR Model | Eval WER (FT) | Eval WER (Baseline) | Translation |
 |----------|-----|-----------|---------------|---------------------|-------------|
-| Punjabi | pa | whisper-large-v3-pa-ct2 ★ | 59.94% | 105.83% | NLLB-200 |
-| Pashto | ps | whisper-medium-pashto-ct2 ★ | 39.72% | 95.07% | NLLB-200 |
+| Punjabi | pa | whisper-large-v3-pa-ct2 ★ | 55.67% | 105.79% | NLLB-200 |
+| Pashto | ps | whisper-medium-pashto-ct2 ★ | 38.55% | 94.23% | NLLB-200 |
 | Urdu | ur | whisper-large-v3-ur-ct2 ★ | 19.82% | 24.44% | NLLB-200 |
-| Nepali | ne | whisper-large-v3-ne-ct2 ★ | 53.92% | 94.55% | NLLB-200 |
+| Nepali | ne | whisper-large-v3-ne-ct2 ★ | 49.24% | 94.55% | NLLB-200 |
 | Mandarin | zh | whisper-large-v3-zh-ct2 ★ | 16.03% | 100.03%† | NLLB-200 |
 | Hindi | hi | whisper-large-v3-hi-ct2 ★ | 19.78% | 30.29% | NLLB-200 |
 | Kashmiri | ks | whisper-large-v3-ks-ct2 ★ | —‡ | —‡ | NLLB-200 |
@@ -37,14 +37,14 @@ All processing is **fully offline** — no internet connection required after se
 † Baseline turbo model translates Mandarin to English by default; fine-tuned large-v3 transcribes correctly.  
 ‡ Whisper has no `ks` vocabulary token — trained with `whisper_lang="ur"` Nastaliq proxy on IndicVoices (20k samples). WER vs Kashmiri refs is not meaningful; eval loss 0.936 at checkpoint-1500.
 
-### Cross-model comparison (100-sample test, 23 June 2026)
+### Cross-model comparison (100-sample test, 25 June 2026)
 
 | Language | FT Whisper WER | SeamlessM4T v2 WER | FT Whisper wins? |
 |----------|--------------|--------------------|-----------------|
-| Punjabi | 59.94% | 19.77% | No |
-| Pashto | **39.72%** | 44.4% | **Yes** |
+| Punjabi | 55.67% | 19.77% | No |
+| Pashto | **38.55%** | 44.4% | **Yes** |
 | Urdu | 19.82% | 16.9% | No |
-| Nepali | 53.92% | 28.46% | No |
+| Nepali | 49.24% | 28.46% | No |
 | Mandarin | **16.03%** | 100.0%§ | **Yes** |
 | Hindi | 19.78% | 15.44% | No |
 

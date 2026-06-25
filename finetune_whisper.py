@@ -513,7 +513,17 @@ def train(lang: str, args: argparse.Namespace) -> Path:
         callbacks=[EarlyStoppingCallback(early_stopping_patience=3)],
     )
 
-    resume_from = str(adapter_dir) if args.resume and adapter_dir.exists() else None
+    if args.resume and adapter_dir.exists():
+        if (adapter_dir / "trainer_state.json").exists():
+            resume_from = str(adapter_dir)
+        else:
+            ckpts = sorted(
+                [d for d in adapter_dir.iterdir() if d.is_dir() and d.name.startswith("checkpoint-")],
+                key=lambda p: int(p.name.split("-")[1]),
+            )
+            resume_from = str(ckpts[-1]) if ckpts else str(adapter_dir)
+    else:
+        resume_from = None
     trainer.train(resume_from_checkpoint=resume_from)
     trainer.save_model(str(adapter_dir))
     processor.save_pretrained(str(adapter_dir))

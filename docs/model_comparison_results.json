@@ -1,33 +1,5 @@
 [
   {
-    "lang": "pa",
-    "name": "Punjabi",
-    "n": 100,
-    "whisper_baseline_wer": 105.83,
-    "whisper_baseline_time": 196.3,
-    "whisper_ft_wer": 59.94,
-    "whisper_ft_time": 310.0,
-    "whisper_nllb_chrf": 39.09,
-    "whisper_nllb_time": 43.7,
-    "seamless_asr_wer": 19.77,
-    "seamless_s2tt_chrf": 58.72,
-    "seamless_time": 230.7
-  },
-  {
-    "lang": "ps",
-    "name": "Pashto",
-    "n": 100,
-    "whisper_baseline_wer": 95.07,
-    "whisper_baseline_time": 85.5,
-    "whisper_ft_wer": 39.72,
-    "whisper_ft_time": 106.3,
-    "whisper_nllb_chrf": 44.4,
-    "whisper_nllb_time": 37.8,
-    "seamless_asr_wer": 44.4,
-    "seamless_s2tt_chrf": 43.92,
-    "seamless_time": 218.7
-  },
-  {
     "lang": "ur",
     "name": "Urdu",
     "n": 100,
@@ -40,20 +12,6 @@
     "seamless_asr_wer": 16.9,
     "seamless_s2tt_chrf": 54.91,
     "seamless_time": 197.0
-  },
-  {
-    "lang": "ne",
-    "name": "Nepali",
-    "n": 100,
-    "whisper_baseline_wer": 94.55,
-    "whisper_baseline_time": 58.8,
-    "whisper_ft_wer": 53.92,
-    "whisper_ft_time": 284.2,
-    "whisper_nllb_chrf": 47.67,
-    "whisper_nllb_time": 39.8,
-    "seamless_asr_wer": 28.46,
-    "seamless_s2tt_chrf": 56.02,
-    "seamless_time": 193.0
   },
   {
     "lang": "zh",
@@ -94,5 +52,47 @@
     "whisper_nllb_chrf": null,
     "seamless_asr_wer": null,
     "seamless_s2tt_chrf": null
+  },
+  {
+    "lang": "pa",
+    "name": "Punjabi",
+    "n": 100,
+    "whisper_baseline_wer": 105.79,
+    "whisper_baseline_time": 185.2,
+    "whisper_ft_wer": 55.67,
+    "whisper_ft_time": 292.6,
+    "whisper_nllb_chrf": 41.54,
+    "whisper_nllb_time": 36.1,
+    "seamless_asr_wer": 19.77,
+    "seamless_s2tt_chrf": 58.72,
+    "seamless_time": 198.9
+  },
+  {
+    "lang": "ne",
+    "name": "Nepali",
+    "n": 100,
+    "whisper_baseline_wer": 94.55,
+    "whisper_baseline_time": 58.3,
+    "whisper_ft_wer": 49.24,
+    "whisper_ft_time": 277.2,
+    "whisper_nllb_chrf": 47.72,
+    "whisper_nllb_time": 39.3,
+    "seamless_asr_wer": 28.46,
+    "seamless_s2tt_chrf": 56.02,
+    "seamless_time": 196.1
+  },
+  {
+    "lang": "ps",
+    "name": "Pashto",
+    "n": 100,
+    "whisper_baseline_wer": 94.23,
+    "whisper_baseline_time": 94.6,
+    "whisper_ft_wer": 38.55,
+    "whisper_ft_time": 111.2,
+    "whisper_nllb_chrf": 44.48,
+    "whisper_nllb_time": 42.4,
+    "seamless_asr_wer": 44.4,
+    "seamless_s2tt_chrf": 43.92,
+    "seamless_time": 228.4
   }
 ]
