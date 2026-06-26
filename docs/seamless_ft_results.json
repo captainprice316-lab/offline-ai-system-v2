@@ -1,0 +1,50 @@
+[
+  {
+    "lang": "pa",
+    "name": "Punjabi",
+    "n": 100,
+    "sm_ft_asr_wer": 19.77,
+    "sm_ft_s2tt_chrf": 0.31,
+    "time": 224.1
+  },
+  {
+    "lang": "ps",
+    "name": "Pashto",
+    "n": 100,
+    "sm_ft_asr_wer": 41.22,
+    "sm_ft_s2tt_chrf": 2.41,
+    "time": 215.7
+  },
+  {
+    "lang": "ur",
+    "name": "Urdu",
+    "n": 100,
+    "sm_ft_asr_wer": 17.26,
+    "sm_ft_s2tt_chrf": 0.62,
+    "time": 201.3
+  },
+  {
+    "lang": "ne",
+    "name": "Nepali",
+    "n": 100,
+    "sm_ft_asr_wer": 28.92,
+    "sm_ft_s2tt_chrf": 0.13,
+    "time": 189.2
+  },
+  {
+    "lang": "zh",
+    "name": "Mandarin",
+    "n": 100,
+    "sm_ft_asr_wer": 60.53,
+    "sm_ft_s2tt_chrf": 0.78,
+    "time": 230.9
+  },
+  {
+    "lang": "hi",
+    "name": "Hindi",
+    "n": 100,
+    "sm_ft_asr_wer": 13.43,
+    "sm_ft_s2tt_chrf": 0.11,
+    "time": 175.0
+  }
+]

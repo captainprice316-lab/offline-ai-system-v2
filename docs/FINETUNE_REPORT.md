@@ -234,6 +234,38 @@ offline_ai_system_v2/
 
 ---
 
+## SeamlessM4T v2 Fine-Tuning
+
+SeamlessM4T v2 large was fine-tuned with LoRA (r=8, α=16, target=q_proj+v_proj, 0.10% trainable params) on the same FLEURS data as Whisper, **for ASR only** (tgt_lang = src_lang). 1000 steps per language, ~3–4 min/language on RTX 5060.
+
+### ASR WER — Fine-tuned SM4T vs Zero-shot SM4T vs Fine-tuned Whisper
+
+| Language | ZS SM4T WER | FT SM4T WER | Δ vs ZS | FT Whisper WER |
+|----------|------------|------------|---------|---------------|
+| Punjabi (pa) | 19.77% | 19.77% | 0.0 pp | 55.67% |
+| Pashto (ps) | 44.4% | **41.22%** | −3.2 pp | **38.55%** |
+| Urdu (ur) | **16.9%** | 17.26% | +0.4 pp | 19.82% |
+| Nepali (ne) | **28.46%** | 28.92% | +0.5 pp | 49.24% |
+| Mandarin (zh) | 100.0%† | 60.53% | −39.5 pp | **16.03%** |
+| Hindi (hi) | 15.44% | **13.43%** | −2.0 pp | 19.78% |
+
+† Zero-shot SM4T Mandarin WER = 100.0% is a script-normalisation mismatch in evaluation, not a model failure.
+
+### Translation (S2TT chrF) — Fine-tuned SM4T (broken)
+
+| Language | ZS SM4T chrF | FT SM4T chrF | FT Whisper+NLLB chrF |
+|----------|-------------|-------------|----------------------|
+| Punjabi (pa) | 58.72 | 0.31 | 41.54 |
+| Pashto (ps) | 43.92 | 2.41 | 44.48 |
+| Urdu (ur) | 54.91 | 0.62 | 51.34 |
+| Nepali (ne) | 56.02 | 0.13 | 47.72 |
+| Mandarin (zh) | 53.42 | 0.78 | 42.85 |
+| Hindi (hi) | 56.05 | 0.11 | 53.71 |
+
+**Finding:** ASR-only LoRA fine-tuning breaks SM4T's translation capability. Near-zero chrF indicates the model generates source-language text even when `tgt_lang="eng"` is requested. The LoRA adaptation overrides multi-task language conditioning. To preserve translation, fine-tuning must include S2TT examples or apply a task-balanced training objective.
+
+---
+
 ## Key Findings
 
 1. **LoRA with r=8 is sufficient** — Only 0.25% of parameters are trainable yet WER drops 4–84 pp across languages on the held-out test set.
@@ -243,8 +275,9 @@ offline_ai_system_v2/
 5. **Script-based cascade prevents misidentification** — The Arabic-script detection fallback correctly catches Urdu even when MMS-LID confidence is below threshold.
 6. **Kashmiri requires workaround for missing vocab token** — Whisper has no `ks` language token. Training with `whisper_lang="ur"` (Nastaliq proxy) gives a consistent decoder prefix; eval_loss (0.936 at ckpt-1500) is the only reliable metric. SeamlessM4T v2 does not support Kashmiri (`kas` absent from its language list). Qualitative testing with native Kashmiri audio is the next step.
 7. **CT2 models need `tokenizer.json` from the source model** — `ct2-transformers-converter` does not copy `tokenizer.json` to the output directory. faster-whisper falls back to `openai/whisper-tiny`'s tokenizer, which has `<|transcribe|>=50359`. But `whisper-large-v3` uses an expanded vocabulary where `<|transcribe|>=50360` and `<|translate|>=50359`. The off-by-one caused all fine-tuned large-v3 CT2 models to *translate* instead of transcribe, producing English output and ~100% WER against source-language references. **Fix:** copy `tokenizer.json` from the HuggingFace adapter/merged model into each CT2 directory. The `finetune_whisper.py` `merge_and_convert()` function now does this automatically.
+9. **ASR-only LoRA fine-tuning of SeamlessM4T breaks its translation capability** — Fine-tuning SM4T v2 for ASR with LoRA improved Pashto (−3.2 pp) and Hindi (−2.0 pp) WER but reduced S2TT chrF to near zero across all languages. The LoRA adaptation overrides multi-task language conditioning. Joint ASR+S2TT training is required to maintain translation quality.
 8. **SeamlessM4T v2 leads on ASR for 4/6 languages but adds significant deployment cost** — For Punjabi, Urdu, Nepali, and Hindi, SeamlessM4T achieves lower ASR WER than fine-tuned Whisper. Fine-tuned Whisper wins on Pashto and Mandarin. SeamlessM4T also leads on end-to-end translation (S2TT chrF) for 5/6 languages; Whisper+NLLB-200 is competitive only on Pashto (44.40 vs 43.92). Deployment trade-off: SeamlessM4T requires ~10 GB vs ~1.5 GB per Whisper model, and does not support Kashmiri.
 
 ---
 
-*Generated: 23 June 2026 · Updated with cross-model eval: 23 June 2026 · Extended training + re-eval: 25 June 2026 · VANI v2 · RTX 5060 8 GB*
+*Generated: 23 June 2026 · Cross-model eval: 23 June 2026 · Extended training + re-eval: 25 June 2026 · SeamlessM4T FT: 26 June 2026 · VANI v2 · RTX 5060 8 GB*

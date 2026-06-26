@@ -37,19 +37,20 @@ All processing is **fully offline** — no internet connection required after se
 † Baseline turbo model translates Mandarin to English by default; fine-tuned large-v3 transcribes correctly.  
 ‡ Whisper has no `ks` vocabulary token — trained with `whisper_lang="ur"` Nastaliq proxy on IndicVoices (20k samples). WER vs Kashmiri refs is not meaningful; eval loss 0.936 at checkpoint-1500.
 
-### Cross-model comparison (100-sample test, 25 June 2026)
+### Cross-model comparison (100-sample test, 26 June 2026)
 
-| Language | FT Whisper WER | SeamlessM4T v2 WER | FT Whisper wins? |
-|----------|--------------|--------------------|-----------------|
-| Punjabi | 55.67% | 19.77% | No |
-| Pashto | **38.55%** | 44.4% | **Yes** |
-| Urdu | 19.82% | 16.9% | No |
-| Nepali | 49.24% | 28.46% | No |
-| Mandarin | **16.03%** | 100.0%§ | **Yes** |
-| Hindi | 19.78% | 15.44% | No |
+| Language | FT Whisper WER | ZS SM4T WER | FT SM4T WER | Best ASR |
+|----------|--------------|------------|------------|---------|
+| Punjabi | 55.67% | **19.77%** | 19.77% | ZS/FT SM4T |
+| Pashto | **38.55%** | 44.4% | 41.22% | **FT Whisper** |
+| Urdu | 19.82% | **16.9%** | 17.26% | ZS SM4T |
+| Nepali | 49.24% | **28.46%** | 28.92% | ZS SM4T |
+| Mandarin | **16.03%** | 100.0%§ | 60.53% | **FT Whisper** |
+| Hindi | 19.78% | 15.44% | **13.43%** | FT SM4T |
 
-§ SeamlessM4T Mandarin WER = 100.0% is a script-normalisation mismatch in evaluation, not a model failure.  
-Full results: `docs/model_comparison_results.json` · `docs/model_comparison_report.md`
+§ ZS SM4T Mandarin WER = 100.0% is a script-normalisation mismatch, not a model failure.  
+⚠ FT SM4T translation (S2TT chrF) is near zero — ASR-only LoRA fine-tuning breaks multi-task language conditioning.  
+Full results: `docs/model_comparison_results.json` · `docs/seamless_ft_results.json` · `docs/model_comparison_report.md`
 
 ---
 
