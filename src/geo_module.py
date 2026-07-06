@@ -33,6 +33,17 @@ THREAT_COLORS = {
 # Covers Afghanistan, Pakistan, India (J&K/NE), Myanmar, Central Asia, China (Tibet/Xinjiang)
 
 SOUTH_ASIA_GAZETTEER: dict = {
+    # ── Common ASR/NLLB transliteration variants (alias → canonical coords) ────
+    "shinagar":         (34.0857, 74.8055, "India J&K"),
+    "shi nagar":        (34.0857, 74.8055, "India J&K"),
+    "sri nagar":        (34.0857, 74.8055, "India J&K"),
+    "anantnak":         (33.7311, 75.1487, "India J&K"),
+    "anantnad":         (33.7311, 75.1487, "India J&K"),
+    "anant nag":        (33.7311, 75.1487, "India J&K"),
+    "baramula":         (34.1979, 74.3629, "India J&K"),
+    "kupwada":          (34.5260, 74.2546, "India J&K"),
+    "muzafarabad":      (34.3700, 73.4711, "Pakistan AJK"),
+
     # ── Afghanistan ──────────────────────────────────────────────────────────
     "kabul":            (34.5281, 69.1723, "Afghanistan"),
     "kandahar":         (31.6258, 65.7231, "Afghanistan"),

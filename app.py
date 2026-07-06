@@ -1537,11 +1537,38 @@ with tab_process:
                 _card_html += '</div>'
                 st.markdown(_card_html, unsafe_allow_html=True)
 
+            # ── Coded terminology decode panel ───────────────────────────────────
+            _coded = {}
+            for a in _filtered_alerts:
+                if a.get("coded") and a.get("decoded_meaning"):
+                    _coded[a.get("matched_word","")] = a["decoded_meaning"]
+            if _coded:
+                _rows = "".join(
+                    f'<div style="display:flex;justify-content:space-between;'
+                    f'padding:3px 0;border-bottom:1px solid #3a2a00">'
+                    f'<span style="color:#ffd27f;font-family:\'Share Tech Mono\',monospace">'
+                    f'&ldquo;{_w}&rdquo;</span>'
+                    f'<span style="color:#ff8833">&rarr;&nbsp; {_m}</span></div>'
+                    for _w, _m in _coded.items()
+                )
+                st.markdown(
+                    '<div style="background:#1e1400;border:1px solid #b56a00;'
+                    'border-radius:6px;padding:0.6rem 0.8rem;margin-bottom:0.6rem">'
+                    '<div style="font-size:0.66rem;color:#ffaa00;letter-spacing:0.15em;'
+                    'font-family:\'Share Tech Mono\',monospace;margin-bottom:4px">'
+                    '&#9888; POSSIBLE CODED TERMINOLOGY DETECTED</div>'
+                    f'{_rows}'
+                    '<div style="font-size:0.6rem;color:#8a7a55;margin-top:5px">'
+                    'Inferred from open-source lexicon &mdash; analyst lead, not confirmed.</div>'
+                    '</div>',
+                    unsafe_allow_html=True,
+                )
+
             kwpills(_filtered_alerts)
             with st.expander("Full alert table"):
                 df = pd.DataFrame(_filtered_alerts)
                 if not df.empty:
-                    cols = [c for c in ["severity","category","matched_word",
+                    cols = [c for c in ["severity","category","matched_word","decoded_meaning",
                                         "matched_in","start_sec","end_sec","segment_text"]
                             if c in df.columns]
                     st.dataframe(df[cols], use_container_width=True, hide_index=True)

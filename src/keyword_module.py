@@ -27,6 +27,8 @@ class KeywordAlert:
     segment_text: str
     confidence:  float = 0.0
     effective_severity: str = ""  # severity downgraded one level if ASR confidence < 0.40
+    coded:          bool = False  # matched a coded-terminology term (possible tradecraft)
+    decoded_meaning: str = ""     # hidden meaning, e.g. "potato" -> "grenades / explosives"
 
 
 # ── Keyword dictionary ─────────────────────────────────────────────────────────
@@ -110,6 +112,8 @@ class KeywordDetector:
 
     def __init__(self, custom_keywords: dict = None, dictionary_path: str = None):
         self.keyword_map = dict(KEYWORD_MAP)
+        self._coded_cats: set = set()          # categories flagged as coded terminology
+        self._glossaries: Dict[str, dict] = {}  # category -> {word: hidden meaning}
 
         # Load from JSON dictionary file if provided
         if dictionary_path:
@@ -124,6 +128,12 @@ class KeywordDetector:
                     for lang_kws in entry.get("keywords", {}).values():
                         all_kws.extend(lang_kws)
                     self.keyword_map[category] = (severity, all_kws)
+                    # capture coded-terminology glossary (word -> hidden meaning)
+                    if entry.get("coded") and entry.get("glossary"):
+                        self._coded_cats.add(category)
+                        self._glossaries[category] = {
+                            k.lower(): v for k, v in entry["glossary"].items()
+                        }
             except Exception as e:
                 import logging
                 logging.getLogger("vani.keywords").warning(
@@ -189,6 +199,8 @@ class KeywordDetector:
                             segment_text=       seg.get("text",  "")  if seg else "",
                             confidence=         seg_conf,
                             effective_severity= _downgrade_severity(severity, seg_conf),
+                            coded=              category in self._coded_cats,
+                            decoded_meaning=    self._glossaries.get(category, {}).get(word.lower(), ""),
                         ))
 
         # Deduplicate (same category + segment + word)
