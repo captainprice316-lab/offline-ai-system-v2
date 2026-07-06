@@ -731,6 +731,32 @@ with st.sidebar:
     _ram_col  = "#ff3355" if _ram_pct > 85 else "#ffaa00" if _ram_pct > 65 else "#00ff88"
     _cpu_pct  = _psutil.cpu_percent(interval=None)
 
+    # GPU (VRAM) status via nvidia-smi — no CUDA context created in this process
+    _gpu_block = ""
+    try:
+        import subprocess as _sp
+        _smi = _sp.run(
+            ["nvidia-smi", "--query-gpu=memory.used,memory.total,utilization.gpu",
+             "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=2,
+            creationflags=0x08000000,  # CREATE_NO_WINDOW (Windows)
+        )
+        _vu, _vt, _gpu_util = [float(x) for x in _smi.stdout.strip().split(",")]
+        _vram_pct = _vu / _vt * 100 if _vt else 0
+        _vram_col = "#ff3355" if _vram_pct > 85 else "#ffaa00" if _vram_pct > 65 else "#00ff88"
+        _gpu_block = f"""
+    <div style="margin-bottom:0.6rem">
+        <div style="display:flex;justify-content:space-between;margin-bottom:2px">
+            <span style="font-size:0.68rem;color:#8a9aaa;letter-spacing:0.1em">GPU VRAM</span>
+            <span style="font-size:0.68rem;color:{_vram_col}">{_vu/1024:.1f} / {_vt/1024:.1f} GB &nbsp; util {_gpu_util:.0f}%</span>
+        </div>
+        <div style="background:#1a2535;border-radius:2px;height:5px">
+            <div style="background:{_vram_col};width:{_vram_pct}%;height:5px;border-radius:2px"></div>
+        </div>
+    </div>"""
+    except Exception:
+        pass  # no NVIDIA GPU / nvidia-smi not on PATH — indicator simply hidden
+
     # model cache status
     _asr_loaded  = "asr"      in st.session_state.get("_loaded_models", {}) or \
                    any("_get_asr_model" in str(k) for k in st.session_state)
@@ -777,6 +803,7 @@ with st.sidebar:
             <div style="background:#00aaff;width:{_cpu_pct}%;height:5px;border-radius:2px"></div>
         </div>
     </div>
+    {_gpu_block}
     <div style="border:1px solid #2a3f55;border-radius:4px;padding:0.5rem 0.6rem;margin-top:0.4rem">
         <div style="font-size:0.65rem;color:#8a9aaa;letter-spacing:0.12em;margin-bottom:4px">MODELS ON DISK</div>
         {_model_rows}
