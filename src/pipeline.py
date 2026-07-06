@@ -485,7 +485,12 @@ def run_pipeline(
                                    qwen_model_path=str(qwen_path) if qwen_path else None)
 
     # ── Cross-file speaker re-identification (needs report_id from ISUM) ──────
-    if config.get("diarization", {}).get("enabled", True) and all_segments:
+    # Default OFF: MFCC-stat cosine cannot separate speakers on bandpassed radio
+    # audio (measured 2026-07-06: same-speaker mean cos 0.993 vs diff-speaker
+    # 0.984 — 77% false-match rate at any usable threshold; every intercept
+    # since 13 Jun collapsed into VOICE_001). Re-enable only after replacing
+    # centroids with real speaker embeddings (e.g. ECAPA-TDNN).
+    if config.get("diarization", {}).get("cross_file_reid", False) and all_segments:
         try:
             from diarize_module import compute_speaker_centroids
             from speaker_store import SpeakerStore

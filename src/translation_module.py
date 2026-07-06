@@ -86,6 +86,7 @@ class TranslationModule:
         self.max_output_tokens = cfg.get("max_output_tokens", 256)
         self.unload_after_use  = cfg.get("unload_after_use",  True)
         self.indic_num_beams   = cfg.get("indic_num_beams",   2)
+        self.nllb_num_beams    = cfg.get("nllb_num_beams",    4)
         # IndicTrans2 requires eager attention — keep on CPU to avoid MPS incompatibilities
         self.device            = "cpu" if device not in ("cpu", "cuda") else device
 
@@ -250,7 +251,7 @@ class TranslationModule:
                 max_new_tokens=self.max_output_tokens,
                 max_length=None,
                 forced_bos_token_id=tgt_id,
-                num_beams=2,
+                num_beams=self.nllb_num_beams,
             )
         return self._nllb_tokenizer.decode(outputs[0], skip_special_tokens=True)
 
@@ -280,7 +281,7 @@ class TranslationModule:
                     max_new_tokens=self.max_output_tokens,
                     max_length=None,
                     forced_bos_token_id=tgt_id,
-                    num_beams=2,
+                    num_beams=self.nllb_num_beams,
                 )
             text_out = self._nllb_tokenizer.decode(outputs[0], skip_special_tokens=True)
             return {"translated_text": text_out, "success": True, "error": None}

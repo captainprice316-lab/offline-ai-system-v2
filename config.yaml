@@ -23,7 +23,8 @@ paths:
 
 # ── ASR tuning ─────────────────────────────────────────────────────────────────
 asr:
-  beam_size: 2
+  beam_size: 5   # raised from 2 (2026-07-06) — beam 2 was a CPU-era speed compromise;
+                 # published eval WERs were measured at beam 5, ASR now runs on GPU
   best_of: 1
   temperature: 0.0
   condition_on_previous_text: false
@@ -86,6 +87,8 @@ language:
 translation:
   max_input_tokens: 256
   max_output_tokens: 256
+  nllb_num_beams: 4        # raised from hardcoded 2 (2026-07-06) — better English
+                           # on long sentences, ~1-2 s extra per file on GPU
   unload_after_use: true
   back_translation: false   # disable to save ~1.2 GB RAM (NLLB loads twice if true)
 
@@ -99,6 +102,9 @@ memory:
 diarization:
   enabled: true
   max_speakers: 4     # auto-detect up to this many; 2 is typical for radio intercepts
+  cross_file_reid: false   # VOICE_XXX matching across files — disabled 2026-07-06:
+                           # MFCC cosine is not speaker-discriminative (77% false-match);
+                           # needs ECAPA/x-vector embeddings before re-enabling
 
 # ── ISUM ───────────────────────────────────────────────────────────────────────
 isum:
