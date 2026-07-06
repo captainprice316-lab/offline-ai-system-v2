@@ -2355,14 +2355,27 @@ with tab_dashboard:
             view={"fill":"#1f2e3f","stroke":"#2a3f55"},
         )
         with dc1:
-            sechdr("Threat Distribution")
-            order  = ["CRITICAL","HIGH","MEDIUM","LOW","CLEAR"]
+            sechdr("Threat Distribution (excl. CLEAR)")
+            # CLEAR excluded so actionable threats aren't dwarfed by benign traffic
+            order  = ["CRITICAL","HIGH","MEDIUM","LOW"]
             tdata  = {k: stats["by_threat_level"].get(k,0) for k in order}
             df_t   = pd.DataFrame({"Threat":list(tdata.keys()),"Count":list(tdata.values())})
             chart_t = (
                 alt.Chart(df_t)
-                .mark_bar(color="#00ff88")
-                .encode(x=alt.X("Threat:N", sort=order), y="Count:Q")
+                .mark_bar()
+                .encode(
+                    x=alt.X("Threat:N", sort=order, title=None),
+                    y=alt.Y("Count:Q"),
+                    color=alt.Color(
+                        "Threat:N",
+                        scale=alt.Scale(
+                            domain=order,
+                            range=["#ff3355", "#ff6600", "#ffaa00", "#00aaff"],
+                        ),
+                        legend=None,
+                    ),
+                    tooltip=["Threat", "Count"],
+                )
                 .properties(height=250)
                 .configure(**_chart_cfg)
             )
