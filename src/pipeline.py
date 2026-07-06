@@ -225,21 +225,36 @@ def run_pipeline(
 
     # ── STAGE 4: ASR ──────────────────────────────────────────────────────────
     progress("ASR")
-    # Use the cached ASR only if it is the SAME model that Stage 3.5 selected.
-    # The app pre-caches the default model; blindly reusing it here silently
-    # discarded the language-specific fine-tuned model selection.
-    _cached_asr = models.get("asr")
-    if _cached_asr is not None and \
-            str(getattr(_cached_asr, "model_path", "")) != str(whisper_path):
-        logger.info(f"  Cached ASR is {Path(getattr(_cached_asr, 'model_path', '?')).name} "
-                    f"— rebuilding for selected model {whisper_path.name}")
-        _cached_asr = None
-    _asr_cached = _cached_asr is not None
-    asr = _cached_asr or ASRModule(
-        model_path=str(whisper_path),
-        device=device,
-        cfg=config.get("asr", {}),
-    )
+    # For languages where zero-shot SeamlessM4T beats fine-tuned Whisper
+    # (pa/ne per benchmark), route ASR to the SeamlessM4T backend. Controlled by
+    # asr.seamless_langs in config; translation still goes through NLLB downstream.
+    _probe_lang     = _pre_asr_mms_result.get("language") if _pre_asr_mms_result else None
+    _seamless_langs = set(config.get("asr", {}).get("seamless_langs", []) or [])
+    _use_seamless   = _probe_lang is not None and _probe_lang in _seamless_langs
+
+    if _use_seamless:
+        from seamless_asr import SeamlessASR
+        _seamless_path = ROOT / paths.get("seamless_model", "models/seamless-m4t-v2-large")
+        logger.info(f"  ASR backend: SeamlessM4T (zero-shot) for {_probe_lang}")
+        asr = SeamlessASR(model_path=str(_seamless_path), device=device,
+                          default_lang=_probe_lang)
+        _asr_cached = False
+    else:
+        # Use the cached ASR only if it is the SAME model that Stage 3.5 selected.
+        # The app pre-caches the default model; blindly reusing it here silently
+        # discarded the language-specific fine-tuned model selection.
+        _cached_asr = models.get("asr")
+        if _cached_asr is not None and \
+                str(getattr(_cached_asr, "model_path", "")) != str(whisper_path):
+            logger.info(f"  Cached ASR is {Path(getattr(_cached_asr, 'model_path', '?')).name} "
+                        f"— rebuilding for selected model {whisper_path.name}")
+            _cached_asr = None
+        _asr_cached = _cached_asr is not None
+        asr = _cached_asr or ASRModule(
+            model_path=str(whisper_path),
+            device=device,
+            cfg=config.get("asr", {}),
+        )
     asr.reset_language_cache()   # always reset between files
 
     full_transcript   = []

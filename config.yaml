@@ -7,6 +7,7 @@ paths:
   nllb_model:         models/nllb-200-distilled-600M
   fasttext_model:     models/langid/lid.176.bin
   mms_lid_model:      models/mms-lid-256             # auto-used if directory exists
+  seamless_model:     models/seamless-m4t-v2-large   # zero-shot ASR backend for pa/ne
   qwen_model:         models/qwen2.5-1.5b-instruct   # auto-used if directory exists (download with: python download_models.py qwen)
   whisper_model_pa:   models/whisper-large-v3-pa-ct2               # Punjabi  — fine-tuned large-v3; outputs Gurmukhi (tokenizer fix 2026-06-23 restored correct task token)
   whisper_model_zh:   models/whisper-large-v3-zh-ct2              # Mandarin — fine-tuned large-v3; eval WER 8.97% at step 400 (best ckpt)
@@ -26,6 +27,9 @@ asr:
   beam_size: 5   # raised from 2 (2026-07-06) — beam 2 was a CPU-era speed compromise;
                  # published eval WERs were measured at beam 5, ASR now runs on GPU
   best_of: 1
+  seamless_langs: [pa, ne]   # route these to zero-shot SeamlessM4T ASR instead of
+                             # fine-tuned Whisper (pa 56%->20%, ne 49%->28% WER).
+                             # Empty the list to fall back to Whisper for all langs.
   temperature: 0.0
   condition_on_previous_text: false
   word_timestamps: true
