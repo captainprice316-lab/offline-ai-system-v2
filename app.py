@@ -878,9 +878,20 @@ with tab_process:
             unsafe_allow_html=True,
         )
         try:
-            mic_audio = st.audio_input("Record", label_visibility="collapsed", key="_mic_input")
-        except AttributeError:
-            st.caption("Mic recording requires Streamlit ≥ 1.29")
+            from streamlit_mic_recorder import mic_recorder
+            mic_audio = mic_recorder(
+                start_prompt="●  Start recording",
+                stop_prompt="■  Stop recording",
+                just_once=False,
+                use_container_width=True,
+                format="wav",
+                key="_mic_input",
+            )
+            if mic_audio:
+                st.audio(mic_audio["bytes"], format="audio/wav")
+        except ImportError:
+            mic_audio = None
+            st.caption("Mic recording needs: pip install streamlit-mic-recorder")
 
     with col_pipeline:
         sechdr("Pipeline Stages")
@@ -916,9 +927,12 @@ with tab_process:
         st.session_state["_audio_ext"]   = _active_audio_path.suffix.lstrip(".")
     elif mic_audio and not uploaded:
         _active_audio_path  = INPUT_DIR / "mic_recording.wav"
+        # streamlit-mic-recorder returns a dict {'bytes', 'sample_rate', ...};
+        # keep .getvalue() support in case of a future st.audio_input swap.
+        _mic_bytes = mic_audio["bytes"] if isinstance(mic_audio, dict) else mic_audio.getvalue()
         with open(_active_audio_path, "wb") as f:
-            f.write(mic_audio.getvalue())
-        _active_audio_bytes = mic_audio.getvalue()
+            f.write(_mic_bytes)
+        _active_audio_bytes = _mic_bytes
         _active_audio_name  = "mic_recording.wav"
         st.session_state["_audio_bytes"] = _active_audio_bytes
         st.session_state["_audio_name"]  = _active_audio_name
