@@ -16,6 +16,13 @@ import numpy as np
 import soundfile as sf
 from faster_whisper import WhisperModel
 
+# faster-whisper has a hardcoded language allowlist that excludes custom tokens
+# like <|ks|> (Kashmiri). Patch it at import time so language="ks" is accepted.
+# The tokenizer already has <|ks|> at ID 51866 in the vocabulary.
+import faster_whisper.tokenizer as _fwt
+if "ks" not in _fwt._LANGUAGE_CODES:
+    _fwt._LANGUAGE_CODES = frozenset(list(_fwt._LANGUAGE_CODES) + ["ks"])
+
 # Whisper's decoder skips speech that starts at sample 0 (cold start).
 # Prepending silence gives it a "runway" so the first timestamp token lands at
 # ~1.0 s; we subtract that offset from every returned timestamp.
