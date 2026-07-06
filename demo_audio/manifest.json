@@ -102,5 +102,45 @@
     "expected_threat": "CLEAR",
     "location": "-",
     "notes": "benign chatter"
+  },
+  {
+    "file": "14_ne_critical_srinagar.wav",
+    "voice": "ne-NP-SagarNeural",
+    "text": "श्रीनगरमा शत्रुमाथि आक्रमण गर, बम तयार छ।",
+    "expected_threat": "CRITICAL",
+    "location": "Srinagar",
+    "notes": "enemy+attack+bomb"
+  },
+  {
+    "file": "15_ne_high_pulwama.wav",
+    "voice": "ne-NP-HemkalaNeural",
+    "text": "पुलवामाको उत्तरमा हतियार र गोली पठाऊ।",
+    "expected_threat": "HIGH",
+    "location": "Pulwama",
+    "notes": "weapons+location"
+  },
+  {
+    "file": "16_ne_medium_jammu.wav",
+    "voice": "ne-NP-SagarNeural",
+    "text": "जम्मूमा खाना र पानीको प्रबन्ध गर।",
+    "expected_threat": "MEDIUM",
+    "location": "Jammu",
+    "notes": "logistics (food+water)"
+  },
+  {
+    "file": "17_pa_quality_showcase.wav",
+    "voice": "real-human (FLEURS)",
+    "text": "(real Punjabi speech)",
+    "expected_threat": "n/a",
+    "location": "-",
+    "notes": "REAL speech — SeamlessM4T ASR quality (was garbled on Whisper)"
+  },
+  {
+    "file": "18_pa_quality_showcase.wav",
+    "voice": "real-human (FLEURS)",
+    "text": "(real Punjabi speech)",
+    "expected_threat": "n/a",
+    "location": "-",
+    "notes": "REAL speech — SeamlessM4T ASR quality"
   }
 ]

@@ -17,6 +17,15 @@ OUT = Path("demo_audio"); OUT.mkdir(exist_ok=True)
 
 HI_M, HI_F = "hi-IN-MadhurNeural", "hi-IN-SwaraNeural"
 UR_M, UR_F = "ur-PK-AsadNeural",   "ur-PK-UzmaNeural"
+NE_M, NE_F = "ne-NP-SagarNeural",  "ne-NP-HemkalaNeural"
+# Punjabi has no edge-tts voice — the pa showcase clips are real FLEURS eval
+# speech copied in (they also best demonstrate the SeamlessM4T ASR quality win).
+PA_EVAL_COPIES = [
+    ("17_pa_quality_showcase.wav", "eval_audio/Punjabi_0000.wav",
+     "REAL speech — SeamlessM4T ASR quality (was garbled on Whisper)"),
+    ("18_pa_quality_showcase.wav", "eval_audio/Punjabi_0015.wav",
+     "REAL speech — SeamlessM4T ASR quality"),
+]
 
 # id, voice, native text, expected threat, location, gloss (for operator)
 CLIPS = [
@@ -59,6 +68,16 @@ CLIPS = [
     ("13_ur_clear", UR_F,
      "سب خیریت ہے، صبح بات کریں گے۔",
      "CLEAR", "-", "benign chatter"),
+    # ── Nepali (routes to SeamlessM4T ASR) ──
+    ("14_ne_critical_srinagar", NE_M,
+     "श्रीनगरमा शत्रुमाथि आक्रमण गर, बम तयार छ।",
+     "CRITICAL", "Srinagar", "enemy + attack + bomb"),
+    ("15_ne_high_pulwama", NE_F,
+     "पुलवामाको उत्तरमा हतियार र गोली पठाऊ।",
+     "HIGH", "Pulwama", "weapons + location"),
+    ("16_ne_medium_jammu", NE_M,
+     "जम्मूमा खाना र पानीको प्रबन्ध गर।",
+     "MEDIUM", "Jammu", "logistics (food + water)"),
 ]
 
 async def synth(text, voice, mp3_path):
@@ -82,6 +101,15 @@ async def main():
         print(f"  {cid:32s} [{level:8s}] {loc}")
         manifest.append({"file": f"{cid}.wav", "voice": voice, "text": text,
                          "expected_threat": level, "location": loc, "notes": gloss})
+    # Punjabi showcase clips: copy real eval speech (no pa edge-tts voice)
+    import shutil
+    for dst, src, notes in PA_EVAL_COPIES:
+        if Path(src).exists():
+            shutil.copy(src, OUT / dst)
+            manifest.append({"file": dst, "voice": "real-human (FLEURS)",
+                             "text": "(real Punjabi speech)", "expected_threat": "n/a",
+                             "location": "-", "notes": notes})
+            print(f"  {dst:32s} [pa qual ] copied from {src}")
     (OUT / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"\nGenerated {len(manifest)} clips -> {OUT}/  (+ manifest.json)")

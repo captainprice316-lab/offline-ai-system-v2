@@ -32,6 +32,17 @@ Filenames encode `NN_lang_threat_location`. Manifest: `demo_audio/manifest.json`
 | 11 baramulla | UR | 🟠 HIGH | Baramulla | pre-attack + direction |
 | 12 command | UR | 🟡 MEDIUM | – | await orders |
 | 13 clear | UR | 🟢 CLEAR | – | benign |
+| 14 srinagar | NE | 🔴 CRITICAL | Srinagar | enemy + bomb (**SeamlessM4T ASR**) |
+| 15 pulwama | NE | 🟠 HIGH | Pulwama | weapons + location |
+| 16 jammu | NE | 🟡 MEDIUM | Jammu | logistics |
+| 17 pa showcase | PA | – | (Berlin etc.) | **real speech — SeamlessM4T transcription quality** |
+| 18 pa showcase | PA | 🟠 HIGH | – | real speech — SeamlessM4T quality |
+
+**Punjabi/Nepali note:** clips 14–18 route ASR through **zero-shot SeamlessM4T**
+(pa 56%→20%, ne 49%→28% WER vs fine-tuned Whisper). Clip 17 is the clean
+showcase — Whisper mistranscribed it into *"a million logs had been altered"*;
+SeamlessM4T gets *"a million people were displaced."* Punjabi has no neural TTS,
+so 17/18 are real FLEURS speech (which shows the ASR win better anyway).
 
 ## 2. Suggested flow (~8 min)
 1. **Open on the Map / Dashboard** — pre-populated with all 13 intercepts:
