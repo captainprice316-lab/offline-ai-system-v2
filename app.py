@@ -2379,7 +2379,7 @@ with tab_dashboard:
                 .properties(height=250)
                 .configure(**_chart_cfg)
             )
-            st.altair_chart(chart_t, use_container_width=True)
+            st.altair_chart(chart_t, use_container_width=True, theme=None)
         with dc2:
             sechdr("Language Distribution")
             if stats["by_language"]:
@@ -2393,7 +2393,7 @@ with tab_dashboard:
                         .properties(height=250)
                         .configure(**_chart_cfg)
                     )
-                    st.altair_chart(chart_l, use_container_width=True)
+                    st.altair_chart(chart_l, use_container_width=True, theme=None)
 
         # ── Threat Timeline ───────────────────────────────────────────────────
         timeline_data = db.get_all_intercepts(limit=200)
@@ -2470,7 +2470,7 @@ with tab_dashboard:
                 )
 
                 sechdr(f"Threat Level Timeline{_agg_note}")
-                st.altair_chart(_tl_line, use_container_width=True)
+                st.altair_chart(_tl_line, use_container_width=True, theme=None)
 
         recent   = db.get_all_intercepts(limit=20)
         priority = [i for i in recent if i.get("threat_level") in ("CRITICAL","HIGH")]
@@ -2571,7 +2571,7 @@ with tab_dashboard:
                         .properties(height=200)
                         .configure(**_pcfg)
                     )
-                    st.altair_chart(_rtf_chart, use_container_width=True)
+                    st.altair_chart(_rtf_chart, use_container_width=True, theme=None)
 
             with _pc2:
                 _df_mem = _df_perf.dropna(subset=["MemPeak_MB"])
@@ -2592,7 +2592,7 @@ with tab_dashboard:
                         .properties(height=200)
                         .configure(**_pcfg)
                     )
-                    st.altair_chart(_mem_chart, use_container_width=True)
+                    st.altair_chart(_mem_chart, use_container_width=True, theme=None)
 
             if _stage_acc:
                 _avg_rows = [
@@ -2616,7 +2616,7 @@ with tab_dashboard:
                     .properties(height=200)
                     .configure(**_pcfg)
                 )
-                st.altair_chart(_stg_chart, use_container_width=True)
+                st.altair_chart(_stg_chart, use_container_width=True, theme=None)
 
 
 # ------------------------------------------------------------------------------
@@ -3849,7 +3849,7 @@ with tab_metrics:
                                     titleColor="#90a4b4")
                     .configure_view(stroke="#2a3f55", fill="#1f2e3f")
                 )
-                st.altair_chart(chart_sc, use_container_width=True)
+                st.altair_chart(chart_sc, use_container_width=True, theme=None)
 
             with scol2:
                 st.markdown(
@@ -3978,7 +3978,7 @@ with tab_metrics:
                                     titleColor="#90a4b4")
                     .configure_view(stroke="#2a3f55", fill="#1f2e3f")
                 )
-                st.altair_chart(chart_st, use_container_width=True)
+                st.altair_chart(chart_st, use_container_width=True, theme=None)
             else:
                 st.markdown(
                     '<div class="mono-txt" style="color:var(--text-secondary);">'
