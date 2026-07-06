@@ -53,3 +53,6 @@ models/_hf_cache/
 # Windows
 Thumbs.db
 .DS_Store
+
+# Demo intercept audio — regenerable via generate_demo_audio.py
+demo_audio/*.wav

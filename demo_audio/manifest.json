@@ -1,0 +1,106 @@
+[
+  {
+    "file": "01_hi_critical_srinagar.wav",
+    "voice": "hi-IN-MadhurNeural",
+    "text": "श्रीनगर में दुश्मन पर हमला करो, बम तैयार है।",
+    "expected_threat": "CRITICAL",
+    "location": "Srinagar",
+    "notes": "enemy + attack + bomb"
+  },
+  {
+    "file": "02_hi_coded_anantnag.wav",
+    "voice": "hi-IN-MadhurNeural",
+    "text": "अनंतनाग में बीस आलू और मिर्ची भेज दो, मेहमान तैयार हैं।",
+    "expected_threat": "HIGH",
+    "location": "Anantnag",
+    "notes": "CODED: aloo=grenades, mirchi=bullets, mehmaan=infiltrators"
+  },
+  {
+    "file": "03_hi_high_pulwama.wav",
+    "voice": "hi-IN-SwaraNeural",
+    "text": "पुलवामा के उत्तर में गोला बारूद और बंदूक पहुँचाओ।",
+    "expected_threat": "HIGH",
+    "location": "Pulwama",
+    "notes": "weapons + location (north)"
+  },
+  {
+    "file": "04_hi_high_anantnag.wav",
+    "voice": "hi-IN-MadhurNeural",
+    "text": "अनंतनाग से पीछे हटो, दो जवान शहीद हो गए।",
+    "expected_threat": "HIGH",
+    "location": "Anantnag",
+    "notes": "movement (retreat) + casualties"
+  },
+  {
+    "file": "05_hi_medium_kupwara.wav",
+    "voice": "hi-IN-SwaraNeural",
+    "text": "कुपवाड़ा में उनकी चौकी पर नज़र रखो।",
+    "expected_threat": "MEDIUM",
+    "location": "Kupwara",
+    "notes": "surveillance"
+  },
+  {
+    "file": "06_hi_medium_jammu.wav",
+    "voice": "hi-IN-MadhurNeural",
+    "text": "जम्मू में रसद और पानी का इंतज़ाम करो।",
+    "expected_threat": "MEDIUM",
+    "location": "Jammu",
+    "notes": "logistics (supply + water)"
+  },
+  {
+    "file": "07_hi_low_comms.wav",
+    "voice": "hi-IN-MadhurNeural",
+    "text": "रेडियो चैनल बदलो और कॉलसाइन दोहराओ।",
+    "expected_threat": "LOW",
+    "location": "-",
+    "notes": "comms (radio, channel, callsign)"
+  },
+  {
+    "file": "08_hi_clear.wav",
+    "voice": "hi-IN-SwaraNeural",
+    "text": "आज मौसम बहुत अच्छा है, शाम को चाय पीते हैं।",
+    "expected_threat": "CLEAR",
+    "location": "-",
+    "notes": "benign chatter"
+  },
+  {
+    "file": "09_ur_critical_muzaffarabad.wav",
+    "voice": "ur-PK-AsadNeural",
+    "text": "مظفرآباد میں دشمن پر حملہ کرو، دھماکہ خیز مواد تیار ہے۔",
+    "expected_threat": "CRITICAL",
+    "location": "Muzaffarabad",
+    "notes": "enemy + attack + explosives"
+  },
+  {
+    "file": "10_ur_coded_baramulla.wav",
+    "voice": "ur-PK-AsadNeural",
+    "text": "ڈاکٹر اور سامان بارہمولہ بھیج دو، مہمان آ رہے ہیں۔",
+    "expected_threat": "HIGH",
+    "location": "Baramulla",
+    "notes": "CODED: doctor=IED maker, saman=weapons, mehmaan=infiltrators"
+  },
+  {
+    "file": "11_ur_high_baramulla.wav",
+    "voice": "ur-PK-UzmaNeural",
+    "text": "بارہمولہ کے مغرب میں تیاری کرو، سب اکٹھے ہو جاؤ۔",
+    "expected_threat": "HIGH",
+    "location": "Baramulla",
+    "notes": "pre_attack (prepare, assemble) + location (west)"
+  },
+  {
+    "file": "12_ur_medium_command.wav",
+    "voice": "ur-PK-AsadNeural",
+    "text": "حکم کا انتظار کرو، رابطہ برقرار رکھو۔",
+    "expected_threat": "MEDIUM",
+    "location": "-",
+    "notes": "command (orders) + comms"
+  },
+  {
+    "file": "13_ur_clear.wav",
+    "voice": "ur-PK-UzmaNeural",
+    "text": "سب خیریت ہے، صبح بات کریں گے۔",
+    "expected_threat": "CLEAR",
+    "location": "-",
+    "notes": "benign chatter"
+  }
+]
