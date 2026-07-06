@@ -61,6 +61,9 @@ class ASRModule:
     def __init__(self, model_path: str = "models/whisper_medium",
                  device: str = "cpu", cfg: dict = None):
         cfg = cfg or {}
+        self.model_path = str(model_path)   # recorded so the pipeline can detect
+                                            # a cached model that doesn't match the
+                                            # language-specific selection
         # CTranslate2 (faster-whisper) only supports "cpu" and "cuda" — clamp MPS
         ct2_device  = "cpu" if device not in ("cpu", "cuda") else device
         compute     = "int8" if ct2_device == "cpu" else "float16"

@@ -1186,7 +1186,7 @@ with tab_process:
                 _cached_models = {
                     "asr": _get_asr_model(
                         str(ROOT / _paths["whisper_model"]),
-                        "cpu",
+                        _run_device,   # was hardcoded "cpu" — ASR never used the GPU
                         cfg.get("asr", {}).get("beam_size", 4),
                     ),
                     "fasttext": _get_fasttext_model(

@@ -201,6 +201,10 @@ Respond with this exact JSON structure:
             "stream":  False,
             "format":  "json",
             "options": {"temperature": 0.1, "num_predict": 512},
+            # Unload Gemma immediately after the reply. Default keep_alive (5 min)
+            # left ~6 GB VRAM occupied, starving Whisper ASR on back-to-back runs
+            # (8 GB card). Costs ~10-15 s model reload per ISUM.
+            "keep_alive": 0,
         }).encode()
 
         req = urllib.request.Request(

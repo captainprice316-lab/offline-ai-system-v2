@@ -225,8 +225,17 @@ def run_pipeline(
 
     # ── STAGE 4: ASR ──────────────────────────────────────────────────────────
     progress("ASR")
-    _asr_cached = "asr" in models
-    asr = models.get("asr") or ASRModule(
+    # Use the cached ASR only if it is the SAME model that Stage 3.5 selected.
+    # The app pre-caches the default model; blindly reusing it here silently
+    # discarded the language-specific fine-tuned model selection.
+    _cached_asr = models.get("asr")
+    if _cached_asr is not None and \
+            str(getattr(_cached_asr, "model_path", "")) != str(whisper_path):
+        logger.info(f"  Cached ASR is {Path(getattr(_cached_asr, 'model_path', '?')).name} "
+                    f"— rebuilding for selected model {whisper_path.name}")
+        _cached_asr = None
+    _asr_cached = _cached_asr is not None
+    asr = _cached_asr or ASRModule(
         model_path=str(whisper_path),
         device=device,
         cfg=config.get("asr", {}),
@@ -237,6 +246,17 @@ def run_pipeline(
     all_segments      = []
     whisper_lang      = None
     whisper_lang_prob = 0.0
+
+    # If the pre-ASR probe confidently selected a language-specific model,
+    # force that language for decoding instead of re-running Whisper's own LID.
+    # Whisper LID can misfire on short radio audio (e.g. pa misread as gu at
+    # p=0.38 → Gujarati-script transcript), which then poisons the FastText
+    # vote in Stage 5 and kills the translation route downstream.
+    if _pre_asr_mms_result and whisper_path != ROOT / paths["whisper_model"]:
+        whisper_lang      = _pre_asr_mms_result["language"]
+        whisper_lang_prob = _pre_asr_mms_result["confidence"]
+        logger.info(f"  ASR language forced from pre-ASR probe: {whisper_lang} "
+                    f"(p={whisper_lang_prob:.2f})")
 
     for chunk in chunks:
         chunk_label = f"ASR {chunk['index']+1}/{len(chunks)}"
