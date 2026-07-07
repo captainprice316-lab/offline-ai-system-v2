@@ -147,15 +147,20 @@ class KeywordDetector:
         # Pre-compile all patterns
         self._patterns: Dict[str, tuple] = {}
         for category, (severity, words) in self.keyword_map.items():
-            # Use (?<!\w)/(?!\w) instead of \b: Indic combining vowel signs
-            # (ा ी ु े …) are non-word chars, so a trailing \b cannot anchor
-            # after them — \bहमला\b silently fails to match "हमला". The
-            # lookaround form matches whenever the keyword is not flanked by a
-            # word char, which works for both Latin and Indic/Nastaliq scripts.
-            compiled = [
-                (w, re.compile(r"(?<!\w)" + re.escape(w.lower()) + r"(?!\w)"))
-                for w in words
-            ]
+            # Boundary handling by script:
+            #  • Indic combining vowel signs (ा ी ु े …) are non-word chars, so a
+            #    trailing \b cannot anchor after them — \bहमला\b silently fails.
+            #    Use (?<!\w)/(?!\w) lookarounds, which work for Latin + Indic/Nastaliq.
+            #  • CJK (Chinese) has no word delimiters — every char is a word char, so
+            #    the lookarounds fail mid-string (首长命令 → 首长 not matched). Match
+            #    CJK keywords as plain substrings instead.
+            def _compile_kw(w):
+                wl  = w.lower()
+                esc = re.escape(wl)
+                if re.search(r"[㐀-䶿一-鿿]", wl):   # contains Han
+                    return re.compile(esc)
+                return re.compile(r"(?<!\w)" + esc + r"(?!\w)")
+            compiled = [(w, _compile_kw(w)) for w in words]
             self._patterns[category] = (severity, compiled)
 
     # ── public API ─────────────────────────────────────────────────────────────
