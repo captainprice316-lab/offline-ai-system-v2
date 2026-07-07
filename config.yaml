@@ -70,6 +70,13 @@ preprocessing:
   bandpass_low_hz: 300
   bandpass_high_hz: 3400
   trim_silence_db: 20
+  clean_snr_threshold: 18.0  # SNR (dB) above which "auto" mode treats audio as clean
+
+# ── Audio quality / stage skipping ──────────────────────────────────────────────
+# auto  = decide by SNR (skip denoise/bandpass + diarization when clean)
+# clean = force clean path (skip those stages)
+# noisy = always run full pipeline
+audio_mode: auto
 
 # ── Chunking ───────────────────────────────────────────────────────────────────
 chunking:

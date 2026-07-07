@@ -894,6 +894,17 @@ with tab_process:
             st.caption("Mic recording needs: pip install streamlit-mic-recorder")
 
     with col_pipeline:
+        sechdr("Audio Quality")
+        st.selectbox(
+            "Audio quality mode",
+            options=["Auto (detect by SNR)",
+                     "Clean — skip denoise + diarization",
+                     "Noisy — full pipeline"],
+            key="_audio_mode_label",
+            label_visibility="collapsed",
+            help="Clean audio skips denoise/bandpass + diarization (faster, and "
+                 "avoids degrading clean speech). Auto decides from measured SNR.",
+        )
         sechdr("Pipeline Stages")
         st.markdown("""
         <div class="mono-txt" style="color:#8a9aaa;line-height:2.1">
@@ -1229,6 +1240,12 @@ with tab_process:
                                                0.75,
                                            )),
                 }
+                # Clean-audio path: skip denoise/bandpass + diarization on clean speech
+                _run_cfg["audio_mode"] = {
+                    "Auto (detect by SNR)": "auto",
+                    "Clean — skip denoise + diarization": "clean",
+                    "Noisy — full pipeline": "noisy",
+                }.get(st.session_state.get("_audio_mode_label", "Auto (detect by SNR)"), "auto")
 
                 # Shared mutable dicts — thread mutates these in-place (safe in CPython)
                 # Do NOT let the thread create new session_state keys; it is unreliable.

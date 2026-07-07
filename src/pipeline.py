@@ -172,9 +172,39 @@ def run_pipeline(
                 f"{len(vad_result['segments_seconds'])} segments")
     del vad;  free_memory(logger)
 
+    # ── Clean-audio path decision ─────────────────────────────────────────────
+    # audio_mode: "auto" (decide by SNR) | "clean" (force skip) | "noisy" (full).
+    # When clean, denoise/bandpass (built for degraded radio) and diarization are
+    # skipped — they add latency and can degrade clean speech.
+    _audio_mode = (config.get("audio_mode") or "auto").lower()
+    _snr_db = None
+    try:
+        import soundfile as _sf_snr
+        from preprocessing import _estimate_snr
+        _snr_arr, _ = _sf_snr.read(str(vad_out))
+        _snr_val = _estimate_snr(_snr_arr)
+        _snr_db = round(float(_snr_val), 1) if _snr_val is not None else None
+    except Exception:
+        pass
+    _clean_thresh = config.get("preprocessing", {}).get("clean_snr_threshold", 18.0)
+    if _audio_mode == "clean":
+        _clean_mode = True
+    elif _audio_mode == "noisy":
+        _clean_mode = False
+    else:  # auto
+        _clean_mode = (_snr_db is not None and _snr_db >= _clean_thresh)
+    _skipped_stages: list = []
+    logger.info(f"  Audio mode: {_audio_mode} | SNR={_snr_db} dB | clean_path={_clean_mode}")
+
     # ── STAGE 2: Preprocessing ────────────────────────────────────────────────
     progress("Preprocessing")
-    pre      = AudioPreprocessor(cfg=config.get("preprocessing", {}))
+    _pre_cfg = dict(config.get("preprocessing", {}))
+    if _clean_mode:
+        _pre_cfg["noise_reduce"]    = False
+        _pre_cfg["bandpass_filter"] = False
+        _skipped_stages.append("denoise/bandpass")
+        logger.info("  Clean audio — skipping denoise + bandpass")
+    pre      = AudioPreprocessor(cfg=_pre_cfg)
     pre_out  = output_dir / f"{audio_file.stem}_preprocessed.wav"
     pre_info = pre.preprocess(str(vad_out), str(pre_out))
     logger.info(f"  Duration after preprocessing: {pre_info['duration_sec']}s")
@@ -306,7 +336,7 @@ def run_pipeline(
 
     # ── STAGE 4.5: Speaker Diarization ───────────────────────────────────────
     _diar_cfg = config.get("diarization", {})
-    if _diar_cfg.get("enabled", True) and all_segments:
+    if _diar_cfg.get("enabled", True) and all_segments and not _clean_mode:
         progress("Diarization")
         try:
             from diarize_module import diarize as _diarize
@@ -316,6 +346,9 @@ def run_pipeline(
             logger.info(f"  Diarization: {_n_spk} speaker(s) detected")
         except Exception as _de:
             logger.warning(f"  Diarization skipped: {_de}")
+    elif _clean_mode and _diar_cfg.get("enabled", True) and all_segments:
+        _skipped_stages.append("diarization")
+        logger.info("  Clean audio — skipping diarization")
 
 
     # ── STAGE 5: Language ID ──────────────────────────────────────────────────
@@ -575,6 +608,11 @@ def run_pipeline(
         "vocab_richness_ttr":      _ttr,
         "back_translation":        back_translation,
         "backtrans_chrf":          _backtrans_chrf,
+        # ── Clean-audio path ───────────────────────────────────────────────
+        "audio_mode":              _audio_mode,
+        "snr_db":                  _snr_db,
+        "clean_path":              _clean_mode,
+        "skipped_stages":          _skipped_stages,
     }
 
     # Save JSON
