@@ -562,7 +562,17 @@
           "pistol",
           "silah",
           "kartoosh",
-          "gola barood"
+          "gola barood",
+          "बंदूक",
+          "हथियार",
+          "गोली",
+          "गोला बारूद",
+          "राइफल",
+          "तोप",
+          "ग्रेनेड",
+          "रॉकेट",
+          "पिस्तौल",
+          "कारतूस"
         ],
         "pa": [
           "bandook",
@@ -578,7 +588,15 @@
           "pistol",
           "kartoosh",
           "gola barood",
-          "bhari bandook"
+          "bhari bandook",
+          "ਬੰਦੂਕ",
+          "ਹਥਿਆਰ",
+          "ਗੋਲੀ",
+          "ਗੋਲਾ ਬਾਰੂਦ",
+          "ਰਾਈਫਲ",
+          "ਤੋਪ",
+          "ਰਾਕੇਟ",
+          "ਪਿਸਤੌਲ"
         ],
         "ur": [
           "bandook",
@@ -595,7 +613,16 @@
           "kartoosh",
           "gola barood",
           "bhari bandook",
-          "RPG"
+          "RPG",
+          "بندوق",
+          "ہتھیار",
+          "گولی",
+          "گولہ بارود",
+          "رائفل",
+          "توپ",
+          "راکٹ",
+          "پستول",
+          "کارتوس"
         ],
         "ps": [
           "topak",
@@ -625,7 +652,10 @@
           "grenade",
           "tope",
           "goli",
-          "silah"
+          "silah",
+          "बंदूक",
+          "हथियार",
+          "गोली"
         ],
         "ne": [
           "banduk",
@@ -636,7 +666,12 @@
           "goli",
           "silah",
           "kartoosh",
-          "rocket"
+          "rocket",
+          "बन्दुक",
+          "हतियार",
+          "गोली",
+          "राइफल",
+          "रकेट"
         ],
         "bn": [
           "bonduk",
@@ -647,7 +682,11 @@
           "guli",
           "silah",
           "rocket",
-          "AK47"
+          "AK47",
+          "বন্দুক",
+          "অস্ত্র",
+          "গুলি",
+          "রাইফেল"
         ],
         "ks": [
           "bandook",
@@ -658,7 +697,10 @@
           "silah",
           "tope",
           "rocket",
-          "magazine"
+          "magazine",
+          "بندوق",
+          "ہتھیار",
+          "گولی"
         ],
         "zh": [
           "枪",
@@ -723,7 +765,17 @@
           "niklo",
           "tez chalte hain",
           "ghaat lagao",
-          "aage ki taraf"
+          "aage ki taraf",
+          "आगे बढ़ो",
+          "पीछे हटो",
+          "निकलो",
+          "आगे",
+          "पीछे",
+          "वापस",
+          "घेरो",
+          "बढ़ रहा",
+          "चलो",
+          "घात लगाओ"
         ],
         "pa": [
           "aage",
@@ -739,7 +791,14 @@
           "aage waddho",
           "peche hat jao",
           "gherat lao",
-          "patrol kar"
+          "patrol kar",
+          "ਅੱਗੇ ਵਧੋ",
+          "ਪਿੱਛੇ ਹਟੋ",
+          "ਨਿਕਲੋ",
+          "ਵਾਪਸ",
+          "ਘੇਰੋ",
+          "ਅੱਗੇ",
+          "ਪਿੱਛੇ"
         ],
         "ur": [
           "aage badho",
@@ -753,7 +812,13 @@
           "aage barhte raho",
           "peeche hatna",
           "ghira lo",
-          "patrol karo"
+          "patrol karo",
+          "آگے بڑھو",
+          "پیچھے ہٹو",
+          "نکلو",
+          "واپس",
+          "گھیرو",
+          "پیشقدمی"
         ],
         "ps": [
           "wror",
@@ -779,7 +844,9 @@
           "chal",
           "nikal",
           "ghero",
-          "patrol"
+          "patrol",
+          "अगे बधो",
+          "पिछे हटो"
         ],
         "ne": [
           "aagadi badha",
@@ -788,7 +855,11 @@
           "jaa",
           "ghera",
           "patrol gar",
-          "aagadi badh"
+          "aagadi badh",
+          "अगाडि बढ",
+          "पछाडि हट",
+          "निस्क",
+          "घेर"
         ],
         "bn": [
           "aage jao",
@@ -796,7 +867,10 @@
           "chole jao",
           "ghero",
           "patrol koro",
-          "ager dike"
+          "ager dike",
+          "এগিয়ে যাও",
+          "পিছু হট",
+          "ঘেরাও"
         ],
         "ks": [
           "aage",
@@ -805,7 +879,9 @@
           "nikal",
           "ghera kar",
           "patrol kar",
-          "aage badh"
+          "aage badh",
+          "آگے بڑھو",
+          "پیچھے ہٹو"
         ],
         "zh": [
           "前进",
@@ -881,7 +957,20 @@
           "LOC ke paas",
           "seema par",
           "pahad ke neeche",
-          "nale ke paas"
+          "nale ke paas",
+          "उत्तर",
+          "दक्षिण",
+          "पूरब",
+          "पश्चिम",
+          "सीमा",
+          "चौकी",
+          "पुल",
+          "गाँव",
+          "पहाड़",
+          "नदी",
+          "नाला",
+          "ठिकाना",
+          "मोर्चा"
         ],
         "pa": [
           "uttar",
@@ -899,7 +988,17 @@
           "LOC de kol",
           "seema te",
           "pahad utte",
-          "nale de kol"
+          "nale de kol",
+          "ਉੱਤਰ",
+          "ਦੱਖਣ",
+          "ਪੂਰਬ",
+          "ਪੱਛਮ",
+          "ਸਰਹੱਦ",
+          "ਚੌਕੀ",
+          "ਪੁਲ",
+          "ਪਿੰਡ",
+          "ਪਹਾੜ",
+          "ਨਦੀ"
         ],
         "ur": [
           "shumal",
@@ -917,7 +1016,18 @@
           "LOC ke qareeb",
           "sarhad par",
           "pahad ke nichay",
-          "darya ke saath"
+          "darya ke saath",
+          "شمال",
+          "جنوب",
+          "مشرق",
+          "مغرب",
+          "سرحد",
+          "چوکی",
+          "پل",
+          "گاؤں",
+          "پہاڑ",
+          "دریا",
+          "مورچہ"
         ],
         "ps": [
           "shimal",
@@ -954,7 +1064,11 @@
           "jagah",
           "pahad",
           "nadi",
-          "pul"
+          "pul",
+          "उत्तर",
+          "दक्षिण",
+          "सीमा",
+          "चौकी"
         ],
         "ne": [
           "uttar",
@@ -967,7 +1081,15 @@
           "nadi",
           "pul",
           "gaun",
-          "chowki"
+          "chowki",
+          "उत्तर",
+          "दक्षिण",
+          "पूर्व",
+          "पश्चिम",
+          "सीमा",
+          "चौकी",
+          "पुल",
+          "नदी"
         ],
         "bn": [
           "uttor",
@@ -980,7 +1102,12 @@
           "nodi",
           "pul",
           "gram",
-          "chowki"
+          "chowki",
+          "উত্তর",
+          "দক্ষিণ",
+          "সীমান্ত",
+          "চৌকি",
+          "পুল"
         ],
         "ks": [
           "uttar",
@@ -994,7 +1121,11 @@
           "pul",
           "gaon",
           "chowki",
-          "bunkar"
+          "bunkar",
+          "شمال",
+          "جنوب",
+          "سرحد",
+          "چوکی"
         ],
         "zh": [
           "北",
@@ -1053,7 +1184,16 @@
           "goli khatam",
           "madad jaldi",
           "dawa chahiye",
-          "ambulance"
+          "ambulance",
+          "मदद",
+          "मदद करो",
+          "बचाओ",
+          "ज़ख़्मी",
+          "घायल",
+          "सहायता",
+          "हेलीकॉप्टर",
+          "दवा",
+          "गोली खत्म"
         ],
         "pa": [
           "madad",
@@ -1065,7 +1205,13 @@
           "dava chahidi",
           "goli mukk gayi",
           "madad jaldi bhejo",
-          "ghaayal aa"
+          "ghaayal aa",
+          "ਮਦਦ",
+          "ਬਚਾਓ",
+          "ਜ਼ਖ਼ਮੀ",
+          "ਘਾਇਲ",
+          "ਸਹਾਇਤਾ",
+          "ਹੈਲੀਕਾਪਟਰ"
         ],
         "ur": [
           "madad",
@@ -1079,7 +1225,13 @@
           "goliyan khatam",
           "fori madad",
           "ambulance bhejo",
-          "zakhmi uthao"
+          "zakhmi uthao",
+          "مدد",
+          "بچاؤ",
+          "زخمی",
+          "ہیلی کاپٹر",
+          "امداد",
+          "دوا"
         ],
         "ps": [
           "madad",
@@ -1103,7 +1255,10 @@
           "zakhmi",
           "bachaao",
           "helicopter",
-          "dawa"
+          "dawa",
+          "मदद",
+          "बचाओ",
+          "जख्मी"
         ],
         "ne": [
           "sahayata",
@@ -1112,7 +1267,11 @@
           "undhaar",
           "helicopter pathaau",
           "goli sakiyo",
-          "dawai chahiyo"
+          "dawai chahiyo",
+          "मद्दत",
+          "बचाऊ",
+          "घाइते",
+          "सहयोग"
         ],
         "bn": [
           "sahajjo",
@@ -1121,7 +1280,10 @@
           "bachao",
           "madad koro",
           "helicopter patho",
-          "guli shesh"
+          "guli shesh",
+          "সাহায্য",
+          "বাঁচাও",
+          "আহত"
         ],
         "ks": [
           "madad",
@@ -1130,7 +1292,10 @@
           "bachaao",
           "helicopter",
           "dawa chahiye",
-          "goli khatam"
+          "goli khatam",
+          "مدد",
+          "بچاؤ",
+          "زخمی"
         ],
         "zh": [
           "支援",
@@ -1547,7 +1712,14 @@
           "position lo",
           "ikat ho jao",
           "hamla karne ko taiyaar",
-          "zero hour"
+          "zero hour",
+          "तैयार",
+          "तैयारी करो",
+          "इकट्ठे हो",
+          "मिलो",
+          "पोजीशन लो",
+          "हमला करने को तैयार",
+          "मोर्चा संभालो"
         ],
         "pa": [
           "taiyaar",
@@ -1557,7 +1729,12 @@
           "position lo",
           "chalo taiyaar ho",
           "hamle nu taiyaar",
-          "ikat ho"
+          "ikat ho",
+          "ਤਿਆਰ",
+          "ਤਿਆਰੀ ਕਰੋ",
+          "ਇਕੱਠੇ ਹੋ",
+          "ਮਿਲੋ",
+          "ਪੋਜ਼ੀਸ਼ਨ ਲਓ"
         ],
         "ur": [
           "taiyaar",
@@ -1567,7 +1744,13 @@
           "position lo",
           "chalte hain",
           "hamlay ke liye taiyaar",
-          "ikat ho"
+          "ikat ho",
+          "تیار",
+          "تیاری کرو",
+          "اکٹھے ہو",
+          "ملو",
+          "پوزیشن لو",
+          "حملے کے لیے تیار"
         ],
         "ps": [
           "tayor",
@@ -1589,21 +1772,29 @@
           "taiyaari",
           "milo",
           "position lo",
-          "ikat ho"
+          "ikat ho",
+          "तयार",
+          "तयारी करो"
         ],
         "ne": [
           "taiyaar",
           "milna",
           "position lau",
           "ikattha hou",
-          "hamla garna taiyaar"
+          "hamla garna taiyaar",
+          "तयार",
+          "तयारी गर",
+          "भेला हौ"
         ],
         "bn": [
           "tairri",
           "milo",
           "position nao",
           "eksha hoo",
-          "hamla korte taiyar"
+          "hamla korte taiyar",
+          "তৈরি",
+          "প্রস্তুত",
+          "একত্র হও"
         ],
         "ks": [
           "taiyaar",
@@ -1611,7 +1802,9 @@
           "milo",
           "ikat ho",
           "position lo",
-          "hamla karne ko taiyaar"
+          "hamla karne ko taiyaar",
+          "تیار",
+          "تیاری کرو"
         ]
       }
     },
