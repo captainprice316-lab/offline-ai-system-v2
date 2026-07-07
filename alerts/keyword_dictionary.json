@@ -935,7 +935,19 @@
           "river",
           "treeline",
           "building",
-          "compound"
+          "compound",
+          "frontier",
+          "boundary",
+          "borderline",
+          "zero line",
+          "no man's land",
+          "fence",
+          "fencing",
+          "international border",
+          "IB",
+          "line of control",
+          "control line",
+          "demarcation"
         ],
         "hi": [
           "uttar",
@@ -970,7 +982,18 @@
           "नदी",
           "नाला",
           "ठिकाना",
-          "मोर्चा"
+          "मोर्चा",
+          "sirhad",
+          "sarhad",
+          "seemant",
+          "hadd",
+          "seema rekha",
+          "niyantran rekha",
+          "सरहद",
+          "सीमांत",
+          "हद",
+          "सीमा रेखा",
+          "नियंत्रण रेखा"
         ],
         "pa": [
           "uttar",
@@ -998,7 +1021,13 @@
           "ਪੁਲ",
           "ਪਿੰਡ",
           "ਪਹਾੜ",
-          "ਨਦੀ"
+          "ਨਦੀ",
+          "sirhad",
+          "sarhad",
+          "hadd",
+          "ਹੱਦ",
+          "ਸੀਮਾ",
+          "ਸਰਹੱਦੀ"
         ],
         "ur": [
           "shumal",
@@ -1027,7 +1056,16 @@
           "گاؤں",
           "پہاڑ",
           "دریا",
-          "مورچہ"
+          "مورچہ",
+          "sirhad",
+          "hadd",
+          "sarhadi",
+          "control line",
+          "line of control",
+          "سرحدی",
+          "حد",
+          "کنٹرول لائن",
+          "لائن آف کنٹرول"
         ],
         "ps": [
           "shimal",
@@ -1068,7 +1106,11 @@
           "उत्तर",
           "दक्षिण",
           "सीमा",
-          "चौकी"
+          "चौकी",
+          "sirhad",
+          "sarhad",
+          "सरहद",
+          "हद"
         ],
         "ne": [
           "uttar",
@@ -1089,7 +1131,14 @@
           "सीमा",
           "चौकी",
           "पुल",
-          "नदी"
+          "नदी",
+          "sirhad",
+          "sarhad",
+          "seemana",
+          "hadd",
+          "सरहद",
+          "सिमाना",
+          "नियन्त्रण रेखा"
         ],
         "bn": [
           "uttor",
@@ -1107,7 +1156,12 @@
           "দক্ষিণ",
           "সীমান্ত",
           "চৌকি",
-          "পুল"
+          "পুল",
+          "sirhad",
+          "sarhad",
+          "simarekha",
+          "সীমারেখা",
+          "সীমানা"
         ],
         "ks": [
           "uttar",
@@ -1125,7 +1179,12 @@
           "شمال",
           "جنوب",
           "سرحد",
-          "چوکی"
+          "چوکی",
+          "sirhad",
+          "sarhad",
+          "hadd",
+          "حد",
+          "سرحدی"
         ],
         "zh": [
           "北",
