@@ -58,7 +58,13 @@
           "hamlavar",
           "dushman aa gaya",
           "andar ghus aaya",
-          "dushman dikha"
+          "dushman dikha",
+          "दुश्मन",
+          "आतंकवादी",
+          "घुसपैठिया",
+          "आतंकी",
+          "उग्रवादी",
+          "विरोधी"
         ],
         "pa": [
           "dushman",
@@ -71,7 +77,11 @@
           "aatankwadi",
           "dushman aaunda",
           "virodhi aa gaye",
-          "ghuspaitihe"
+          "ghuspaitihe",
+          "ਦੁਸ਼ਮਣ",
+          "ਅੱਤਵਾਦੀ",
+          "ਘੁਸਪੈਠੀਆ",
+          "ਵਿਰੋਧੀ"
         ],
         "ur": [
           "dushman",
@@ -85,7 +95,12 @@
           "dushman nazar aaya",
           "ghuseeliya",
           "musalah afrad",
-          "dehshat angez"
+          "dehshat angez",
+          "دشمن",
+          "دہشت گرد",
+          "دہشتگرد",
+          "گھسپیٹھیا",
+          "دراندازی"
         ],
         "ps": [
           "dushman",
@@ -108,7 +123,9 @@
           "virodhi",
           "aatankwadi",
           "ghuspaithiya",
-          "hamlavar"
+          "hamlavar",
+          "दुश्मन",
+          "आतंकवादी"
         ],
         "ne": [
           "shatru",
@@ -117,7 +134,11 @@
           "dushman",
           "virodhi",
           "aaatankawadi toli",
-          "ghuspethiya"
+          "ghuspethiya",
+          "शत्रु",
+          "आतंकवादी",
+          "दुश्मन",
+          "घुसपैठ"
         ],
         "bn": [
           "shotru",
@@ -127,7 +148,10 @@
           "juddha",
           "atanki",
           "shatrubahini",
-          "ghuspoth"
+          "ghuspoth",
+          "শত্রু",
+          "সন্ত্রাসী",
+          "অনুপ্রবেশকারী"
         ],
         "ks": [
           "dushman",
@@ -136,7 +160,9 @@
           "badmaash",
           "virodhi",
           "hamlavar",
-          "atanki"
+          "atanki",
+          "دشمن",
+          "دہشت گرد"
         ],
         "zh": [
           "敌人",
@@ -192,7 +218,16 @@
           "hamlaa ho gaya",
           "goli maar",
           "aage badh ke maaro",
-          "firing shuru"
+          "firing shuru",
+          "हमला",
+          "हमले",
+          "गोली",
+          "गोली चलाओ",
+          "फायरिंग",
+          "आग",
+          "धावा",
+          "हमला करो",
+          "गोली मारो"
         ],
         "pa": [
           "hamla",
@@ -207,7 +242,13 @@
           "goli chalaao",
           "hamla hua",
           "goli lagg gayi",
-          "firing shuru ho gayi"
+          "firing shuru ho gayi",
+          "ਹਮਲਾ",
+          "ਗੋਲੀ",
+          "ਫਾਇਰਿੰਗ",
+          "ਹਮਲਾ ਕਰੋ",
+          "ਗੋਲੀ ਮਾਰੋ",
+          "ਅੱਗ"
         ],
         "ur": [
           "hamla",
@@ -222,7 +263,13 @@
           "goli lag gayi",
           "firing chal rahi hai",
           "aatish",
-          "hamla jari hai"
+          "hamla jari hai",
+          "حملہ",
+          "گولی",
+          "فائرنگ",
+          "حملہ کرو",
+          "گولی چلاؤ",
+          "آگ"
         ],
         "ps": [
           "wor",
@@ -249,7 +296,9 @@
           "aag",
           "goli chalao",
           "hamlavar",
-          "firing"
+          "firing",
+          "हमला",
+          "गोली"
         ],
         "ne": [
           "hamla",
@@ -258,7 +307,11 @@
           "hamla garnu",
           "goli chalau",
           "firing suru",
-          "hamla bhayo"
+          "hamla bhayo",
+          "आक्रमण",
+          "गोली",
+          "हमला",
+          "आक्रमण गर"
         ],
         "bn": [
           "hamla",
@@ -268,7 +321,10 @@
           "goli chalo",
           "firing",
           "hamla koro",
-          "aakromon hoyeche"
+          "aakromon hoyeche",
+          "হামলা",
+          "গুলি",
+          "আক্রমণ"
         ],
         "ks": [
           "hamla",
@@ -278,7 +334,9 @@
           "goli maar",
           "firing",
           "hamla hua",
-          "goli chali"
+          "goli chali",
+          "حملہ",
+          "گولی"
         ],
         "zh": [
           "攻击",
@@ -332,7 +390,13 @@
           "bomb phata",
           "bomb mila",
           "dhamaka sunai diya",
-          "surang chali"
+          "surang chali",
+          "बम",
+          "धमाका",
+          "विस्फोट",
+          "सुरंग",
+          "बारूद",
+          "गोला बारूद"
         ],
         "pa": [
           "bomb",
@@ -344,7 +408,12 @@
           "IED milya",
           "dhamaka hoya",
           "bomb phataa",
-          "surang layi"
+          "surang layi",
+          "ਬੰਬ",
+          "ਧਮਾਕਾ",
+          "ਸੁਰੰਗ",
+          "ਬਾਰੂਦ",
+          "ਗੋਲਾ ਬਾਰੂਦ"
         ],
         "ur": [
           "bomb",
@@ -358,7 +427,12 @@
           "bomb mila",
           "surang bichayi",
           "blast hua",
-          "bomb phat gaya"
+          "bomb phat gaya",
+          "بم",
+          "دھماکہ",
+          "دھماکہ خیز",
+          "سرنگ",
+          "بارود"
         ],
         "ps": [
           "bomb",
@@ -384,7 +458,9 @@
           "visfot",
           "dhamaka",
           "surang",
-          "blast"
+          "blast",
+          "बम",
+          "धमाका"
         ],
         "ne": [
           "bam",
@@ -394,7 +470,11 @@
           "dhamaka",
           "IED",
           "bam phatyo",
-          "surang bichhayo"
+          "surang bichhayo",
+          "बम",
+          "विस्फोट",
+          "धमाका",
+          "बारूद"
         ],
         "bn": [
           "bom",
@@ -404,7 +484,9 @@
           "IED",
           "dhamaka",
           "bom patano",
-          "biSforono"
+          "biSforono",
+          "বোমা",
+          "বিস্ফোরণ"
         ],
         "ks": [
           "bomb",
@@ -414,7 +496,9 @@
           "visfot",
           "IED",
           "bomb lagaya",
-          "dhamaka hua"
+          "dhamaka hua",
+          "بم",
+          "دھماکہ"
         ],
         "zh": [
           "炸弹",
@@ -1343,7 +1427,12 @@
           "parmanu bomb",
           "zeher wali gas",
           "nuclear haftha",
-          "chemical haftha"
+          "chemical haftha",
+          "परमाणु",
+          "रासायनिक",
+          "जैविक",
+          "विकिरण",
+          "ज़हर"
         ],
         "ur": [
           "atomi",
@@ -1354,7 +1443,12 @@
           "khatarnak gas",
           "nuclear",
           "chemical",
-          "biological"
+          "biological",
+          "ایٹمی",
+          "کیمیائی",
+          "جوہری",
+          "تابکاری",
+          "زہر"
         ],
         "pa": [
           "parmanu",
@@ -1362,7 +1456,10 @@
           "zeher",
           "radioactive",
           "khatarnak gas",
-          "nuclear bomb"
+          "nuclear bomb",
+          "ਪਰਮਾਣੂ",
+          "ਰਸਾਇਣਕ",
+          "ਜ਼ਹਿਰ"
         ],
         "ps": [
           "atomi",
@@ -1379,21 +1476,28 @@
           "rasayanik",
           "jeewanu",
           "vish",
-          "radioactive"
+          "radioactive",
+          "आणविक",
+          "रासायनिक",
+          "विकिरण"
         ],
         "bn": [
           "parmanu",
           "rasayonik",
           "jeebanu",
           "bish",
-          "radioactive"
+          "radioactive",
+          "পারমাণবিক",
+          "রাসায়নিক"
         ],
         "ks": [
           "parmanu",
           "rasaynik",
           "zeher",
           "nuclear",
-          "radioactive"
+          "radioactive",
+          "ایٹمی",
+          "کیمیائی"
         ],
         "zh": [
           "核",

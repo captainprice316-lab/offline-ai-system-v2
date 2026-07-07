@@ -147,8 +147,13 @@ class KeywordDetector:
         # Pre-compile all patterns
         self._patterns: Dict[str, tuple] = {}
         for category, (severity, words) in self.keyword_map.items():
+            # Use (?<!\w)/(?!\w) instead of \b: Indic combining vowel signs
+            # (ा ी ु े …) are non-word chars, so a trailing \b cannot anchor
+            # after them — \bहमला\b silently fails to match "हमला". The
+            # lookaround form matches whenever the keyword is not flanked by a
+            # word char, which works for both Latin and Indic/Nastaliq scripts.
             compiled = [
-                (w, re.compile(r"\b" + re.escape(w.lower()) + r"\b"))
+                (w, re.compile(r"(?<!\w)" + re.escape(w.lower()) + r"(?!\w)"))
                 for w in words
             ]
             self._patterns[category] = (severity, compiled)
