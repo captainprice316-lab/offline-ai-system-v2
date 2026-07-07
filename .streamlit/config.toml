@@ -1,0 +1,13 @@
+# Align Streamlit's base theme with the app's injected dark CSS so that
+# elements not covered by custom CSS (dropdowns, tooltips, dataframes,
+# expanders, widget internals) render with light text — otherwise they show
+# dark light-mode text on the dark background and are barely visible.
+[theme]
+base = "dark"
+primaryColor = "#00e676"                 # accent-green
+backgroundColor = "#141c24"              # --bg-primary
+secondaryBackgroundColor = "#1a2535"     # --bg-secondary
+textColor = "#e8f4f8"                     # --text-primary
+
+[browser]
+gatherUsageStats = false

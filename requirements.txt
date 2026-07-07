@@ -35,7 +35,8 @@ reportlab                       # PDF export
 
 # ── UI ────────────────────────────────────────────────────────────────────────
 streamlit==1.34.0
-altair                          # Dashboard charts
+altair==5.3.0                   # Dashboard charts — pin: 5.4+ emits Vega specs streamlit 1.34 can't render
+streamlit-mic-recorder          # microphone recording widget (works on streamlit 1.34)
 pandas==2.2.2
 
 # ── Utilities ─────────────────────────────────────────────────────────────────
