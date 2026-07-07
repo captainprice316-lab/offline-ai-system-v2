@@ -1537,7 +1537,13 @@
           "body",
           "bodies",
           "losses",
-          "bleeding"
+          "bleeding",
+          "martyr",
+          "martyrs",
+          "martyred",
+          "martyrdom",
+          "slain",
+          "perished"
         ],
         "hi": [
           "shaheed",
@@ -1552,7 +1558,13 @@
           "khoon aa raha",
           "haaniyaan",
           "zakhmi hai",
-          "maar diya"
+          "maar diya",
+          "शहीद",
+          "शहीदों",
+          "घायल",
+          "मारा",
+          "मौत",
+          "हताहत"
         ],
         "pa": [
           "shaheed",
@@ -1564,7 +1576,11 @@
           "pakda gaya",
           "sipahi giriya",
           "zakham lage",
-          "haaniyaan hoiyan"
+          "haaniyaan hoiyan",
+          "ਸ਼ਹੀਦ",
+          "ਜ਼ਖ਼ਮੀ",
+          "ਮਾਰਿਆ",
+          "ਮੌਤ"
         ],
         "ur": [
           "shaheed",
@@ -1577,7 +1593,12 @@
           "sipahi gira",
           "khoon",
           "haaniyaan",
-          "zakhmi uthao"
+          "zakhmi uthao",
+          "شہید",
+          "شہيد",
+          "زخمی",
+          "ہلاک",
+          "مارا"
         ],
         "ps": [
           "shaheed",
@@ -1599,7 +1620,9 @@
           "zakhmi",
           "mara",
           "ghaayal",
-          "haani"
+          "haani",
+          "शहीद",
+          "घायल"
         ],
         "ne": [
           "shahid",
@@ -1608,7 +1631,10 @@
           "pakranu",
           "haani",
           "zakhmi",
-          "maryo"
+          "maryo",
+          "शहीद",
+          "मृत्यु",
+          "घाइते"
         ],
         "bn": [
           "shahid",
@@ -1617,7 +1643,10 @@
           "dhora",
           "khoti",
           "zakhmi",
-          "nishongso"
+          "nishongso",
+          "শহীদ",
+          "নিহত",
+          "আহত"
         ],
         "ks": [
           "shaheed",
@@ -1626,7 +1655,9 @@
           "ghaayal",
           "haani",
           "pakda gaya",
-          "khoon"
+          "khoon",
+          "شہید",
+          "زخمی"
         ]
       }
     },
