@@ -167,6 +167,16 @@ CREATE TABLE IF NOT EXISTS metrics (
 CREATE INDEX IF NOT EXISTS idx_metrics_report  ON metrics(report_id);
 CREATE INDEX IF NOT EXISTS idx_metrics_ts      ON metrics(timestamp_utc);
 
+-- Operator-assigned aliases: resolve a detected callsign/name/place/codeword
+-- to a real identity or pseudoname (analyst tradecraft, persists across runs).
+CREATE TABLE IF NOT EXISTS aliases (
+    term          TEXT PRIMARY KEY COLLATE NOCASE,   -- the detected surface form
+    kind          TEXT,                              -- callsign|name|location|codeword|other
+    alias         TEXT,                              -- operator-assigned identity/pseudoname
+    notes         TEXT,
+    updated_utc   TEXT
+);
+
 -- FTS5 full-text search index across transcript + translation + ISUM fields.
 -- unicode61 tokenizer with diacritic removal handles transliterated Indic text well.
 CREATE VIRTUAL TABLE IF NOT EXISTS intercepts_fts USING fts5(
@@ -840,6 +850,37 @@ class TranscriptDB:
         self._actor_cache    = profiles
         self._actor_cache_ts = time.monotonic()
         return profiles
+
+    # ── Operator aliases ────────────────────────────────────────────────────────
+    def get_aliases(self) -> dict:
+        """Return {term_lower: {'kind','alias','notes'}} for all operator aliases."""
+        with self._conn() as conn:
+            rows = conn.execute(
+                "SELECT term, kind, alias, notes FROM aliases"
+            ).fetchall()
+        return {
+            r["term"].lower(): {"kind": r["kind"], "alias": r["alias"], "notes": r["notes"] or ""}
+            for r in rows
+        }
+
+    def set_alias(self, term: str, kind: str, alias: str, notes: str = "") -> None:
+        """Create/update an operator alias. Empty alias deletes the entry."""
+        term = (term or "").strip()
+        if not term:
+            return
+        with self._conn() as conn:
+            if not (alias or "").strip():
+                conn.execute("DELETE FROM aliases WHERE term = ? COLLATE NOCASE", (term,))
+            else:
+                conn.execute(
+                    "INSERT INTO aliases (term, kind, alias, notes, updated_utc) "
+                    "VALUES (?,?,?,?,?) "
+                    "ON CONFLICT(term) DO UPDATE SET "
+                    "kind=excluded.kind, alias=excluded.alias, "
+                    "notes=excluded.notes, updated_utc=excluded.updated_utc",
+                    (term, kind, alias.strip(), notes or "",
+                     datetime.now(timezone.utc).isoformat()),
+                )
 
     def get_related_intercepts(self, report_id: str, limit: int = 6) -> List[dict]:
         """

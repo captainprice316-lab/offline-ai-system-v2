@@ -32,12 +32,14 @@ NODE_COLOR = {
     "actor":    None,           # uses threat colour
     "location": "#e65100",      # amber
     "voice":    "#7c4dff",      # purple
+    "codeword": "#00bcd4",      # cyan
 }
 
 EDGE_COLOR = {
     "co-occurrence": "#2a4060",
     "at-location":   "#5d4037",
     "voice-link":    "#4a148c",
+    "uses-term":     "#006064",
 }
 
 CTYPE_SYMBOL = {
@@ -49,6 +51,7 @@ CTYPE_SYMBOL = {
     "unknown":         "circle",
     "location":        "star",
     "voice":           "pentagon",
+    "codeword":        "cross",
 }
 
 CTYPE_LABEL = {
@@ -60,6 +63,7 @@ CTYPE_LABEL = {
     "unknown":         "UNKNOWN",
     "location":        "LOCATION",
     "voice":           "VOICE ID",
+    "codeword":        "CODEWORD",
 }
 
 _SKIP_TYPES = {"rank", "force_indicator"}
@@ -116,6 +120,8 @@ def build_full_graph(
     db_path:           Optional[str] = None,
     include_locations: bool          = True,
     include_voices:    bool          = True,
+    include_codewords: bool          = True,
+    aliases:           Optional[Dict] = None,
 ) -> nx.Graph:
     """
     Build a multi-type relationship graph.
@@ -271,10 +277,58 @@ def build_full_graph(
             except Exception:
                 pass   # speaker_voices table doesn't exist yet
 
+        # ── Codeword / threat-term nodes from keyword_alerts ──────────────────
+        # Coded terminology (aloo->grenades, mehmaan->infiltrators, ...) linked
+        # to the actors that used them — surfaces "who is talking in code".
+        if include_codewords:
+            try:
+                cw_rows = conn.execute(
+                    "SELECT i.report_id, k.matched_word "
+                    "FROM keyword_alerts k "
+                    "JOIN intercepts i ON i.id = k.intercept_id "
+                    "WHERE k.category = 'coded_terminology'"
+                ).fetchall()
+                for row in cw_rows:
+                    rid  = row["report_id"]
+                    word = (row["matched_word"] or "").strip()
+                    if not word:
+                        continue
+                    cw_key = f"TERM:{word.lower()}"
+                    if not G.has_node(cw_key):
+                        G.add_node(cw_key,
+                                   node_type = "codeword",
+                                   label     = word,
+                                   count     = 0,
+                                   ctype     = "codeword")
+                    G.nodes[cw_key]["count"] = G.nodes[cw_key].get("count", 0) + 1
+                    for actor in report_actor_set.get(rid, set()):
+                        if not G.has_node(actor):
+                            continue
+                        if G.has_edge(actor, cw_key):
+                            G[actor][cw_key]["weight"] += 1
+                            G[actor][cw_key]["report_ids"].append(rid)
+                        else:
+                            G.add_edge(actor, cw_key,
+                                       weight=1, report_ids=[rid],
+                                       edge_type="uses-term")
+            except Exception:
+                pass
+
         conn.close()
 
     except Exception:
         pass   # DB unavailable — return actor-only graph
+
+    # ── Operator aliases: relabel any node the analyst has resolved ────────────
+    if aliases:
+        _al = {k.lower(): v for k, v in aliases.items() if v}
+        for node, attrs in G.nodes(data=True):
+            base = (attrs.get("label", node) or "").lower()
+            key  = node.split(":", 1)[-1].lower()   # strip LOC:/VOICE:/TERM: prefix
+            alias = _al.get(base) or _al.get(key)
+            if alias:
+                attrs["alias"] = alias
+                attrs["label"] = f"{attrs.get('label', node)} = {alias}"
 
     return G
 
@@ -360,7 +414,7 @@ def render_network_figure(G: nx.Graph, title: str = "") -> Optional[object]:
 
     node_traces = []
     threat_order = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "CLEAR",
-                    "location", "voice"]
+                    "location", "codeword", "voice"]
 
     def _sort_key(k):
         ntype, threat = k
@@ -381,6 +435,9 @@ def render_network_figure(G: nx.Graph, title: str = "") -> Optional[object]:
             elif ntype == "location":
                 sizes.append(max(10, min(28, 8 + cnt * 3)))
                 color = NODE_COLOR["location"]
+            elif ntype == "codeword":
+                sizes.append(max(11, min(30, 9 + cnt * 3)))
+                color = NODE_COLOR["codeword"]
             else:  # voice
                 sizes.append(max(12, min(32, 10 + cnt * 3)))
                 color = attrs.get("node_color", NODE_COLOR["voice"])

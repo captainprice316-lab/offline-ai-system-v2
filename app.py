@@ -3325,7 +3325,7 @@ with tab_network:
                 help="Hide actors with no connections to others",
             )
 
-        _nx1, _nx2 = st.columns(2)
+        _nx1, _nx2, _nx3 = st.columns(3)
         with _nx1:
             _net_locs = st.checkbox(
                 "Show location nodes", value=True, key="_net_locs",
@@ -3336,17 +3336,34 @@ with tab_network:
                 "Show voice nodes", value=True, key="_net_voices",
                 help="Add voice ID nodes from speaker re-ID; edges = voice co-occurred with actor",
             )
+        with _nx3:
+            _net_codewords = st.checkbox(
+                "Show codeword nodes", value=True, key="_net_codewords",
+                help="Add coded-terminology nodes (aloo, mehmaan, doctor…); edges = actor used the codeword",
+            )
 
         # ── Build graph ───────────────────────────────────────────────────────
         _db_path = str(ROOT / cfg.get("paths", {}).get("database", "database/transcripts.db"))
+        _alias_map = db.get_aliases()
         _G = build_full_graph(
             _net_profiles,
             min_appearances=_net_min,
             include_types=set(_net_types) if _net_types else None,
-            db_path=_db_path if (_net_locs or _net_voices) else None,
+            db_path=_db_path if (_net_locs or _net_voices or _net_codewords) else None,
             include_locations=_net_locs,
             include_voices=_net_voices,
+            include_codewords=_net_codewords,
+            aliases={k: v["alias"] for k, v in _alias_map.items()},
         )
+
+        # Collect every detected term (before isolate removal) for the operator
+        # resolution table — callsigns, locations, codewords, voices.
+        _kindmap = {"actor": "callsign", "location": "location",
+                    "codeword": "codeword", "voice": "voice"}
+        _resolve_terms = []
+        for _n, _a in _G.nodes(data=True):
+            _base = (_a.get("label") or _n).split(" = ")[0].strip()
+            _resolve_terms.append((_base, _kindmap.get(_a.get("node_type", "actor"), "other")))
 
         if _net_isolates:
             _G.remove_nodes_from(list(nx.isolates(_G)))
@@ -3425,6 +3442,48 @@ with tab_network:
                     )
         else:
             st.info("No connected nodes found with current filters.")
+
+        # ── Operator Resolution — assign real identity / pseudoname ────────────
+        st.markdown("---")
+        sechdr("Operator Resolution")
+        st.caption("Recognise a callsign, name, place, or codeword? Assign a real "
+                   "identity or pseudoname — it persists and relabels the graph nodes "
+                   "(e.g. \"potatoes = grenades\", \"Alpha team = 5 Rajput Bn\").")
+        _seen, _rrows = set(), []
+        for _term, _kind in _resolve_terms:
+            _k = _term.lower()
+            if _k in _seen or not _term:
+                continue
+            _seen.add(_k)
+            _ex = _alias_map.get(_k, {})
+            _rrows.append({"Term": _term, "Type": _kind,
+                           "Operator Alias": _ex.get("alias", ""),
+                           "Notes": _ex.get("notes", "")})
+        _rdf = pd.DataFrame(_rrows) if _rrows else pd.DataFrame(
+            columns=["Term", "Type", "Operator Alias", "Notes"])
+        if not _rdf.empty:
+            _rdf = _rdf.sort_values(["Type", "Term"]).reset_index(drop=True)
+        _edited = st.data_editor(
+            _rdf, use_container_width=True, hide_index=True, key="_alias_editor",
+            disabled=["Term", "Type"],
+            column_config={
+                "Operator Alias": st.column_config.TextColumn(
+                    "Operator Alias", help="Real identity / pseudoname"),
+                "Notes": st.column_config.TextColumn("Notes"),
+            },
+        )
+        if st.button("💾  Save resolutions", key="_save_aliases"):
+            _saved = 0
+            for _, _row in _edited.iterrows():
+                _term = str(_row["Term"]).strip()
+                _al   = str(_row["Operator Alias"] or "").strip()
+                _nt   = str(_row["Notes"] or "")
+                _prev = _alias_map.get(_term.lower(), {})
+                if _al != _prev.get("alias", "") or _nt != _prev.get("notes", ""):
+                    db.set_alias(_term, str(_row["Type"]), _al, _nt)
+                    _saved += 1
+            st.success(f"Saved {_saved} resolution(s).")
+            st.rerun()
 
 # ------------------------------------------------------------------------------
 # TAB 8 - EXPORT
