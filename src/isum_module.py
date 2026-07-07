@@ -184,7 +184,7 @@ TASK: Produce a structured intelligence summary. Extract ONLY what is explicitly
 
 Respond with this exact JSON structure:
 {{
-  "who": "<Specific actors, callsigns, units, or 'Not identified'>",
+  "who": "<Semicolon-separated LABELLED groups, using ONLY these labels: 'Callsigns: <names, e.g. Alpha-3, Bravo-2>'; 'Unit designators: <sector/grid/unit ids>'; 'Units: <formations>'; 'Ranks/titles: <ranks>'; and 'Friendly forces' or 'Hostile forces' if stated. Example: 'Callsigns: Alpha-3, Bravo-2; Units: 2 Battalion; Ranks/titles: Commander'. Output exactly 'Not identified' if no actors are present.>",
   "what": "<Specific activity, orders, events, or 'No significant activity detected'>",
   "where": "<Locations, grid references, directions, or 'No location identified'>",
   "when": "<Times, dates, temporal references, or 'No temporal reference'>",
@@ -278,7 +278,7 @@ TASK: Produce a structured intelligence summary. Extract ONLY what is explicitly
 
 Respond with this exact JSON structure:
 {{
-  "who": "<Specific actors, callsigns (e.g. Alpha-3), units, or 'Not identified'>",
+  "who": "<Semicolon-separated LABELLED groups, using ONLY these labels: 'Callsigns: <names, e.g. Alpha-3, Bravo-2>'; 'Unit designators: <sector/grid/unit ids>'; 'Units: <formations>'; 'Ranks/titles: <ranks>'; and 'Friendly forces' or 'Hostile forces' if stated. Example: 'Callsigns: Alpha-3, Bravo-2; Units: 2 Battalion'. Output exactly 'Not identified' if no actors.>",
   "what": "<Specific activity, orders, events, or 'No significant activity detected'>",
   "where": "<Locations, grid references, directions, landmarks, or 'No location identified'>",
   "when": "<Times, dates, temporal references (e.g. '0600 hours', 'tonight'), or 'No temporal reference'>",
