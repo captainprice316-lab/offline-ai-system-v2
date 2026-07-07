@@ -853,7 +853,7 @@ st.markdown("""
 
 # -- Tabs ----------------------------------------------------------------------
 tab_process, tab_isum, tab_search, tab_dashboard, tab_map, tab_history, tab_timeline, tab_network, tab_export, tab_metrics, tab_annotate, tab_batch, tab_chat, tab_clear = st.tabs([
-    "PROCESS", "ISUM", "SEARCH", "DASHBOARD", "MAP",
+    "PROCESS", "ANALYSIS", "SEARCH", "DASHBOARD", "MAP",
     "HISTORY", "TIMELINE", "NETWORK", "EXPORT", "METRICS", "ANNOTATE", "BATCH", "CHAT", "CLEAR",
 ])
 
