@@ -146,8 +146,8 @@ database:
 # any unreachable/failed node silently falls back to the local stage, so the
 # working demo path cannot regress. See integration/INTEGRATION_PLAN.md.
 remote:
-  enabled: false             # master switch — false restores exact current behaviour.
-                             # GUI "Network Mode" (Auto/Standalone/Networked) overrides per session.
+  enabled: true              # DEMO 2026-07-10: 3-node LAN live. Boots in Auto mode → probes
+                             # A/B, uses them if reachable, else runs local. Set false for standalone.
   fallback_on_error: true    # any remote failure -> run the existing local stage
   timeout_connect_s: 5
 

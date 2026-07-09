@@ -323,11 +323,15 @@ class RemoteClient:
 
             conf = float(data.get("top1_language_confidence", 0.0))
             if conf >= best["confidence"]:
+                # NODE-B's dialect head always runs, but is only meaningful when the
+                # language is Mandarin (dialect_engaged). Drop it otherwise so the GUI
+                # never shows a spurious dialect for non-Mandarin speakers.
+                _engaged = bool(data.get("dialect_engaged"))
                 best = {
                     "language":           data.get("top1_language"),
                     "confidence":         conf,
-                    "dialect":            data.get("top1_dialect"),
-                    "dialect_confidence": float(data.get("top1_dialect_confidence", 0.0)),
+                    "dialect":            data.get("top1_dialect") if _engaged else None,
+                    "dialect_confidence": float(data.get("top1_dialect_confidence", 0.0)) if _engaged else 0.0,
                 }
 
         if not speech_seen:

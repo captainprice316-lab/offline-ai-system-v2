@@ -1883,22 +1883,27 @@ function seekAudio(t) {{
                     unsafe_allow_html=True,
                 )
                 for _sp in _speakers:
-                    _lbl  = _sp.get("label", "?")
+                    _lbl_raw = str(_sp.get("label", "?"))
+                    # Real NODE-A labels speakers "0","1",...; show them as SPEAKER_A/B.
+                    _lbl = (f"SPEAKER_{chr(65 + int(_lbl_raw))}"
+                            if _lbl_raw.isdigit() and int(_lbl_raw) < 26 else _lbl_raw)
                     _col  = _speaker_color(_lbl)
                     _lang = _sp.get("language") or "—"
                     _cf   = _sp.get("confidence")
                     _cfs  = f"{_cf:.2f}" if isinstance(_cf, (int, float)) else "—"
-                    _dia  = _sp.get("dialect") or "—"
+                    _dia  = _sp.get("dialect")   # None for non-Mandarin (dialect not engaged)
                     _tt   = _sp.get("talk_time")
                     _tts  = f"{_tt:.1f}s" if isinstance(_tt, (int, float)) else "—"
+                    _dia_html = (f' &nbsp;&middot;&nbsp; dialect <b style="color:#cfe3f5">{_dia}</b>'
+                                 if _dia else "")
                     st.markdown(
                         f'<div style="border-left:3px solid {_col};padding:0.35rem 0.6rem;'
                         f'margin:0.25rem 0;background:#141c24;border-radius:3px">'
                         f'<span style="color:{_col};font-weight:600">{_lbl}</span>'
                         f'<span style="color:#8a9aaa;font-size:0.78rem">'
                         f' &nbsp;&middot;&nbsp; talk {_tts} &nbsp;&middot;&nbsp; '
-                        f'lang <b style="color:#cfe3f5">{_lang}</b> (conf {_cfs}) '
-                        f'&nbsp;&middot;&nbsp; dialect {_dia}</span></div>',
+                        f'lang <b style="color:#cfe3f5">{_lang}</b> (conf {_cfs})'
+                        f'{_dia_html}</span></div>',
                         unsafe_allow_html=True,
                     )
                     _tp = _sp.get("track_path")
