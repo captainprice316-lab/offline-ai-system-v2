@@ -69,10 +69,10 @@ offline_ai_system_v2/
 │   └── model_comparison_report.md   # Cross-model comparison report
 │
 ├── models/                          # Deployed CT2 models (int8 quantized)
-│   ├── whisper-large-v3-pa-ct2/     # Punjabi   — eval WER 59.94%
-│   ├── whisper-medium-pashto-ct2/   # Pashto    — eval WER 39.72%
+│   ├── whisper-large-v3-pa-ct2/     # Punjabi   — eval WER 55.67%
+│   ├── whisper-medium-pashto-ct2/   # Pashto    — eval WER 38.55%
 │   ├── whisper-large-v3-ur-ct2/     # Urdu      — eval WER 19.82%
-│   ├── whisper-large-v3-ne-ct2/     # Nepali    — eval WER 53.92%
+│   ├── whisper-large-v3-ne-ct2/     # Nepali    — eval WER 49.24%
 │   ├── whisper-large-v3-zh-ct2/     # Mandarin  — eval WER 16.03%
 │   ├── whisper-large-v3-hi-ct2/     # Hindi     — eval WER 19.78%
 │   ├── whisper-large-v3-ks-ct2/     # Kashmiri  — eval_loss 0.936

@@ -56,3 +56,13 @@ Thumbs.db
 
 # Demo intercept audio — regenerable via generate_demo_audio.py
 demo_audio/*.wav
+
+# 3-node integration: large data — junction to E: + FLEURS dataset cache (not source)
+finetune_runs_seamless/
+scripts/data/fleurs/
+
+# Scratch / session temp (test wavs, logs, extracted node output)
+scratchpad/
+
+# Keep the integration process-overview PDF despite the global *.pdf rule
+!integration/PROCESS_OVERVIEW.pdf

@@ -85,6 +85,10 @@ class TranslationModule:
         self.max_input_tokens  = cfg.get("max_input_tokens",  256)
         self.max_output_tokens = cfg.get("max_output_tokens", 256)
         self.unload_after_use  = cfg.get("unload_after_use",  True)
+        # Park NLLB weights in CPU RAM between calls instead of destroying them
+        # (PCIe swap ~0.3 s vs ~3-4 s disk reload). Takes precedence over
+        # unload_after_use when both are set.
+        self.offload_to_cpu    = cfg.get("offload_to_cpu",    False)
         self.indic_num_beams   = cfg.get("indic_num_beams",   2)
         self.nllb_num_beams    = cfg.get("nllb_num_beams",    4)
         # IndicTrans2 requires eager attention — keep on CPU to avoid MPS incompatibilities
@@ -230,7 +234,9 @@ class TranslationModule:
             return " ".join(self._nllb_translate_chunk(c, src_code) for c in chunks)
 
         finally:
-            if self.unload_after_use:
+            if self.offload_to_cpu:
+                self._park_nllb()
+            elif self.unload_after_use:
                 self._unload_nllb()
 
     def _nllb_translate_chunk(self, text: str, src_code: str) -> str:
@@ -275,6 +281,7 @@ class TranslationModule:
                     max_length=self.max_input_tokens,
                     padding=True,
                 )
+                inputs = {k: v.to(self.device) for k, v in inputs.items()}
                 tgt_id  = self._nllb_tokenizer.convert_tokens_to_ids(tgt_code)
                 outputs = self._nllb_model.generate(
                     **inputs,
@@ -288,7 +295,9 @@ class TranslationModule:
         except Exception as e:
             return {"translated_text": "", "success": False, "error": str(e)}
         finally:
-            if self.unload_after_use:
+            if self.offload_to_cpu:
+                self._park_nllb()
+            elif self.unload_after_use:
                 self._unload_nllb()
 
     def _load_nllb(self):
@@ -298,8 +307,20 @@ class TranslationModule:
             )
             self._nllb_model = AutoModelForSeq2SeqLM.from_pretrained(
                 self.nllb_model_path, local_files_only=True,
+                # fp16 on GPU: halves VRAM (~1.2 GB) and speeds up generate;
+                # CPU stays fp32 (fp16 CPU inference is slow and lossy)
+                dtype=torch.float16 if self.device == "cuda" else None,
             ).to(self.device)
             self._nllb_model.eval()
+        else:
+            # Promote back to the target device if parked on CPU
+            self._nllb_model.to(self.device)
+
+    def _park_nllb(self):
+        """Move NLLB weights to CPU RAM between calls (offload_to_cpu mode)."""
+        if self._nllb_model is not None and self.device == "cuda":
+            self._nllb_model.to("cpu")
+        self._free_memory()
 
     def _unload_nllb(self):
         self._nllb_model = self._nllb_tokenizer = None

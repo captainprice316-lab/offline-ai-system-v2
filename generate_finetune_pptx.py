@@ -1,28 +1,41 @@
 """
-generate_finetune_pptx.py  --  VANI Fine-Tuning 10-slide PPTX
+generate_finetune_pptx.py  --  VANI Fine-Tuning 22-slide PPTX
 """
+import sys
+import matplotlib
+matplotlib.use("Agg")
 from pathlib import Path
 from pptx import Presentation
-from pptx.util import Inches, Pt, Emu
+from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN
-from pptx.util import Inches, Pt
-import copy
 
-# ── Colour palette — Modern Minimal ───────────────────────────────────────────
-C_DARK   = RGBColor(0xF5, 0xF5, 0xF5)   # light grey background
-C_ACCENT = RGBColor(0x00, 0x69, 0x5C)   # teal
-C_GOLD   = RGBColor(0x6A, 0x1B, 0x9A)   # purple
-C_WHITE  = RGBColor(0x21, 0x21, 0x21)   # dark text
-C_LGRAY  = RGBColor(0x55, 0x55, 0x55)   # medium grey secondary text
-C_GREEN  = RGBColor(0x00, 0x89, 0x7B)   # teal-green for good WER
-C_RED    = RGBColor(0xC6, 0x28, 0x28)   # red for poor WER
-C_PANEL  = RGBColor(0xFF, 0xFF, 0xFF)   # white card background
-C_BORDER = RGBColor(0xDD, 0xDD, 0xDD)   # light border
-C_TBGHDR = RGBColor(0x00, 0x69, 0x5C)   # teal table header bg
-C_TBGALT = RGBColor(0xE8, 0xF5, 0xE9)   # very light teal alternate row
+# Import chart generators from the PDF report script
+sys.path.insert(0, str(Path(__file__).parent))
+from generate_report_pdf import (
+    chart_dataset_sizes, chart_summary_bar, chart_wer_all,
+    chart_wer_per_lang, LANG_ORDER, LANG_META,
+)
 
-OUT_PATH = Path(__file__).parent / "docs" / "VANI_Finetune_Presentation.pptx"
+# ── Colour palette — light professional theme ──────────────────────────────────
+C_BG     = RGBColor(0xFF, 0xFF, 0xFF)   # white background
+C_CARD   = RGBColor(0xF0, 0xF4, 0xFF)   # very light indigo card
+C_CARD2  = RGBColor(0xF8, 0xF9, 0xFA)   # off-white alternate card
+C_NAVY   = RGBColor(0x1A, 0x23, 0x7E)   # deep navy (headings, top band)
+C_TEXT   = RGBColor(0x21, 0x21, 0x21)   # near-black body text
+C_SUB    = RGBColor(0x54, 0x6E, 0x7A)   # blue-grey secondary text
+C_TEAL   = RGBColor(0x00, 0x79, 0x6B)   # professional teal accent
+C_TEAL_L = RGBColor(0xE0, 0xF2, 0xF1)   # very light teal fill
+C_BLUE   = RGBColor(0x15, 0x65, 0xC0)   # medium blue accent
+C_GOLD   = RGBColor(0xF5, 0x7F, 0x17)   # amber (darker for light bg)
+C_GREEN  = RGBColor(0x2E, 0x7D, 0x32)   # deep green for good results
+C_RED    = RGBColor(0xC6, 0x28, 0x28)   # deep red for warnings
+C_PURPLE = RGBColor(0x6A, 0x1B, 0x9A)   # purple accent
+C_BORDER = RGBColor(0xC5, 0xCA, 0xE9)   # light indigo border
+
+OUT_PATH = Path(__file__).parent / "docs" / "VANI_Finetune_Presentation_v6.pptx"
+
+FONT = "Times New Roman"   # global presentation typeface
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -33,18 +46,16 @@ def new_prs() -> Presentation:
     return prs
 
 def blank_slide(prs):
-    blank_layout = prs.slide_layouts[6]  # completely blank
-    return prs.slides.add_slide(blank_layout)
+    return prs.slides.add_slide(prs.slide_layouts[6])
 
-C_TITLE_TEXT = RGBColor(0x00, 0x47, 0x40)   # darker teal for slide titles
-
-def bg(slide, color=C_DARK):
+def bg(slide, color=C_BG):
     fill = slide.background.fill
     fill.solid()
     fill.fore_color.rgb = color
 
-def box(slide, left, top, width, height, fill_color=None, line_color=None, line_width=Pt(0)):
-    shape = slide.shapes.add_shape(1, Inches(left), Inches(top), Inches(width), Inches(height))
+def box(slide, left, top, width, height, fill_color=None, line_color=None, line_width=Pt(0.75)):
+    shape = slide.shapes.add_shape(
+        1, Inches(left), Inches(top), Inches(width), Inches(height))
     shape.line.width = line_width
     if fill_color:
         shape.fill.solid()
@@ -59,539 +70,976 @@ def box(slide, left, top, width, height, fill_color=None, line_color=None, line_
     return shape
 
 def txbox(slide, text, left, top, width, height,
-          font_size=18, bold=False, color=C_WHITE,
+          font_size=18, bold=False, color=C_TEXT,
           align=PP_ALIGN.LEFT, italic=False, wrap=True):
-    tb = slide.shapes.add_textbox(Inches(left), Inches(top), Inches(width), Inches(height))
+    tb = slide.shapes.add_textbox(
+        Inches(left), Inches(top), Inches(width), Inches(height))
     tb.word_wrap = wrap
     tf = tb.text_frame
     tf.word_wrap = wrap
-    p  = tf.paragraphs[0]
+    p = tf.paragraphs[0]
     p.alignment = align
     run = p.add_run()
     run.text = text
-    run.font.size  = Pt(font_size)
-    run.font.bold  = bold
+    run.font.name    = FONT
+    run.font.size    = Pt(font_size)
+    run.font.bold    = bold
+    run.font.italic  = italic
     run.font.color.rgb = color
-    run.font.italic = italic
     return tb
 
-def accent_bar(slide, top=0.92, height=0.05):
-    box(slide, 0, top, 13.33, height, fill_color=C_ACCENT)
+def _multiline(slide, text, left, top, width, height,
+               font_size=9, bold=False, color=C_TEXT, align=PP_ALIGN.CENTER):
+    """Textbox that renders each '\\n'-separated line as its own paragraph."""
+    tb = slide.shapes.add_textbox(
+        Inches(left), Inches(top), Inches(width), Inches(height))
+    tb.word_wrap = True
+    tf = tb.text_frame
+    tf.word_wrap = True
+    for i, line in enumerate(text.split("\n")):
+        p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
+        p.alignment = align
+        run = p.add_run()
+        run.text = line
+        run.font.name = FONT
+        run.font.size = Pt(font_size)
+        run.font.bold = bold
+        run.font.color.rgb = color
+    return tb
 
-def slide_number(slide, n):
-    txbox(slide, str(n), 12.7, 7.15, 0.5, 0.3,
-          font_size=11, color=C_LGRAY, align=PP_ALIGN.RIGHT)
+def top_band(slide, color=C_NAVY):
+    """Thin decorative band at very top — does NOT overlap headings."""
+    box(slide, 0, 0, 13.33, 0.10, fill_color=color)
 
-def section_tag(slide, text, left=0.4, top=0.22):
-    box(slide, left, top, 2.4, 0.30, fill_color=C_ACCENT)
-    txbox(slide, text.upper(), left+0.08, top+0.03, 2.3, 0.26,
-          font_size=9, bold=True, color=RGBColor(0xFF,0xFF,0xFF))
+def hline(slide, top, color=C_TEAL, width_in=12.5, left=0.4):
+    box(slide, left, top, width_in, 0.03, fill_color=color)
 
-def hline(slide, top, color=C_ACCENT, width_in=12.5, left=0.4):
-    box(slide, left, top, width_in, 0.025, fill_color=color)
+def slide_num(slide, n):
+    txbox(slide, str(n), 12.6, 7.1, 0.6, 0.32,
+          font_size=11, color=C_SUB, align=PP_ALIGN.RIGHT)
 
-def bullet_block(slide, items, left, top, width, height,
-                 font_size=15, bullet="▸", color=C_WHITE, spacing=0.38):
+def section_tag(slide, text, left=0.4, top=0.15):
+    box(slide, left, top, 2.5, 0.26, fill_color=C_NAVY)
+    txbox(slide, text.upper(), left+0.08, top+0.03, 2.4, 0.22,
+          font_size=8.5, bold=True, color=RGBColor(0xFF,0xFF,0xFF))
+
+def slide_header(slide, title, n, tag=None, top=0.55):
+    """Standard slide header: navy top band + title + teal underline."""
+    top_band(slide)
+    if tag:
+        section_tag(slide, tag)
+    txbox(slide, title, 0.4, top, 12.5, 0.65,
+          font_size=27, bold=True, color=C_NAVY)
+    hline(slide, top + 0.70)
+    slide_num(slide, n)
+
+def card(slide, left, top, width, height, accent_color=None):
+    box(slide, left, top, width, height, fill_color=C_CARD,
+        line_color=C_BORDER, line_width=Pt(0.75))
+    if accent_color:
+        box(slide, left, top, 0.06, height, fill_color=accent_color)
+
+def bullet_block(slide, items, left, top, width, font_size=13,
+                 color=C_SUB, spacing=0.38, bullet="▸"):
     y = top
     for item in items:
-        txbox(slide, f"{bullet}  {item}", left, y, width, 0.38,
+        txbox(slide, f"{bullet}  {item}", left, y, width, 0.36,
               font_size=font_size, color=color)
         y += spacing
 
-def wer_bar(slide, left, top, lang, wer, best=False):
-    bar_max = 3.5
-    pct = min(wer / 110, 1.0)
-    bar_w = bar_max * pct
-    color = C_GREEN if wer < 30 else (C_GOLD if wer < 60 else C_RED)
-
-    box(slide, left, top, bar_max, 0.30, fill_color=RGBColor(0xE0, 0xF2, 0xF1))
-    if bar_w > 0.02:
-        box(slide, left, top, bar_w, 0.30, fill_color=color)
-    txbox(slide, lang, left - 1.05, top + 0.03, 1.0, 0.28,
-          font_size=13, bold=best, color=C_GOLD if best else C_WHITE, align=PP_ALIGN.RIGHT)
-    txbox(slide, f"{wer}%", left + bar_max + 0.08, top + 0.03, 0.7, 0.28,
-          font_size=13, bold=best, color=color)
-
-
-# ── Slide builders ─────────────────────────────────────────────────────────────
+# ── Slide 1 — Title ───────────────────────────────────────────────────────────
 
 def slide_01_title(prs):
     s = blank_slide(prs)
     bg(s)
-    # Top teal band
-    box(s, 0, 0, 13.33, 2.8, fill_color=C_ACCENT)
-    # Bottom thin accent line
-    box(s, 0, 7.45, 13.33, 0.05, fill_color=C_GOLD)
+    # Navy header block
+    box(s, 0, 0, 13.33, 3.2, fill_color=C_NAVY)
+    box(s, 0, 3.18, 13.33, 0.07, fill_color=C_TEAL)
 
-    txbox(s, "VANI", 1.0, 0.25, 11.0, 1.5,
-          font_size=80, bold=True, color=RGBColor(0xFF,0xFF,0xFF), align=PP_ALIGN.CENTER)
-    txbox(s, "Voice Analysis & Neural Intelligence", 1.0, 1.75, 11.0, 0.55,
-          font_size=20, bold=False, color=RGBColor(0xCC,0xE8,0xE5), align=PP_ALIGN.CENTER)
+    txbox(s, "VANI", 1.0, 0.10, 11.33, 1.55,
+          font_size=90, bold=True, color=RGBColor(0xFF,0xFF,0xFF), align=PP_ALIGN.CENTER)
+    txbox(s, "Voice Analysis & Neural Intelligence System",
+          1.0, 1.68, 11.33, 0.5,
+          font_size=17, color=RGBColor(0xC5, 0xCA, 0xE9), align=PP_ALIGN.CENTER)
+    txbox(s, "Whisper ASR Fine-Tuning Report",
+          1.0, 2.28, 11.33, 0.55,
+          font_size=20, bold=True, color=RGBColor(0xFF, 0xD5, 0x4F), align=PP_ALIGN.CENTER)
 
-    txbox(s, "Whisper Fine-Tuning Report", 1.0, 3.2, 11.0, 0.6,
-          font_size=26, bold=True, color=C_ACCENT, align=PP_ALIGN.CENTER)
-    hline(s, 3.92, width_in=5.0, left=4.17, color=C_GOLD)
-    txbox(s, "LoRA Adaptation for 6 Border-Region Languages", 1.0, 4.05, 11.0, 0.45,
-          font_size=16, color=C_LGRAY, align=PP_ALIGN.CENTER)
-    txbox(s, "M.Tech Research Project  ·  IIT Indore  ·  June 2026", 1.0, 5.0, 11.0, 0.38,
-          font_size=13, italic=True, color=C_LGRAY, align=PP_ALIGN.CENTER)
-    txbox(s, "Hardware: NVIDIA RTX 5060 8 GB  ·  Windows 11  ·  CUDA", 1.0, 5.45, 11.0, 0.3,
-          font_size=11, color=RGBColor(0x99,0x99,0x99), align=PP_ALIGN.CENTER)
-    slide_number(s, 1)
+    # Light content area
+    txbox(s, "LoRA Domain Adaptation for 7 Border-Region Languages",
+          1.0, 3.45, 11.33, 0.48,
+          font_size=16, bold=True, color=C_NAVY, align=PP_ALIGN.CENTER)
+    hline(s, 4.03, width_in=5.5, left=3.92, color=C_TEAL)
+    txbox(s, "M.Tech Research Project  ·  IIT Indore  ·  2026",
+          1.0, 4.12, 11.33, 0.38,
+          font_size=13, italic=True, color=C_SUB, align=PP_ALIGN.CENTER)
+    txbox(s, "Hardware: NVIDIA RTX 5060 8 GB  ·  Windows 11  ·  CUDA  ·  faster-whisper CT2 int8",
+          1.0, 4.58, 11.33, 0.32,
+          font_size=10, color=C_SUB, align=PP_ALIGN.CENTER)
+
+    # Bottom info strip
+    box(s, 0, 7.1, 13.33, 0.40, fill_color=C_CARD)
+    txbox(s, "7 Languages  ·  LoRA r=8/16  ·  CTranslate2 int8  ·  Fully Offline",
+          0.5, 7.14, 12.33, 0.30,
+          font_size=11, color=C_NAVY, align=PP_ALIGN.CENTER)
+    slide_num(s, 1)
+
+# ── Slide 2 — Motivation ──────────────────────────────────────────────────────
 
 def slide_02_motivation(prs):
     s = blank_slide(prs)
     bg(s)
-    accent_bar(s)
-    section_tag(s, "Background")
-    slide_number(s, 2)
+    slide_header(s, "Why Fine-Tune Whisper?", 2, "Background")
 
-    txbox(s, "Why Fine-Tune?", 0.4, 0.55, 12.0, 0.6,
-          font_size=28, bold=True, color=C_ACCENT)
-    hline(s, 1.25)
-
-    # Left — problem
-    box(s, 0.4, 1.4, 5.8, 4.9, fill_color=C_PANEL,
-        line_color=C_RED, line_width=Pt(1.5))
-    box(s, 0.4, 1.4, 5.8, 0.38, fill_color=C_RED)
-    txbox(s, "The Problem", 0.55, 1.44, 5.4, 0.33,
-          font_size=14, bold=True, color=RGBColor(0xFF,0xFF,0xFF))
+    # Left panel — problem
+    card(s, 0.4, 1.42, 5.85, 5.0, accent_color=C_RED)
+    box(s, 0.4, 1.42, 5.85, 0.38, fill_color=C_RED)
+    txbox(s, "⚠  The Problem", 0.55, 1.47, 5.5, 0.32,
+          font_size=13, bold=True, color=RGBColor(0xFF,0xFF,0xFF))
     issues = [
-        "Baseline Whisper large-v3 WER\non Punjabi: ~75%",
-        "Urdu baseline WER: ~74%",
-        "Hindi baseline WER: ~75%",
+        "Baseline Whisper large-v3 WER on\nPunjabi (pa): ~105%",
+        "Pashto baseline WER: ~94%",
+        "Nepali baseline WER: ~95%",
+        "Mandarin turbo model translates\nto English → 100% WER vs source",
         "Radio intercept audio is noisy\n& domain-specific",
-        "Generic model not trained on\nborder-language acoustics",
+        "Generic model lacks border-language\nacoustic knowledge",
     ]
-    bullet_block(s, issues, 0.6, 1.95, 5.4, 3.5, font_size=13, color=C_WHITE, spacing=0.72)
+    bullet_block(s, issues, 0.58, 1.95, 5.5, font_size=12,
+                 color=C_TEXT, spacing=0.68, bullet="✗")
 
-    # Right — solution
-    box(s, 6.7, 1.4, 5.9, 4.9, fill_color=C_PANEL,
-        line_color=C_ACCENT, line_width=Pt(1.5))
-    box(s, 6.7, 1.4, 5.9, 0.38, fill_color=C_ACCENT)
-    txbox(s, "The Solution — LoRA Fine-Tuning", 6.85, 1.44, 5.6, 0.33,
-          font_size=14, bold=True, color=RGBColor(0xFF,0xFF,0xFF))
+    # Right panel — solution
+    card(s, 6.75, 1.42, 5.85, 5.0, accent_color=C_TEAL)
+    box(s, 6.75, 1.42, 5.85, 0.38, fill_color=C_TEAL)
+    txbox(s, "✔  The Solution — LoRA Fine-Tuning", 6.90, 1.47, 5.5, 0.32,
+          font_size=13, bold=True, color=RGBColor(0xFF,0xFF,0xFF))
     solutions = [
-        "Adapt only 0.25% of parameters\n(LoRA r=8, alpha=16)",
-        "Train on FLEURS speech corpus\n(no military data needed)",
-        "Keep base model frozen —\nno catastrophic forgetting",
-        "Export to int8 CT2 format\nfor fast offline inference",
+        "Train only 0.25% of parameters\n(LoRA r=8/16, α=16/32)",
+        "Use FLEURS speech corpus + AI4Bharat\nIndicVoices-R for Punjabi & Nepali",
+        "Base model weights stay frozen\n— no catastrophic forgetting",
+        "Export to CTranslate2 int8\nfor fast offline inference",
         "Plug directly into VANI\n10-stage pipeline",
+        "Fully offline — no internet after\ninitial model download",
     ]
-    bullet_block(s, solutions, 6.9, 1.95, 5.5, 3.5, font_size=13, color=C_WHITE, spacing=0.72)
+    bullet_block(s, solutions, 6.90, 1.95, 5.5, font_size=12,
+                 color=C_TEXT, spacing=0.68, bullet="✔")
+
+# ── Slide 3 — Methodology ─────────────────────────────────────────────────────
 
 def slide_03_methodology(prs):
     s = blank_slide(prs)
     bg(s)
-    accent_bar(s)
-    section_tag(s, "Methodology")
-    slide_number(s, 3)
+    slide_header(s, "LoRA Fine-Tuning Methodology", 3, "Methodology")
 
-    txbox(s, "LoRA Fine-Tuning Pipeline", 0.4, 0.65, 12.0, 0.6,
-          font_size=28, bold=True, color=C_WHITE)
-    hline(s, 1.3)
-
-    # Pipeline flow boxes
+    # Pipeline flow
     steps = [
-        ("1", "FLEURS\nDataset", C_ACCENT),
-        ("2", "WhisperProcessor\nFeature Extract", C_ACCENT),
+        ("1", "FLEURS /\nIndicVoices-R", C_TEAL),
+        ("2", "Whisper\nProcessor", C_TEAL),
         ("3", "LoRA Adapter\nr=8, q+v proj", C_GOLD),
         ("4", "Seq2Seq\nTrainer", C_GOLD),
-        ("5", "Merge &\nConvert CT2", C_GREEN),
-        ("6", "VANI\nDeployment", C_GREEN),
+        ("5", "Merge &\nCT2 Convert", C_GREEN),
+        ("6", "VANI\nDeploy", C_GREEN),
     ]
     x = 0.3
     for i, (num, label, col) in enumerate(steps):
-        box(s, x, 1.7, 1.9, 1.3, fill_color=C_PANEL, line_color=col, line_width=Pt(1.5))
-        txbox(s, num, x, 1.72, 1.9, 0.45, font_size=22, bold=True, color=col, align=PP_ALIGN.CENTER)
-        txbox(s, label, x, 2.2, 1.9, 0.75, font_size=11, color=C_WHITE, align=PP_ALIGN.CENTER)
+        box(s, x, 1.55, 1.9, 1.25,
+            fill_color=C_CARD, line_color=col, line_width=Pt(1.2))
+        box(s, x, 1.55, 1.9, 0.06, fill_color=col)
+        txbox(s, num, x, 1.62, 1.9, 0.45,
+              font_size=22, bold=True, color=col, align=PP_ALIGN.CENTER)
+        txbox(s, label, x, 2.1, 1.9, 0.65,
+              font_size=10, color=C_SUB, align=PP_ALIGN.CENTER)
         if i < len(steps) - 1:
-            txbox(s, "→", x + 1.9, 2.1, 0.35, 0.4, font_size=22, bold=True, color=C_ACCENT, align=PP_ALIGN.CENTER)
+            txbox(s, "→", x+1.9, 2.05, 0.35, 0.4,
+                  font_size=20, bold=True, color=C_TEAL, align=PP_ALIGN.CENTER)
         x += 2.22
 
-    # Config table
-    txbox(s, "LoRA Configuration", 0.4, 3.3, 6.0, 0.4,
-          font_size=16, bold=True, color=C_GOLD)
+    # Left config table
+    txbox(s, "LoRA Configuration", 0.4, 3.05, 6.0, 0.38,
+          font_size=14, bold=True, color=C_NAVY)
     params = [
-        ("LoRA Rank (r)", "8"),
-        ("LoRA Alpha", "16"),
-        ("Target Modules", "q_proj, v_proj"),
-        ("Trainable Params", "~3.9M / 1.55B (0.25%)"),
-        ("Learning Rate", "5×10⁻⁵ with warmup"),
-        ("Quantization", "int8 via CTranslate2"),
+        ("LoRA Rank (r)",     "8 (v1/v2)  /  16 (PA v3)"),
+        ("LoRA Alpha",        "16 (v1/v2)  /  32 (PA v3)"),
+        ("Target Modules",    "q_proj, v_proj"),
+        ("Trainable Params",  "~3.9M (r=8)  /  ~7.9M (r=16)"),
+        ("Learning Rate",     "5×10⁻⁵ with linear warmup"),
+        ("Grad Clip",         "max_grad_norm = 0.5"),
+        ("Quantization",      "int8 via CTranslate2"),
     ]
-    y = 3.78
+    y = 3.48
     for k, v in params:
-        box(s, 0.4, y, 5.8, 0.38, fill_color=C_PANEL)
-        txbox(s, k, 0.5, y+0.05, 2.8, 0.3, font_size=12, color=C_LGRAY)
-        txbox(s, v, 3.3, y+0.05, 2.8, 0.3, font_size=12, bold=True, color=C_WHITE)
-        y += 0.4
+        bg_col = C_CARD if (params.index((k,v))) % 2 == 0 else C_CARD2
+        box(s, 0.4, y, 6.0, 0.36, fill_color=bg_col)
+        txbox(s, k, 0.52, y+0.06, 2.5, 0.26, font_size=11, color=C_SUB)
+        txbox(s, v, 3.0, y+0.06, 3.3, 0.26, font_size=11, bold=True, color=C_TEXT)
+        y += 0.38
 
-    # Right side notes
-    txbox(s, "Training Notes", 6.7, 3.3, 5.8, 0.4,
-          font_size=16, bold=True, color=C_GOLD)
+    # Right training notes
+    txbox(s, "Training Notes", 6.9, 3.05, 6.0, 0.38,
+          font_size=14, bold=True, color=C_NAVY)
     notes = [
-        "Batch size 2, no gradient accumulation",
-        "Early stopping: patience = 3 evals",
-        "Eval metric: Word Error Rate (WER)",
-        "Best checkpoint auto-selected",
-        "Windows 11 CUDA — no torchcodec",
-        "fp16 training, float32 eval",
+        "Batch size 2, effective batch = 2",
+        "Eval metric: WER (jiwer)",
+        "Best checkpoint: load_best_model_at_end",
+        "fp16 mixed precision training",
+        "PA v3: 20k IndicVoices-R + FLEURS",
+        "CT2 tokenizer.json fix (large-v3 vocab shift)",
+        "preprocessor_config.json: feature_size=128",
+        "faster-whisper patched for ks language code",
     ]
-    bullet_block(s, notes, 6.7, 3.75, 6.0, 3.0, font_size=12, spacing=0.37)
+    y2 = 3.48
+    for note in notes:
+        box(s, 6.9, y2, 6.0, 0.36,
+            fill_color=C_CARD if notes.index(note) % 2 == 0 else C_CARD2)
+        txbox(s, f"▸  {note}", 7.02, y2+0.06, 5.8, 0.26, font_size=11, color=C_SUB)
+        y2 += 0.38
+
+# ── Slide 4 — Results Overview ────────────────────────────────────────────────
 
 def slide_04_results_overview(prs):
     s = blank_slide(prs)
     bg(s)
-    accent_bar(s)
-    section_tag(s, "Results")
-    slide_number(s, 4)
+    slide_header(s, "Fine-Tuning Results — All 7 Languages", 4, "Results")
 
-    txbox(s, "Fine-Tuning Results — All 7 Languages", 0.4, 0.65, 12.0, 0.6,
-          font_size=28, bold=True, color=C_WHITE)
-    hline(s, 1.3)
-
-    # Header
-    cols = [1.15, 3.0, 4.5, 6.2, 8.3, 10.0, 11.3]
-    headers = ["Language", "Script", "Base Model", "Dataset", "Steps", "Best WER", "Size"]
+    cols_x = [0.35, 2.05, 3.55, 5.55, 7.15, 8.75, 9.9, 11.2]
+    headers = ["Language", "Script", "Base\nModel", "Training Data\n(samples)",
+               "Train\nSteps", "Baseline\nWER (%)", "Best\nWER (%)", "WER Reduction\n(pp)"]
     y = 1.45
-    box(s, 0.3, y, 12.7, 0.38, fill_color=C_ACCENT)
-    for i, h in enumerate(headers):
-        txbox(s, h, cols[i], y+0.05, 1.8, 0.3, font_size=11, bold=True, color=RGBColor(0xFF,0xFF,0xFF))
+    box(s, 0.3, y, 12.75, 0.48, fill_color=C_NAVY)
+    for x, h in zip(cols_x, headers):
+        _multiline(s, h, x, y+0.04, 1.65, 0.40,
+                   font_size=9.5, bold=True, color=RGBColor(0xFF,0xFF,0xFF), align=PP_ALIGN.LEFT)
 
     rows = [
-        ("Punjabi  (pa)", "Gurmukhi",    "large-v3",       "FLEURS pa_in",      "3000", "55.67%",  "1479 MB"),
-        ("Pashto   (ps)", "Nastaliq",    "medium-pashto",  "FLEURS ps_af",      "2000", "38.55%",  " 734 MB"),
-        ("Urdu     (ur)", "Nastaliq",    "large-v3",       "FLEURS ur_pk",      "1000", "19.82%",  "1479 MB"),
-        ("Nepali   (ne)", "Devanagari",  "large-v3",       "FLEURS ne_np",      "2000", "49.24%",  "1479 MB"),
-        ("Mandarin (zh)", "Simplified",  "large-v3",       "FLEURS cmn_hans",   " 400", "16.03%",  "1479 MB"),
-        ("Hindi    (hi)", "Devanagari",  "large-v3",       "FLEURS hi_in",      " 600", "19.78%",  "1479 MB"),
-        ("Kashmiri (ks)", "Nastaliq",    "large-v3",       "IndicVoices 20k",   "1500", "N/A†",    "1479 MB"),
+        ("Punjabi  (pa) v3*", "Gurmukhi",   "large-v3",       "FLEURS+IV-R (21,923)", "4000",  "105.8%", "49.31%", "−56 pp", C_GREEN),
+        ("Punjabi  (pa) v2",  "Gurmukhi",   "large-v3",       "FLEURS+IV-R (11,923)", "3000",  "105.8%", "52.55%", "−53 pp", C_SUB),
+        ("Pashto   (ps)",     "Nastaliq",   "medium-pashto",  "FLEURS ps_af (2,082)", "2000",  "94.2%",  "38.55%", "−56 pp", C_GREEN),
+        ("Urdu     (ur)",     "Nastaliq",   "large-v3",       "FLEURS ur_pk (2,109)", "1000",  "24.4%",  "19.82%", "−4.6pp", C_GREEN),
+        ("Nepali   (ne) v2",  "Devanagari", "large-v3",       "FLEURS+IV-R (13,332)", "3000",  "94.6%",  "50.82%", "−44 pp", C_GOLD),
+        ("Mandarin (zh)",     "Simplified", "large-v3",       "FLEURS cmn (3,246)",   "400†",  "100.0%", "16.03%‡","−84 pp", C_GREEN),
+        ("Hindi    (hi)",     "Devanagari", "large-v3",       "FLEURS hi_in (2,120)", "600",   "30.3%",  "19.78%", "−11 pp", C_GREEN),
+        ("Kashmiri (ks)",     "Nastaliq",   "large-v3+<|ks|>","IndicVoices-R (20k)",  "2400‡", "96.9%",  "74.02%", "−23 pp", C_GOLD),
     ]
-    wer_colors = [C_RED, C_GOLD, C_GREEN, C_GOLD, C_GREEN, C_GREEN, C_LGRAY]
-    y += 0.4
-    for i, (row, wc) in enumerate(zip(rows, wer_colors)):
-        bg_col = C_PANEL if i % 2 == 0 else RGBColor(0xF3, 0xE5, 0xF5)
-        box(s, 0.3, y, 12.7, 0.35, fill_color=bg_col)
-        for j, cell in enumerate(row):
-            col = wc if j == 5 else C_WHITE
-            bold = j == 5
-            txbox(s, cell, cols[j], y+0.04, 1.8, 0.28,
-                  font_size=10, bold=bold, color=col)
-        y += 0.36
+    y += 0.52
+    for i, row in enumerate(rows):
+        lang, script, base, data, steps, bwer, fwer, imp, col = row
+        bg_col = C_CARD if i % 2 == 0 else C_CARD2
+        box(s, 0.3, y, 12.75, 0.36, fill_color=bg_col)
+        vals = [lang, script, base, data, steps, bwer, fwer, imp]
+        for j, (x, v) in enumerate(zip(cols_x, vals)):
+            c = col if j in (6, 7) else (C_TEXT if j == 0 else C_SUB)
+            txbox(s, v, x, y+0.05, 1.65, 0.26,
+                  font_size=9.5, bold=(j in (0, 6, 7)), color=c)
+        y += 0.37
 
-    txbox(s, "Eval WER: 100-sample FLEURS test (FLEURS) / IndicVoices val (ks)  ·  Baseline was turbo model  ·  † Kashmiri: ur-proxy, eval_loss=0.936 at ckpt-1500",
-          0.4, 6.95, 12.5, 0.35, font_size=10, italic=True, color=C_LGRAY)
+    txbox(s, "* PA v3 DEPLOYED — completed 4000 steps, best 49.31% @ step 4000 (−3.24 pp vs v2)  "
+             "† Mandarin diverged at step ~820; ckpt-400 deployed  "
+             "‡ ZH 16.03% = FLEURS test-set WER (training-val WER was 8.97% — different eval set)  "
+             "§ KS best ckpt-2400; custom <|ks|> token ID 51866",
+          0.35, 7.05, 12.5, 0.32, font_size=8.5, italic=True, color=C_SUB)
 
-def slide_05_wer_chart(prs):
+# ── Slide 5 — WER Comparison ──────────────────────────────────────────────────
+
+def slide_05_wer_chart(prs, n=8):
     s = blank_slide(prs)
     bg(s)
-    accent_bar(s)
-    section_tag(s, "WER Comparison")
-    slide_number(s, 5)
+    slide_header(s, "Baseline vs Fine-Tuned WER", n, "WER Comparison")
 
-    txbox(s, "Word Error Rate — Fine-Tuned vs Baseline", 0.4, 0.65, 12.0, 0.6,
-          font_size=28, bold=True, color=C_WHITE)
-    hline(s, 1.3)
+    langs  = ["Mandarin (zh)", "Hindi (hi)",   "Urdu (ur)",   "Pashto (ps)",  "Punjabi PA v3", "Nepali (ne)"]
+    ftwer  = [16.03,           19.78,           19.82,          38.55,           49.31,           50.82]
+    bswer  = [100.03,          30.29,           24.44,          94.23,           105.79,          94.55]
 
-    langs  = ["Mandarin (zh)", "Urdu (ur)",   "Hindi (hi)",   "Pashto (ps)",  "Nepali (ne)", "Punjabi (pa)"]
-    ftwer  = [16.03,           19.82,          19.78,          38.55,          49.24,          55.67]
-    bswer  = [100.03,          24.44,          30.29,          94.23,          94.55,          105.79]
-
-    bar_max_in = 5.0
-    scale = bar_max_in / 100.0
-    left_label = 1.5
-    bar_left = 2.7
+    scale  = 4.8 / 110.0
+    bar_left = 2.65
     y = 1.55
 
-    txbox(s, "Baseline WER", bar_left + 0.05, 1.45, 2.5, 0.3,
-          font_size=11, color=RGBColor(0xAA, 0xAA, 0xAA), italic=True)
-    txbox(s, "Fine-Tuned WER", bar_left + 0.05, 1.65, 2.5, 0.3,
-          font_size=11, color=C_GREEN, italic=True)
+    txbox(s, "■ Baseline WER", bar_left + 0.05, 1.43, 2.0, 0.28,
+          font_size=10, color=RGBColor(0x78, 0x90, 0xA0), italic=True)
+    txbox(s, "■ Fine-Tuned WER", bar_left + 2.2, 1.43, 2.0, 0.28,
+          font_size=10, color=C_TEAL_L, italic=True)
 
-    y = 1.95
+    y = 1.82
     for lang, ft, bs in zip(langs, ftwer, bswer):
-        txbox(s, lang, 0.3, y, left_label, 0.28, font_size=12, color=C_WHITE, align=PP_ALIGN.RIGHT)
+        txbox(s, lang, 0.3, y+0.02, 2.3, 0.28,
+              font_size=12, color=C_TEXT, align=PP_ALIGN.RIGHT)
         # baseline bar
         bw = bs * scale
-        box(s, bar_left, y, bw, 0.14, fill_color=RGBColor(0x55, 0x55, 0x77))
-        # finetuned bar
+        box(s, bar_left, y, bw, 0.145, fill_color=RGBColor(0x37, 0x52, 0x65))
+        # ft bar
         fw = ft * scale
         col = C_GREEN if ft < 30 else (C_GOLD if ft < 55 else C_RED)
-        box(s, bar_left, y + 0.15, fw, 0.14, fill_color=col)
-        # labels
-        txbox(s, f"{bs}%", bar_left + bw + 0.05, y, 0.8, 0.16,
-              font_size=10, color=RGBColor(0xAA, 0xAA, 0xAA))
-        txbox(s, f"{ft}%", bar_left + fw + 0.05, y + 0.15, 0.8, 0.16,
-              font_size=10, bold=True, color=col)
-        y += 0.75
+        box(s, bar_left, y+0.155, fw, 0.145, fill_color=col)
+        txbox(s, f"{bs:.0f}%", bar_left+bw+0.06, y, 0.75, 0.16,
+              font_size=9, color=RGBColor(0x78, 0x90, 0xA0))
+        txbox(s, f"{ft:.2f}%", bar_left+fw+0.06, y+0.155, 0.85, 0.16,
+              font_size=9.5, bold=True, color=col)
+        y += 0.81
 
-    # improvement callouts on right
-    box(s, 8.3, 1.55, 4.6, 5.5, fill_color=C_PANEL, line_color=C_ACCENT, line_width=Pt(1))
-    txbox(s, "Improvement Summary", 8.5, 1.65, 4.2, 0.38,
-          font_size=14, bold=True, color=C_GOLD)
+    # Summary panel
+    card(s, 8.15, 1.55, 4.8, 5.55, accent_color=C_GOLD)
+    txbox(s, "Improvement Summary", 8.35, 1.65, 4.4, 0.36,
+          font_size=13, bold=True, color=C_NAVY)
     improvements = [
-        ("Mandarin", "100% → 16.0%", "-84.0 pp"),
-        ("Pashto",   "94% → 38.6%",  "-55.7 pp"),
-        ("Punjabi",  "106% → 55.7%", "-50.1 pp"),
-        ("Nepali",   "95% → 49.2%",  "-45.3 pp"),
-        ("Hindi",    "30% → 19.8%",  "-10.5 pp"),
-        ("Urdu",     "24% → 19.8%",  "-4.6 pp"),
+        ("Mandarin", "100.0% → 16.03%", "−84.0 pp"),
+        ("Pashto",   " 94.2% → 38.55%", "−55.7 pp"),
+        ("Punjabi",  "105.8% → 49.31%", "−56.5 pp"),
+        ("Nepali",   " 94.6% → 50.82%", "−43.7 pp"),
+        ("Hindi",    " 30.3% → 19.78%", "−10.5 pp"),
+        ("Urdu",     " 24.4% → 19.82%", " −4.6 pp"),
+        ("Kashmiri", " 96.9% → 74.02%", "−22.9 pp"),
     ]
-    y2 = 2.15
+    y2 = 2.12
     for lang, prog, delta in improvements:
-        box(s, 8.4, y2, 4.3, 0.58, fill_color=RGBColor(0xFA, 0xFA, 0xFA))
-        txbox(s, lang, 8.5, y2+0.04, 1.1, 0.26, font_size=12, bold=True, color=C_WHITE)
-        txbox(s, prog, 9.6, y2+0.04, 1.8, 0.26, font_size=11, color=C_LGRAY)
-        txbox(s, delta, 11.4, y2+0.04, 1.1, 0.26, font_size=12, bold=True, color=C_GREEN, align=PP_ALIGN.RIGHT)
-        y2 += 0.63
+        box(s, 8.25, y2, 4.6, 0.56, fill_color=C_CARD if improvements.index((lang,prog,delta))%2==0 else C_CARD2)
+        txbox(s, lang,  8.35, y2+0.05, 1.3, 0.26, font_size=11, bold=True, color=C_TEXT)
+        txbox(s, prog,  9.65, y2+0.05, 1.7, 0.26, font_size=10, color=C_SUB)
+        txbox(s, delta, 11.3, y2+0.05, 1.5, 0.26, font_size=12, bold=True,
+              color=C_GREEN, align=PP_ALIGN.RIGHT)
+        y2 += 0.61
 
-def slide_06_language_deep(prs):
+# ── Slide 6 — PA v3 Training Progress ────────────────────────────────────────
+
+def slide_06_pa_v3_progress(prs, n=9):
     s = blank_slide(prs)
     bg(s)
-    accent_bar(s)
-    section_tag(s, "Language Deep-Dive")
-    slide_number(s, 6)
+    slide_header(s, "Punjabi v3 Training Progress (LoRA r=16)", n, "PA v3 Update")
 
-    txbox(s, "Per-Language WER Progression", 0.4, 0.65, 12.0, 0.55,
-          font_size=28, bold=True, color=C_WHITE)
-    hline(s, 1.28)
+    # Config comparison
+    txbox(s, "Config Comparison: v2 vs v3", 0.4, 1.42, 5.8, 0.36,
+          font_size=13, bold=True, color=C_NAVY)
+    comp = [
+        ("Parameter",          "v2 (superseded)",   "v3 (deployed)"),
+        ("LoRA Rank",          "r = 8",             "r = 16"),
+        ("LoRA Alpha",         "α = 16",            "α = 32"),
+        ("Trainable Params",   "~3.9M (0.25%)",     "~7.9M (0.51%)"),
+        ("IndicVoices-R",      "9,407 samples",     "20,000 samples"),
+        ("Total Train",        "11,923 samples",    "21,923 samples"),
+        ("Steps",              "3,000",             "4,000"),
+        ("Best WER",           "52.55% (step 3000)","49.31% (step 4000)"),
+    ]
+    y = 1.83
+    for i, (k, v2, v3) in enumerate(comp):
+        bg_col = C_TEAL if i == 0 else (C_CARD if i%2==1 else C_CARD2)
+        box(s, 0.4, y, 6.0, 0.37, fill_color=bg_col)
+        fc = C_TEXT if i==0 else C_SUB
+        txbox(s, k,  0.52, y+0.06, 2.0, 0.27, font_size=10, bold=(i==0), color=fc)
+        txbox(s, v2, 2.52, y+0.06, 1.9, 0.27, font_size=10, bold=(i==0),
+              color=C_TEXT if i>0 else C_TEXT)
+        txbox(s, v3, 4.42, y+0.06, 2.0, 0.27, font_size=10, bold=(i==0),
+              color=C_GOLD if i>0 else C_TEXT)
+        y += 0.38
 
-    # Three language cards per row — two rows
+    # WER progression table
+    txbox(s, "Eval WER Progression (v3)", 6.7, 1.42, 6.2, 0.36,
+          font_size=13, bold=True, color=C_NAVY)
+    wer_data = [
+        ("Train Step", "v3 WER (%)",  "v2 WER (%)", "v3 − v2 (pp)"),
+        ("200",  "69.97%",  "70.75%", "−0.78 pp"),
+        ("1000", "56.96%",  "59.09%", "−2.13 pp ✓"),
+        ("1800", "52.06%",  "54.65%", "−2.59 pp ✓"),
+        ("2200", "50.62%",  "53.88%", "−3.26 pp ✓"),
+        ("2800", "50.51%",  "52.61%", "−2.10 pp ✓"),
+        ("3000", "50.05%",  "52.55%", "−2.50 pp ✓"),
+        ("3400", "49.40%",  "  —  ",  "sub-50%"),
+        ("3800", "49.49%",  "  —  ",  "  —  "),
+        ("4000", "49.31%★", "  —  ",  "best ✓"),
+    ]
+    y = 1.83
+    for i, (st, v3w, v2w, delta) in enumerate(wer_data):
+        bg_col = C_TEAL if i==0 else (C_CARD if i%2==1 else C_CARD2)
+        box(s, 6.7, y, 6.2, 0.37, fill_color=bg_col)
+        fc = C_TEXT
+        is_best = "★" in v3w
+        txbox(s, st,  6.82, y+0.06, 1.1, 0.27, font_size=10, bold=(i==0 or is_best), color=fc)
+        txbox(s, v3w, 7.92, y+0.06, 1.5, 0.27, font_size=10,
+              bold=(i==0 or is_best), color=C_GOLD if is_best else fc)
+        txbox(s, v2w, 9.42, y+0.06, 1.5, 0.27, font_size=10, color=C_SUB)
+        col = C_GREEN if "✓" in delta else (C_RED if delta.startswith("+") else C_SUB)
+        txbox(s, delta, 10.9, y+0.06, 1.9, 0.27, font_size=10, color=col, align=PP_ALIGN.RIGHT)
+        y += 0.38
+
+    # Status banner — DEPLOYED
+    box(s, 0.4, 6.5, 12.55, 0.52, fill_color=C_GREEN)
+    txbox(s, "✔  DEPLOYED: step-4000 @ 49.31% (v2 was 52.55%) — v3 wins by 3.24 pp, verified transcribing Gurmukhi  "
+             "|  Completed 4000 steps (OOM at 2400 recovered via greedy eval)",
+          0.55, 6.55, 12.3, 0.4, font_size=10.5, bold=True, color=C_TEXT)
+
+# ── Slide 7 — Per-Language Deep Dive ─────────────────────────────────────────
+
+def slide_07_language_deep(prs, n=12):
+    s = blank_slide(prs)
+    bg(s)
+    slide_header(s, "Per-Language Training Details", n, "Language Deep-Dive")
+
     cards = [
-        ("Punjabi (pa)", "55.67%", C_RED,
-         ["Base: whisper-large-v3", "Dataset: FLEURS pa_in (~2,500)", "Steps: 3000",
-          "71.6% → 61.3% → 56.7% (train)", "Eval WER: 55.67% vs baseline 105.79%"]),
+        ("Punjabi (pa) v3", "49.31%", C_GREEN,
+         ["Base: whisper-large-v3  |  LoRA r=16, α=32",
+          "Train: FLEURS pa_in + IV-R 20k = 21,923 samples",
+          "Baseline 105.8%  →  best 49.31% (step 4000)",
+          "v2 best: 52.55% (r=8)  →  v3 −3.24 pp",
+          "DEPLOYED; OOM at 2400 fixed via greedy eval"]),
         ("Urdu (ur)", "19.82%", C_GREEN,
-         ["Base: whisper-large-v3", "Dataset: FLEURS ur_pk (2,109)", "Steps: 1000",
-          "24.44% baseline → 19.82% eval", "SeamlessM4T: 16.9%"]),
+         ["Base: whisper-large-v3  |  LoRA r=8",
+          "Train: FLEURS ur_pk  (2,109 samples)",
+          "Baseline 24.44%  →  eval 19.82%  (−4.6 pp)",
+          "SeamlessM4T: 16.9%  |  FT Whisper loses",
+          "CT2 tokenizer fix: 100.66% → 19.52%"]),
         ("Hindi (hi)", "19.78%", C_GREEN,
-         ["Base: whisper-large-v3", "Dataset: FLEURS hi_in (2,120)", "Steps: 600",
-          "30.29% baseline → 19.78% eval", "SeamlessM4T: 15.44%"]),
+         ["Base: whisper-large-v3  |  LoRA r=8",
+          "Train: FLEURS hi_in  (2,120 samples)",
+          "Baseline 30.29%  →  eval 19.78%  (−10.5 pp)",
+          "Fast convergence: near-best by step 200",
+          "max_grad_norm=0.5 (post-Mandarin fix)"]),
         ("Pashto (ps)", "38.55%", C_GOLD,
-         ["Base: pashto-ghag-medium", "Dataset: FLEURS ps_af (~2,000)", "Steps: 2000",
-          "94.23% baseline → 38.55% eval", "FT beats SeamlessM4T (44.4%)"]),
-        ("Nepali (ne)", "49.24%", C_GOLD,
-         ["Base: whisper-large-v3", "Dataset: FLEURS ne_np (3,332)", "Steps: 2000",
-          "94.55% baseline → 49.24% eval", "SeamlessM4T: 28.46%"]),
+         ["Base: pashto-ghag-whisper-medium-asr",
+          "Train: FLEURS ps_af  (2,082 samples)",
+          "Baseline 94.2%  →  eval 38.55%  (−55.7 pp)",
+          "Beats SeamlessM4T (44.40%) ✓",
+          "MMS-LID essential: Whisper-only = 0% LangID"]),
         ("Mandarin (zh)", "16.03%", C_GREEN,
-         ["Base: whisper-large-v3", "Dataset: FLEURS cmn_hans (3,246)", "Steps: 400 (best)",
-          "100.03% baseline → 16.03% eval", "FT beats SeamlessM4T (100% WER norm issue)"]),
+         ["Base: whisper-large-v3  |  LoRA r=8",
+          "Train: FLEURS cmn_hans_cn  (3,246 samples)",
+          "Baseline 100%  →  eval 16.03%  (−84 pp) ★",
+          "Diverged step ~820 (fp16 overflow, grad_norm=12.9)",
+          "Checkpoint-400 deployed; best train WER 8.97%"]),
+        ("Nepali (ne) v2", "50.82%", C_GOLD,
+         ["Base: whisper-large-v3  |  LoRA r=8",
+          "Train: FLEURS ne_np + IV-R = 13,332 samples",
+          "Baseline 94.6%  →  eval 50.82%  (−43.7 pp)",
+          "v1 (FLEURS only): 52.14%  →  v2: 50.82%",
+          "Loss still declining at step 3000"]),
     ]
 
-    positions = [
-        (0.3,  1.45), (4.55, 1.45), (8.8,  1.45),
-        (0.3,  4.35), (4.55, 4.35), (8.8,  4.35),
-    ]
+    positions = [(0.3, 1.42), (4.55, 1.42), (8.8, 1.42),
+                 (0.3,  4.38), (4.55, 4.38), (8.8, 4.38)]
     for (left, top), (lang, wer, col, bullets) in zip(positions, cards):
-        box(s, left, top, 4.0, 2.75, fill_color=C_PANEL, line_color=col, line_width=Pt(1.2))
-        txbox(s, lang, left+0.12, top+0.08, 2.5, 0.32, font_size=13, bold=True, color=col)
-        txbox(s, wer,  left+2.6,  top+0.08, 1.3, 0.32, font_size=18, bold=True, color=col, align=PP_ALIGN.RIGHT)
-        y = top + 0.45
+        card(s, left, top, 4.1, 2.8, accent_color=col)
+        box(s, left, top, 4.1, 0.36, fill_color=col)
+        txbox(s, lang, left+0.12, top+0.06, 2.6, 0.28,
+              font_size=12, bold=True, color=C_TEXT)
+        txbox(s, wer, left+2.65, top+0.06, 1.3, 0.28,
+              font_size=16, bold=True, color=C_TEXT, align=PP_ALIGN.RIGHT)
+        y = top + 0.44
         for b in bullets:
-            txbox(s, f"• {b}", left+0.12, y, 3.75, 0.28, font_size=10, color=C_LGRAY)
-            y += 0.36
+            txbox(s, f"• {b}", left+0.12, y, 3.85, 0.36, font_size=9.5, color=C_SUB)
+            y += 0.37
 
-def slide_07_pipeline(prs):
+# ── Slide 8 — Kashmiri ────────────────────────────────────────────────────────
+
+def slide_08_kashmiri(prs, n=20):
     s = blank_slide(prs)
     bg(s)
-    accent_bar(s)
-    section_tag(s, "Pipeline Integration")
-    slide_number(s, 7)
+    slide_header(s, "Kashmiri (ks) — Custom Token Fine-Tuning", n, "Kashmiri")
 
-    txbox(s, "VANI 10-Stage Pipeline", 0.4, 0.65, 12.0, 0.55,
-          font_size=28, bold=True, color=C_WHITE)
-    hline(s, 1.28)
+    # Challenge panel
+    card(s, 0.4, 1.42, 5.85, 5.35, accent_color=C_RED)
+    box(s, 0.4, 1.42, 5.85, 0.35, fill_color=C_RED)
+    txbox(s, "The Challenge", 0.55, 1.47, 5.5, 0.28,
+          font_size=12, bold=True, color=C_TEXT)
+    chs = [
+        "Whisper has no native <|ks|> language token",
+        "No FLEURS or Common Voice Kashmiri corpus",
+        "Only IndicVoices-R available (AI4Bharat)",
+        "Baseline WER: 96.87% (turbo model)",
+        "Nastaliq script — same as Urdu & Pashto",
+        "Requires patching faster-whisper source",
+    ]
+    bullet_block(s, chs, 0.55, 1.9, 5.5, font_size=12, color=C_SUB, spacing=0.62)
+
+    # Solution panel
+    card(s, 6.75, 1.42, 5.85, 5.35, accent_color=C_TEAL)
+    box(s, 6.75, 1.42, 5.85, 0.35, fill_color=C_TEAL)
+    txbox(s, "Engineering Solution", 6.9, 1.47, 5.5, 0.28,
+          font_size=12, bold=True, color=C_TEXT)
+    sols = [
+        "Added <|ks|> token (ID 51866) to vocab & embedding",
+        "Embedding initialised from <|ur|> (Urdu — same script)",
+        "TemplateProcessing prefix forced at inference",
+        "Trained on 20,000 IndicVoices-R KS samples",
+        "3,000 steps  →  best WER 74.02% at step 2400",
+        "Improvement: −22.85 pp from 96.87% baseline",
+        "faster-whisper patched to accept language='ks'",
+    ]
+    bullet_block(s, sols, 6.9, 1.9, 5.5, font_size=12, color=C_SUB, spacing=0.62)
+
+    # Stats bar
+    box(s, 0.4, 6.88, 12.55, 0.42, fill_color=C_CARD)
+    stats = [
+        ("Base", "whisper-large-v3"),
+        ("Token ID", "51866  (<|ks|>)"),
+        ("Train Data", "20,000 IV-R samples"),
+        ("Best WER", "74.02% @ step 2400"),
+        ("CT2 Model", "whisper-large-v3-ks-ct2"),
+    ]
+    x = 0.55
+    for k, v in stats:
+        txbox(s, k, x, 6.92, 1.5, 0.18, font_size=9, color=C_SUB)
+        txbox(s, v, x, 7.08, 1.9, 0.18, font_size=9.5, bold=True, color=C_GOLD)
+        x += 2.48
+
+# ── Slide 9 — VANI Pipeline ───────────────────────────────────────────────────
+
+def slide_09_pipeline(prs, n=21):
+    s = blank_slide(prs)
+    bg(s)
+    slide_header(s, "VANI 10-Stage Intelligence Pipeline", n, "Pipeline")
 
     stages = [
-        ("Stage 1",  "VAD",           "Silero — detect speech segments",           C_ACCENT),
-        ("Stage 2",  "Preprocessing", "Bandpass 300–3400 Hz + noise reduction",     C_ACCENT),
-        ("Stage 3",  "MMS-LID",       "256-language ID — routes to correct model",  C_GOLD),
-        ("Stage 4",  "ASR",           "Language-specific fine-tuned Whisper",       C_GOLD),
-        ("Stage 5",  "Script Cascade","Arabic-script override for Urdu/Kashmiri",   C_GOLD),
-        ("Stage 6",  "Translation",   "NLLB-200 → English (or direct for Punjabi)", C_GREEN),
-        ("Stage 7",  "Diarization",   "Speaker separation (up to 4 speakers)",      C_GREEN),
-        ("Stage 8",  "Keywords",      "Multilingual keyword/entity detection",       C_GREEN),
-        ("Stage 9",  "ISUM",          "Gemma 3:12B — 5W intelligence summary",      C_ACCENT),
-        ("Stage 10", "Database",      "SQLite + JSON export + Streamlit UI",         C_ACCENT),
+        ("1",  "VAD",            "Silero — detect speech, discard silence",            C_TEAL),
+        ("2",  "Preprocessing",  "Bandpass 300–3400 Hz + noise reduction + normalise",  C_TEAL),
+        ("3",  "MMS-LID",        "Facebook MMS 256-language ID — route to correct model",C_GOLD),
+        ("4",  "ASR",            "Language-specific fine-tuned Whisper CT2 int8 model", C_GOLD),
+        ("5",  "Script Cascade", "Arabic-script override: >20% Nastaliq → Urdu routing",C_GOLD),
+        ("6",  "Translation",    "NLLB-200 distilled 600M → English transcription",     C_GREEN),
+        ("7",  "Diarization",    "Speaker separation — up to 4 speakers identified",    C_GREEN),
+        ("8",  "Keywords",       "Multilingual keyword + threat-entity detection",       C_GREEN),
+        ("9",  "ISUM",           "Gemma 3:12B (Ollama) → 4-sentence Intel Summary",    C_TEAL),
+        ("10", "Export",         "SQLite + JSON output + Streamlit web UI (offline)",   C_TEAL),
     ]
 
-    y = 1.45
+    y = 1.42
     for i, (num, name, desc, col) in enumerate(stages):
-        bg_col = C_PANEL if i % 2 == 0 else RGBColor(0xF3, 0xE5, 0xF5)
-        box(s, 0.3, y, 12.7, 0.43, fill_color=bg_col)
-        box(s, 0.3, y, 0.06, 0.43, fill_color=col)
-        txbox(s, num,  0.45, y+0.07, 0.9,  0.30, font_size=10, bold=True,  color=col)
-        txbox(s, name, 1.35, y+0.07, 2.2,  0.30, font_size=12, bold=True,  color=C_WHITE)
-        txbox(s, desc, 3.55, y+0.07, 9.3,  0.30, font_size=11,             color=C_LGRAY)
-        y += 0.45
+        bg_col = C_CARD if i % 2 == 0 else C_CARD2
+        box(s, 0.3, y, 12.75, 0.44, fill_color=bg_col)
+        box(s, 0.3, y, 0.055, 0.44, fill_color=col)
+        txbox(s, num,  0.43, y+0.08, 0.6,  0.28, font_size=11, bold=True, color=col)
+        txbox(s, name, 1.05, y+0.08, 2.2,  0.28, font_size=12, bold=True, color=C_TEXT)
+        txbox(s, desc, 3.3,  y+0.08, 9.5,  0.28, font_size=11, color=C_SUB)
+        y += 0.46
 
-def slide_08_key_findings(prs):
+# ── Slide 10 — Key Findings ───────────────────────────────────────────────────
+
+def slide_10_key_findings(prs, n=22):
     s = blank_slide(prs)
     bg(s)
-    accent_bar(s)
-    section_tag(s, "Key Findings")
-    slide_number(s, 8)
-
-    txbox(s, "Key Findings & Technical Insights", 0.4, 0.65, 12.0, 0.55,
-          font_size=28, bold=True, color=C_WHITE)
-    hline(s, 1.28)
+    slide_header(s, "Key Findings & Technical Insights", n, "Key Findings")
 
     findings = [
-        ("01", C_GOLD,
-         "LoRA r=8 is Sufficient",
-         "Only 0.25% of parameters trained yet WER drops 20–52 pp across all languages. Full fine-tuning is unnecessary and would require 40+ GB VRAM."),
-        ("02", C_GREEN,
-         "FLEURS Generalises to Military Domain",
-         "Despite no military-domain audio in training, fine-tuning on FLEURS speech dramatically improves VANI accuracy — domain transfer is real."),
-        ("03", C_ACCENT,
-         "MMS-LID is Critical for Punjabi",
-         "Whisper and FastText both misidentify Punjabi as Hindi. MMS-LID correctly identifies Punjabi with >0.99 confidence, enabling the pa-override rule."),
-        ("04", C_RED,
-         "fp16 Instability at Low LR",
-         "Mandarin training diverged at step ~820 (grad_norm=12.9). Fix: max_grad_norm=0.5 applied to Hindi and all subsequent languages — no recurrence."),
-        ("05", C_GOLD,
-         "Script-Cascade Prevents Misidentification",
-         "Arabic-script detection (>20% Nastaliq chars in transcript) catches Urdu even when MMS-LID confidence is below threshold — critical for noisy radio."),
-        ("06", C_RED,
-         "CT2 Tokenizer Bug — All Large-v3 Models Translated Instead of Transcribed",
-         "ct2-transformers-converter omits tokenizer.json. Whisper-tiny fallback has transcribe=50359 but large-v3 has translate=50359. Every transcribe call was secretly translate. "
-         "Fix: copy tokenizer.json from adapter dir into CT2 dir. Now automated in finetune_whisper.py."),
+        ("01", C_GOLD,   "LoRA Effective at 0.25% Params",
+         "WER drops 20–84 pp. r=8/r=16 sufficient. Full fine-tune (40+ GB VRAM) unnecessary."),
+        ("02", C_GREEN,  "FLEURS + IndicVoices-R Transfer to Radio Domain",
+         "Clean read-speech training improves military-domain accuracy. PA v2: +9,407 IV-R samples → −4.1 pp."),
+        ("03", C_TEAL,   "MMS-LID Critical for Pashto & Robustness",
+         "Whisper-only scores 0% on Pashto LangID. MMS-LID lifts it to 53–87% across 5 degradation conditions."),
+        ("04", C_RED,    "fp16 Gradient Explosion Risk at Low LR",
+         "Mandarin diverged at step ~820 (grad_norm=12.9, loss 0.15→0.77). Fix: max_grad_norm=0.5 for all subsequent."),
+        ("05", C_GOLD,   "CT2 Tokenizer Bug — All large-v3 Models Translated Not Transcribed",
+         "ct2-transformers-converter omits tokenizer.json. large-v3: translate=50359; tiny: transcribe=50359. One-token shift. Now automated."),
+        ("06", C_TEAL,   "Script Cascade Prevents Nastaliq Misidentification",
+         ">20% Nastaliq chars in transcript → Urdu override. Critical for noisy radio audio."),
+        ("07", C_PURPLE, "Full VANI +14 pp over Whisper-Only (Robustness Eval)",
+         "5 conditions × 7 langs × 4 configs. ZH: 97–100%. PS: MMS-LID essential. Mandarin most robust."),
     ]
 
     y = 1.42
     for num, col, title, detail in findings:
-        box(s, 0.3, y, 0.55, 0.85, fill_color=col)
-        txbox(s, num, 0.3, y+0.2, 0.55, 0.4, font_size=16, bold=True, color=C_DARK, align=PP_ALIGN.CENTER)
-        box(s, 0.9, y, 12.0, 0.85, fill_color=C_PANEL)
-        txbox(s, title,  1.05, y+0.05, 11.7, 0.33, font_size=13, bold=True,  color=col)
-        txbox(s, detail, 1.05, y+0.38, 11.7, 0.44, font_size=11,             color=C_LGRAY)
-        y += 0.97
+        box(s, 0.3,  y, 0.55, 0.82, fill_color=col)
+        txbox(s, num, 0.3, y+0.18, 0.55, 0.4,
+              font_size=15, bold=True, color=C_TEXT, align=PP_ALIGN.CENTER)
+        box(s, 0.9, y, 12.1, 0.82, fill_color=C_CARD)
+        txbox(s, title,  1.05, y+0.05, 11.8, 0.32, font_size=12, bold=True, color=col)
+        txbox(s, detail, 1.05, y+0.38, 11.8, 0.42, font_size=10.5, color=C_SUB)
+        y += 0.94
 
-def slide_09_deployment(prs):
+# ── Slide 11 — Robustness Eval ────────────────────────────────────────────────
+
+def slide_11_robustness(prs, n=23):
     s = blank_slide(prs)
     bg(s)
-    accent_bar(s)
-    section_tag(s, "Deployment")
-    slide_number(s, 9)
+    slide_header(s, "Radio-Channel Robustness — LangID Accuracy (%)", n, "Robustness Eval")
 
-    txbox(s, "Deployment Architecture", 0.4, 0.65, 12.0, 0.55,
-          font_size=28, bold=True, color=C_WHITE)
-    hline(s, 1.28)
+    txbox(s, "5 degradation conditions × 7 languages × 4 pipeline configs  |  30 samples/lang  |  1-Jul-2026  |  "
+             "cells = MMS language-ID accuracy (%), higher is better",
+          0.4, 1.33, 12.5, 0.28, font_size=9.5, italic=True, color=C_SUB)
 
-    # Model inventory
-    txbox(s, "Deployed Models (CT2 int8)", 0.4, 1.4, 6.2, 0.38,
-          font_size=15, bold=True, color=C_GOLD)
-    models = [
-        ("whisper-large-v3-pa-ct2",    "Punjabi",  "61.3%",  "1479 MB", C_RED),
-        ("whisper-medium-pashto-ct2",  "Pashto",   "38.9%",  " 734 MB", C_GOLD),
-        ("whisper-large-v3-ur-ct2",    "Urdu",     "22.3%",  "1479 MB", C_GREEN),
-        ("whisper-large-v3-ne-ct2",    "Nepali",   "54.3%",  "1479 MB", C_GOLD),
-        ("whisper-large-v3-zh-ct2",    "Mandarin", " 8.97%", "1479 MB", C_GREEN),
-        ("whisper-large-v3-hi-ct2",    "Hindi",    "23.1%",  "1479 MB", C_GREEN),
-        ("whisper-large-v3-ks-ct2",    "Kashmiri", "N/A†",   "1479 MB", C_LGRAY),
+    cols_x = [0.3, 2.05, 3.15, 4.05, 4.95, 5.85, 6.8, 7.7, 8.6, 9.55]
+    hdrs   = ["Channel\nCondition", "Pipeline\nConfig", "PA", "HI", "UR", "NE", "ZH", "PS", "KS", "Overall\nAvg"]
+
+    box(s, 0.3, 1.63, 12.75, 0.46, fill_color=C_NAVY)
+    for x, h in zip(cols_x, hdrs):
+        _multiline(s, h, x, 1.66, 1.05, 0.40,
+                   font_size=9, bold=True, color=RGBColor(0xFF,0xFF,0xFF), align=PP_ALIGN.LEFT)
+
+    rows_data = [
+        ("Clean",     "Whisper",   "90%","87%","73%","27%","100%", "0%", "0%","54%", C_SUB),
+        ("",          "Full VANI", "90%","83%","70%","33%","100%","80%","17%","68%", C_GREEN),
+        ("Bandpass",  "Whisper",   "70%","83%","33%","27%","100%", "0%", "0%","45%", C_SUB),
+        ("",          "Full VANI", "73%","83%","33%","27%","100%","83%","23%","61%", C_GREEN),
+        ("AWGN 10dB", "Whisper",   "97%","63%","80%","43%","100%", "0%", "0%","55%", C_SUB),
+        ("",          "Full VANI", "97%","63%","80%","43%","100%","83%", "3%","67%", C_GREEN),
+        ("AWGN 0dB",  "Whisper",   "57%","63%","27%","13%","100%", "0%", "0%","37%", C_SUB),
+        ("",          "Full VANI", "60%","67%","27%","17%", "97%","53%", "0%","46%", C_RED),
+        ("MP3 16kbps","Whisper",   "77%","47%","63%","23%","100%", "0%", "0%","44%", C_SUB),
+        ("",          "Full VANI", "77%","47%","63%","23%", "97%","87%","20%","59%", C_GREEN),
     ]
-    y = 1.85
-    for mname, lang, wer, size, col in models:
-        box(s, 0.4, y, 6.0, 0.4, fill_color=C_PANEL)
-        box(s, 0.4, y, 0.05, 0.4, fill_color=col)
-        txbox(s, mname, 0.55, y+0.06, 3.5, 0.28, font_size=10, color=C_LGRAY)
-        txbox(s, lang,  4.1,  y+0.06, 1.0, 0.28, font_size=11, bold=True, color=C_WHITE)
-        txbox(s, wer,   5.1,  y+0.06, 0.7, 0.28, font_size=11, bold=True, color=col, align=PP_ALIGN.RIGHT)
-        y += 0.42
 
-    # Right — runtime specs
-    box(s, 6.9, 1.4, 5.9, 4.9, fill_color=C_PANEL, line_color=C_ACCENT, line_width=Pt(1))
-    txbox(s, "Runtime Specifications", 7.1, 1.52, 5.5, 0.38,
-          font_size=15, bold=True, color=C_GOLD)
-    specs = [
-        ("Inference engine", "faster-whisper (CT2)"),
-        ("Quantization",     "int8 (CPU + GPU)"),
-        ("Device",           "CUDA (RTX 5060 8 GB)"),
-        ("Translation",      "NLLB-200 distilled 600M"),
-        ("LangID",           "MMS-LID 256-lang + FastText"),
-        ("ISUM",             "Gemma 3:12B via Ollama"),
-        ("Storage",          "SQLite + JSON"),
-        ("Interface",        "Streamlit web UI"),
-        ("Network",          "100% offline — no internet"),
-    ]
-    y2 = 2.02
-    for k, v in specs:
-        box(s, 7.0, y2, 5.7, 0.4, fill_color=RGBColor(0xFA, 0xFA, 0xFA))
-        txbox(s, k, 7.1,  y2+0.06, 2.2, 0.28, font_size=11, color=C_LGRAY)
-        txbox(s, v, 9.3,  y2+0.06, 3.2, 0.28, font_size=11, bold=True, color=C_WHITE)
-        y2 += 0.42
+    y = 2.14
+    for i, row in enumerate(rows_data):
+        cond, cfg = row[0], row[1]
+        vals, color = row[2:10], row[10]
+        # group separator
+        if cond and i > 0:
+            box(s, 0.3, y, 12.75, 0.025, fill_color=C_BORDER)
+        bg_col = C_CARD if (i // 2) % 2 == 0 else C_CARD2
+        box(s, 0.3, y, 12.75, 0.33, fill_color=bg_col)
+        if cond:
+            txbox(s, cond, cols_x[0], y+0.03, 1.7, 0.27,
+                  font_size=10, bold=True, color=C_TEXT)
+        is_vani = cfg == "Full VANI"
+        txbox(s, cfg, cols_x[1], y+0.03, 1.05, 0.27,
+              font_size=10, bold=is_vani, color=color)
+        for xi, v in zip(cols_x[2:], vals):
+            txbox(s, v, xi, y+0.03, 0.88, 0.27,
+                  font_size=10, bold=is_vani, color=color, align=PP_ALIGN.CENTER)
+        y += 0.33
 
-    txbox(s, "Total deployed model storage: ~10.1 GB   |   Lab upgrade: change device: cuda in config.yaml   |   †Kashmiri: eval_loss metric (no vocab token)",
-          0.4, 6.9, 12.5, 0.3, font_size=10, italic=True, color=C_LGRAY)
+    txbox(s, "ZH: most robust (97–100% all conditions)  ·  "
+             "PS: MMS-LID essential, Whisper-only = 0%  ·  "
+             "Full VANI avg +14 pp over Whisper-only",
+          0.3, 5.45, 12.5, 0.38, font_size=10.5, italic=True, color=C_SUB)
 
-def slide_10_conclusion(prs):
+# ── Slide — Next Steps to Improve Accuracy ───────────────────────────────────
+
+def slide_next_steps_accuracy(prs, n):
     s = blank_slide(prs)
     bg(s)
-    accent_bar(s, top=0, height=0.08)
-    accent_bar(s, top=7.42, height=0.08)
-    box(s, 0, 0.08, 0.08, 7.34, fill_color=C_ACCENT)
-    slide_number(s, 10)
+    slide_header(s, "Next Steps to Improve Accuracy", n, "Roadmap")
 
-    txbox(s, "Summary & Next Steps", 0.5, 0.5, 12.0, 0.6,
-          font_size=30, bold=True, color=C_WHITE)
-    hline(s, 1.22, width_in=12.0, left=0.5)
+    txbox(s, "Prioritised levers to push WER lower — ordered by expected impact for the high-WER languages (PA, NE, KS).",
+          0.4, 1.30, 12.5, 0.28, font_size=10, italic=True, color=C_SUB)
+
+    cards = [
+        ("1  ·  Scale Training Data", C_GOLD,
+         ["Biggest lever for PA / NE / KS (highest WER)",
+          "Add IndicVoices-R full split + Shrutilipi",
+          "KS starved at 20k → target 50k+ samples",
+          "Common Voice + FLEURS-R for extra hours"]),
+        ("2  ·  Increase Model Capacity", C_TEAL,
+         ["PA v3 r=16 already beats r=8 by 2–3 pp",
+          "Try r=32 / α=64 for PA, NE, KS",
+          "Expand targets: add k_proj, o_proj",
+          "Optionally add fc1/fc2 (MLP) adapters"]),
+        ("3  ·  Longer / Smarter Training", C_BLUE,
+         ["NE loss still falling at step 3000 → extend",
+          "Cosine LR schedule + warm restarts",
+          "Higher LR (7e-5) with max_grad_norm=0.5",
+          "More frequent eval near convergence"]),
+        ("4  ·  Radio-Domain Augmentation", C_PURPLE,
+         ["SpecAugment (time/freq masking)",
+          "RIR reverb + additive noise injection",
+          "MP3 / codec + bandpass augmentation",
+          "Pseudo-label real radio intercepts"]),
+        ("5  ·  Decoding-Time Gains", C_GREEN,
+         ["Tune beam width + temperature fallback",
+          "KenLM shallow fusion for low-resource langs",
+          "Repetition / no-speech threshold tuning",
+          "Script-cascade confidence calibration"]),
+        ("6  ·  Recover Mandarin Headroom", C_RED,
+         ["Val WER hit 8.97% before divergence",
+          "Resume past ckpt-400 at lower LR (2e-5)",
+          "Stronger clipping to avoid fp16 overflow",
+          "Target ZH test WER < 12%"]),
+    ]
+
+    positions = [(0.3, 1.60), (4.55, 1.60), (8.8, 1.60),
+                 (0.3, 4.55), (4.55, 4.55), (8.8, 4.55)]
+    for (left, top), (title, col, bullets) in zip(positions, cards):
+        card(s, left, top, 4.1, 2.78, accent_color=col)
+        box(s, left, top, 4.1, 0.40, fill_color=col)
+        txbox(s, title, left+0.12, top+0.07, 3.85, 0.30,
+              font_size=12, bold=True, color=RGBColor(0xFF,0xFF,0xFF))
+        y = top + 0.52
+        for b in bullets:
+            txbox(s, f"▸  {b}", left+0.12, y, 3.85, 0.4, font_size=10, color=C_SUB)
+            y += 0.53
+
+    box(s, 0.3, 7.14, 12.75, 0.30, fill_color=C_TEAL_L)
+    txbox(s, "Delivered: PA v3 (r=16, 21,923 samples) completed 4000 steps → 49.31% deployed, −3.24 pp below v2. Next levers below.",
+          0.45, 7.17, 12.5, 0.24, font_size=9.5, bold=True, italic=True, color=C_NAVY)
+
+# ── Slide 12 — Deployment & Conclusions ──────────────────────────────────────
+
+def slide_12_conclusion(prs, n=24):
+    s = blank_slide(prs)
+    bg(s)
+    top_band(s)
+    txbox(s, "Deployment & Conclusions", 0.5, 0.12, 12.0, 0.62,
+          font_size=27, bold=True, color=C_TEXT)
+    hline(s, 0.78, width_in=12.33, left=0.5)
+    slide_num(s, n)
 
     # Summary boxes
     summ = [
-        (C_GREEN,  "7 Languages Fine-Tuned",
-                   "pa · ps · ur · ne · zh · hi · ks\nAll deployed as CT2 int8"),
-        (C_GOLD,   "Best Eval WER: 16.03% (Mandarin)",
-                   "Urdu 19.82%  ·  Hindi 19.78%\nBeat SeamlessM4T on Pashto & Mandarin"),
-        (C_ACCENT, "0.25% Params Trained",
-                   "LoRA r=8 is sufficient\nNo full fine-tune needed"),
+        (C_TEAL,   "7 Models Deployed\npa · ps · ur · ne · zh · hi · ks",
+                   "All CT2 int8, fully offline"),
+        (C_GOLD,   "Best Eval WER: 16.03%\n(Mandarin, FLEURS test)",
+                   "Urdu 19.82%  ·  Hindi 19.78%"),
+        (C_GREEN,  "Beat SeamlessM4T\non Pashto & Mandarin",
+                   "FT Whisper wins on 2/6 langs for ASR"),
+        (C_PURPLE, "0.25–0.51% Params\nLoRA r=8 / r=16",
+                   "No full fine-tune needed"),
     ]
-    x = 0.5
+    x = 0.4
     for col, title, detail in summ:
-        box(s, x, 1.45, 3.9, 1.6, fill_color=C_PANEL, line_color=col, line_width=Pt(1.5))
-        box(s, x, 1.45, 3.9, 0.06, fill_color=col)
-        txbox(s, title,  x+0.15, 1.58, 3.6, 0.42, font_size=14, bold=True, color=col)
-        txbox(s, detail, x+0.15, 2.03, 3.6, 0.95, font_size=12, color=C_LGRAY)
-        x += 4.1
+        card(s, x, 0.93, 3.08, 1.55, accent_color=col)
+        box(s, x, 0.93, 3.08, 0.055, fill_color=col)
+        txbox(s, title,  x+0.15, 1.0,  2.8, 0.6,  font_size=11.5, bold=True, color=col)
+        txbox(s, detail, x+0.15, 1.62, 2.8, 0.36, font_size=10, color=C_SUB)
+        x += 3.18
+
+    # Deployed models table
+    txbox(s, "Deployed CT2 Models", 0.4, 2.65, 7.0, 0.35,
+          font_size=13, bold=True, color=C_NAVY)
+    models = [
+        ("whisper-large-v3-pa-ct2",   "Punjabi",  "49.31%", C_GOLD),
+        ("whisper-medium-pashto-ct2", "Pashto",   "38.55%", C_GREEN),
+        ("whisper-large-v3-ur-ct2",   "Urdu",     "19.82%", C_GREEN),
+        ("whisper-large-v3-ne-ct2",   "Nepali",   "50.82%", C_GOLD),
+        ("whisper-large-v3-zh-ct2",   "Mandarin", "16.03%", C_GREEN),
+        ("whisper-large-v3-hi-ct2",   "Hindi",    "19.78%", C_GREEN),
+        ("whisper-large-v3-ks-ct2",   "Kashmiri", "74.02%", C_GOLD),
+    ]
+    y = 3.04
+    for i, (mname, lang, wer, col) in enumerate(models):
+        bg_col = C_CARD if i % 2 == 0 else C_CARD2
+        box(s, 0.4, y, 7.1, 0.36, fill_color=bg_col)
+        box(s, 0.4, y, 0.055, 0.36, fill_color=col)
+        txbox(s, mname, 0.55, y+0.06, 4.0, 0.25, font_size=9.5, color=C_SUB)
+        txbox(s, lang,  4.6,  y+0.06, 1.1, 0.25, font_size=10, bold=True, color=C_TEXT)
+        txbox(s, wer,   5.8,  y+0.06, 1.6, 0.25, font_size=10.5, bold=True, color=col, align=PP_ALIGN.RIGHT)
+        y += 0.37
 
     # Next steps
-    txbox(s, "Next Steps", 0.5, 3.25, 12.0, 0.4,
-          font_size=18, bold=True, color=C_GOLD)
-    hline(s, 3.72, width_in=12.0, left=0.5, color=C_GOLD)
-
+    txbox(s, "Next Steps", 7.8, 2.65, 5.4, 0.35,
+          font_size=13, bold=True, color=C_NAVY)
     nexts = [
-        ("Kashmiri (ks)",    "Done — IndicVoices 20k, 1500 steps, eval_loss=0.936; CT2 deployed; qualitative eval with native audio pending"),
-        ("Reduce WER <25%",  "Target: all 6 main languages below 25% WER — more steps, more data, or SeamlessM4T fine-tune comparison"),
-        ("Fine-tune SM4T",   "Fine-tune SeamlessM4T on same FLEURS data — compare transcription + translation against fine-tuned Whisper"),
-        ("Robustness Eval",  "8 audio degradation conditions (bandpass, AWGN 0–20 dB, PTT clip, MP3 codec)"),
-        ("Paper Submission", "VANI paper targeting IJAINN / SLT 2026 — include cross-model eval and SM4T fine-tune comparison"),
+        (C_GREEN,  "PA v3",         "DEPLOYED @ 49.31% (step 4000, r=16) — best Punjabi result to date"),
+        (C_GREEN,  "Robustness",    "COMPLETE — 5 cond × 7 langs; Full VANI +14 pp"),
+        (C_GOLD,   "Reduce WER",    "All 6 main languages target sub-25% WER"),
+        (C_PURPLE, "SM4T Compare",  "Fine-tune SeamlessM4T on FLEURS — head-to-head"),
+        (C_TEAL,   "Paper",         "VANI → IJAINN / SLT 2026 submission"),
     ]
-    y = 3.88
-    for title, detail in nexts:
-        box(s, 0.5, y, 12.3, 0.52, fill_color=C_PANEL)
-        box(s, 0.5, y, 0.05, 0.52, fill_color=C_ACCENT)
-        txbox(s, title,  0.65, y+0.06, 2.2,  0.38, font_size=12, bold=True, color=C_ACCENT)
-        txbox(s, detail, 2.85, y+0.06, 9.9,  0.38, font_size=11,            color=C_LGRAY)
-        y += 0.57
+    y2 = 3.04
+    for col, title, detail in nexts:
+        box(s, 7.8, y2, 5.4, 0.52, fill_color=C_CARD)
+        box(s, 7.8, y2, 0.055, 0.52, fill_color=col)
+        txbox(s, title,  7.92, y2+0.05, 1.35, 0.38, font_size=11, bold=True, color=col)
+        txbox(s, detail, 9.28, y2+0.05, 3.85, 0.38, font_size=10, color=C_SUB)
+        y2 += 0.57
 
-    txbox(s, "VANI v2  ·  M.Tech Research  ·  IIT Indore  ·  June 2026",
-          0.5, 7.1, 12.0, 0.3, font_size=11, italic=True, color=C_LGRAY, align=PP_ALIGN.CENTER)
+    box(s, 0, 7.1, 13.33, 0.40, fill_color=C_NAVY)
+    txbox(s, "VANI  ·  M.Tech Research  ·  IIT Indore  ·  2026",
+          0.5, 7.14, 12.33, 0.28,
+          font_size=11, italic=True, color=RGBColor(0xFF,0xFF,0xFF), align=PP_ALIGN.CENTER)
 
+
+# ── Chart slide helper ────────────────────────────────────────────────────────
+
+def chart_slide(prs, title, n, tag, buf, caption="",
+                img_top=1.42, img_width=11.0, aspect=2.0):
+    """Embed a matplotlib PNG BytesIO into a new slide."""
+    s = blank_slide(prs)
+    bg(s)
+    slide_header(s, title, n, tag)
+    img_h = img_width / aspect
+    img_left = (13.33 - img_width) / 2
+    s.shapes.add_picture(buf, Inches(img_left), Inches(img_top),
+                         Inches(img_width), Inches(img_h))
+    if caption:
+        txbox(s, caption, 0.4, img_top + img_h + 0.10, 12.5, 0.32,
+              font_size=9.5, italic=True, color=C_SUB, align=PP_ALIGN.CENTER)
+
+# ── Chart slides — overview ────────────────────────────────────────────────────
+
+def slide_chartA_dataset(prs, n):
+    chart_slide(
+        prs, "Training Dataset Sizes per Language", n, "Data",
+        chart_dataset_sizes(),
+        caption="Figure 1: Training vs validation samples per language. PA and NE bars reflect v2 totals (FLEURS + IndicVoices-R).",
+        img_width=10.0, aspect=2.0,
+    )
+
+def slide_chartB_summary_bar(prs, n):
+    chart_slide(
+        prs, "Baseline vs. Fine-Tuned WER — All Languages", n, "Results",
+        chart_summary_bar(),
+        caption="Figure 2: Baseline WER (no fine-tuning) vs best fine-tuned WER. Labels show absolute pp reduction. "
+                "Mandarin baseline = 100% because turbo model translates to English by default.",
+        img_width=11.0, aspect=2.0,
+    )
+
+def slide_chartC_wer_all(prs, n):
+    chart_slide(
+        prs, "WER Progression During LoRA Training", n, "Training Curves",
+        chart_wer_all(),
+        caption="Figure 3: Eval WER at each checkpoint for all 7 languages. "
+                "× marks Mandarin divergence at step ~820 (252% — clipped to axis). "
+                "PA v3 dotted line shown separately.",
+        img_width=11.5, aspect=2.0,
+    )
+
+# ── Chart slides — per language ────────────────────────────────────────────────
+
+def slide_chartD_lang(prs, lang, n):
+    m = LANG_META[lang]
+    title = f"{m['name']} ({lang.upper()}) — WER & Training Loss Curves"
+    if lang == "zh":
+        # ZH special case: best_wer=8.97% is the training-time val WER (409-sample val set);
+        # the reported deployed WER on the FLEURS test set is 16.03%.
+        caption = (
+            "Left: Eval WER on 409-sample training-validation set — best 8.97% at step 400 (★). "
+            "★ Note: reported FLEURS test-set WER is 16.03% (see results table). "
+            "Training diverged at step ~820 (grad_norm=12.9); checkpoint-400 deployed. "
+            "Right: Training loss (healthy until divergence)."
+        )
+    else:
+        caption = (
+            f"Left: Eval WER over training steps (★ = best checkpoint, WER {m['best_wer']:.2f}%). "
+            f"Right: Training loss (monotonic descent confirms healthy convergence). "
+            f"Baseline ~{m['baseline_wer']:.1f}%  →  best {m['best_wer']:.2f}%  "
+            f"(−{m['baseline_wer'] - m['best_wer']:.1f} pp)."
+        )
+    chart_slide(
+        prs, title, n, "Training Curves",
+        chart_wer_per_lang(lang),
+        caption=caption,
+        img_width=12.2, aspect=2.5,
+    )
+
+# ── Table slide — training version history ────────────────────────────────────
+
+def slide_table_version_history(prs, n):
+    s = blank_slide(prs)
+    bg(s)
+    slide_header(s, "Training Version History — All Reruns", n, "Version History")
+
+    txbox(s, "Documents every training run across all 7 languages, including re-runs triggered by data additions and architecture changes.",
+          0.4, 1.37, 12.5, 0.28, font_size=10, italic=True, color=C_SUB)
+
+    cols_x  = [0.30, 1.55, 2.65, 4.55, 6.25, 7.95, 9.30, 10.50, 11.65]
+    headers = ["Language", "Run\nVersion", "Base\nModel", "Training\nDataset",
+               "Train\nSamples", "Train\nSteps", "Best Val\nWER (%)", "Test\nWER (%)", "Deploy\nStatus"]
+    y = 1.72
+    box(s, 0.28, y, 12.77, 0.52, fill_color=C_NAVY)
+    for x, h in zip(cols_x, headers):
+        _multiline(s, h, x, y+0.05, 1.25, 0.44,
+                   font_size=8.5, bold=True, color=RGBColor(0xFF,0xFF,0xFF))
+
+    rows = [
+        ("PA",  "v1",         "large-v3",       "FLEURS pa_in",          "2,516",  "3,000", "56.67%", "56.67%", "Superseded", C_SUB),
+        ("PA",  "v2",         "large-v3",       "FLEURS+IV-R",           "11,923", "3,000", "52.55%", "52.55%", "Superseded", C_SUB),
+        ("PA",  "v3 ★",      "large-v3",       "FLEURS+IV-R (20k)",     "21,923", "4,000", "49.31%", "49.31%", "Deployed",   C_TEAL),
+        ("NE",  "v1",         "large-v3",       "FLEURS ne_np",          "3,332",  "2,000", "52.14%", "52.14%", "Superseded", C_SUB),
+        ("NE",  "v2 ★",      "large-v3",       "FLEURS+IV-R",           "13,332", "3,000", "50.82%", "50.82%", "Deployed",   C_TEAL),
+        ("ZH",  "v1 (div.)★","large-v3",       "FLEURS cmn_hans_cn",    "3,246",  "400†",  "8.97%",  "16.03%", "Deployed",   C_GREEN),
+        ("PS",  "v1 ★",      "medium-pashto",  "FLEURS ps_af",          "2,082",  "2,000", "38.55%", "38.55%", "Deployed",   C_TEAL),
+        ("UR",  "v1 ★",      "large-v3",       "FLEURS ur_pk",          "2,109",  "1,000", "22.27%", "19.82%", "Deployed",   C_TEAL),
+        ("HI",  "v1 ★",      "large-v3",       "FLEURS hi_in",          "2,120",  "600",   "23.13%", "19.78%", "Deployed",   C_TEAL),
+        ("KS",  "v1 ★",      "large-v3+<|ks|>","IndicVoices-R KS",     "20,000", "3,000", "74.02%", "74.02%", "Deployed",   C_TEAL),
+    ]
+
+    y += 0.54
+    for i, row in enumerate(rows):
+        lang, ver, base, data, samp, steps, bwer, ewer, status, col = row
+        bg_col = C_CARD if i % 2 == 0 else C_CARD2
+        box(s, 0.28, y, 12.77, 0.34, fill_color=bg_col)
+        vals = [lang, ver, base, data, samp, steps, bwer, ewer, status]
+        for j, (x, v) in enumerate(zip(cols_x, vals)):
+            c = col if j in (6, 8) else (C_TEXT if j <= 1 else C_SUB)
+            txbox(s, v, x, y+0.05, 1.25, 0.25,
+                  font_size=8.5, bold=(j <= 1 or j == 8), color=c)
+        y += 0.35
+
+    txbox(s, "PA v3 deployed 2026-07-04, completed 4000 steps @ 49.31% (OOM at 2400 recovered via greedy eval)  ·  "
+             "† ZH diverged step ~820, ckpt-400 deployed  ·  ★ deployed  ·  IV-R = IndicVoices-R",
+          0.35, y+0.08, 12.5, 0.28, font_size=9, italic=True, color=C_SUB)
+
+# ── Table slide — FT Whisper vs SeamlessM4T ───────────────────────────────────
+
+def slide_table_sm4t(prs, n):
+    s = blank_slide(prs)
+    bg(s)
+    slide_header(s, "Cross-Model Benchmark — FT Whisper · NLLB · SeamlessM4T", n, "Comparison")
+
+    txbox(s, "100-sample FLEURS test / IndicVoices-R val  ·  23 Jun 2026  ·  "
+             "ASR: WER ↓ better  ·  Translation: chrF ↑ better  ·  "
+             "SM4T = SeamlessM4T-large-v2  ·  NLLB = NLLB-200 distilled 600M",
+          0.4, 1.37, 12.5, 0.28, font_size=9.5, italic=True, color=C_SUB)
+
+    cols_x  = [0.30, 1.55, 2.80, 4.05, 5.40, 6.75, 8.20, 9.60, 11.05]
+    headers = ["Language", "Script", "Baseline\nWER (%)", "FT Whisper\nWER (%)", "SeamlessM4T\nWER (%)",
+               "Best ASR\nModel", "NLLB-200\nchrF ↑", "SeamlessM4T\nchrF ↑", "Best Transl.\nModel"]
+    y = 1.72
+    box(s, 0.28, y, 12.77, 0.52, fill_color=C_NAVY)
+    for x, h in zip(cols_x, headers):
+        _multiline(s, h, x, y+0.05, 1.28, 0.44,
+                   font_size=8, bold=True, color=RGBColor(0xFF,0xFF,0xFF), align=PP_ALIGN.LEFT)
+
+    sm4t_data = [
+        ("Punjabi (pa)",  "Gurmukhi",  "105.79", "52.55", "19.77", "SM4T",     "41.54", "58.72", "SM4T"),
+        ("Pashto (ps)",   "Nastaliq",  " 94.23", "38.55", "44.40", "FT Whsp ✓","44.48", "43.92", "SM4T"),
+        ("Urdu (ur)",     "Nastaliq",  " 24.44", "19.82", "16.90", "SM4T",     "51.34", "54.91", "SM4T"),
+        ("Nepali (ne)",   "Devanagari"," 94.55", "50.82", "28.46", "SM4T",     "47.72", "56.02", "SM4T"),
+        ("Mandarin (zh)", "Han Simpl.","100.03", "16.03","100.0",  "FT Whsp ✓","42.85", "53.42", "SM4T"),
+        ("Hindi (hi)",    "Devanagari"," 30.29", "19.78", "15.44", "SM4T",     "53.71", "56.05", "SM4T"),
+        ("Kashmiri (ks)", "Nastaliq",  " 96.87", "74.02", "—  (no support)", "FT Whsp ✓","—", "—", "N/A"),
+    ]
+
+    y += 0.54
+    for i, row in enumerate(sm4t_data):
+        lang, script, bwer, ftwer, smwer, winner_asr, nllb, smchrf, winner_t = row
+        bg_col = C_CARD if i % 2 == 0 else C_CARD2
+        box(s, 0.28, y, 12.77, 0.44, fill_color=bg_col)
+        # winner colour
+        w_col = C_TEAL if "FT" in winner_asr else C_SUB
+        vals_cols = [
+            (lang,  C_TEXT), (script, C_SUB), (bwer, C_TEXT),
+            (ftwer, C_BLUE), (smwer, C_SUB),
+            (winner_asr, w_col),
+            (nllb, C_SUB), (smchrf, C_SUB),
+            (winner_t, C_SUB),
+        ]
+        for x, (v, c) in zip(cols_x, vals_cols):
+            txbox(s, v, x, y+0.08, 1.25, 0.32,
+                  font_size=8.5, bold=(c in (C_TEXT, C_BLUE, C_TEAL)), color=c)
+        y += 0.45
+
+    txbox(s, "FT Whisper beats SM4T on ASR for Pashto (−5.9 pp) and Mandarin (−84 pp).  "
+             "SM4T wins on Hindi, Urdu, Nepali.  FT Whisper is only solution for Kashmiri (no SM4T support).",
+          0.35, y+0.06, 12.5, 0.32, font_size=10, italic=True, color=C_SUB)
 
 # ── Main ───────────────────────────────────────────────────────────────────────
 
 def main():
     prs = new_prs()
-    slide_01_title(prs)
-    slide_02_motivation(prs)
-    slide_03_methodology(prs)
-    slide_04_results_overview(prs)
-    slide_05_wer_chart(prs)
-    slide_06_language_deep(prs)
-    slide_07_pipeline(prs)
-    slide_08_key_findings(prs)
-    slide_09_deployment(prs)
-    slide_10_conclusion(prs)
+    # ── Core narrative slides ──────────────────────────────
+    slide_01_title(prs)                          # 1
+    slide_02_motivation(prs)                     # 2
+    slide_03_methodology(prs)                    # 3
+    slide_04_results_overview(prs)               # 4
+
+    # ── Overview charts ────────────────────────────────────
+    slide_chartA_dataset(prs, 5)                 # 5  dataset sizes
+    slide_chartB_summary_bar(prs, 6)             # 6  baseline vs FT bar
+    slide_chartC_wer_all(prs, 7)                 # 7  all-language WER curves
+
+    # ── Training detail slides ─────────────────────────────
+    slide_05_wer_chart(prs, n=8)                 # 8  inline WER bar
+    slide_06_pa_v3_progress(prs, n=9)            # 9  PA v3 step table
+    slide_table_version_history(prs, 10)         # 10 all-language version history
+    slide_table_sm4t(prs, 11)                    # 11 FT Whisper vs NLLB vs SeamlessM4T
+
+    # ── Language deep-dive + per-language curves ───────────
+    slide_07_language_deep(prs, n=12)            # 12 6-panel language overview
+    for i, lang in enumerate(LANG_ORDER, start=13):
+        slide_chartD_lang(prs, lang, i)          # 13-19  one curve slide per language
+
+    # ── Engineering & systems slides ──────────────────────
+    slide_08_kashmiri(prs, n=20)                 # 20 Kashmiri engineering detail
+    slide_09_pipeline(prs, n=21)                 # 21 10-stage pipeline
+    slide_10_key_findings(prs, n=22)             # 22 key findings
+    slide_11_robustness(prs, n=23)               # 23 robustness table
+    slide_next_steps_accuracy(prs, 24)           # 24 accuracy-improvement roadmap
+    slide_12_conclusion(prs, n=25)               # 25 deployment & conclusions
 
     OUT_PATH.parent.mkdir(exist_ok=True)
     prs.save(str(OUT_PATH))

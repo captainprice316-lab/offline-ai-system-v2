@@ -38,6 +38,10 @@ from language_module    import FastTextLangDetector, DialectDetector, LanguageRo
 from translation_module import TranslationModule
 from keyword_module     import KeywordDetector
 from isum_module        import ISUMGenerator
+from remote_client      import (
+    RemoteClient, RemoteNodeError, map_vani_to_gaurav,
+    assign_speakers_from_diarization, dominant_language,
+)
 
 def _mms_lid_available(paths: dict) -> bool:
     mms_path = ROOT / paths.get("mms_lid_model", "models/mms-lid-256")
@@ -48,8 +52,46 @@ def _qwen_available(paths: dict) -> bool:
     return qwen_path.exists() and any(qwen_path.iterdir())
 
 
+def _build_lang_model_map(paths: dict) -> dict:
+    """lang_code -> CT2 path for each whisper_model_<lang> that exists on disk."""
+    lang_model_map: dict = {}
+    for key, val in paths.items():
+        if key.startswith("whisper_model_") and key != "whisper_model":
+            lang_code = key[len("whisper_model_"):]
+            candidate = ROOT / val
+            if candidate.exists() and any(candidate.iterdir()):
+                lang_model_map[lang_code] = candidate
+    return lang_model_map
+
+
+def _mms_probe_lang(audio_path: Path, paths: dict, device: str, models: dict, logger):
+    """
+    Lightweight coarse MMS-LID probe used ONLY to hand NODE-A a language tag.
+    Reuses the app's cached MMS detector when present. Returns the mms_result
+    dict ({'language','confidence'}) or None on any failure.
+    """
+    if not _mms_lid_available(paths):
+        return None
+    try:
+        mms_det = (models or {}).get("mms")
+        owned = mms_det is None
+        if owned:
+            from mms_module import MMSLangDetector
+            mms_lid_path = ROOT / paths.get("mms_lid_model", "models/mms-lid-256")
+            mms_det = MMSLangDetector(model_path=str(mms_lid_path), device=device)
+        res = mms_det.detect(str(audio_path))
+        if owned:
+            mms_det.unload()
+            del mms_det
+        return res
+    except Exception as e:
+        logger.warning(f"  Coarse MMS-LID probe failed: {e}")
+        return None
+
+
 def _probe_and_select_asr_model(
-    paths: dict, audio_path: Path, config: dict, device: str, logger
+    paths: dict, audio_path: Path, config: dict, device: str, logger,
+    models: dict = None,
 ) -> tuple:
     """
     Run a quick MMS-LID probe before ASR to pick a language-specific Whisper model.
@@ -73,12 +115,18 @@ def _probe_and_select_asr_model(
         return default_path, None
 
     try:
-        from mms_module import MMSLangDetector
-        mms_lid_path = ROOT / paths.get("mms_lid_model", "models/mms-lid-256")
-        mms_det      = MMSLangDetector(model_path=str(mms_lid_path), device=device)
-        mms_result   = mms_det.detect(str(audio_path))
-        mms_det.unload()
-        del mms_det
+        # Reuse the app's cached MMS-LID when available — building a fresh
+        # CUDA detector here cost a full model load per file (fixed 2026-07-08).
+        mms_det   = (models or {}).get("mms")
+        _mms_owned = mms_det is None
+        if _mms_owned:
+            from mms_module import MMSLangDetector
+            mms_lid_path = ROOT / paths.get("mms_lid_model", "models/mms-lid-256")
+            mms_det      = MMSLangDetector(model_path=str(mms_lid_path), device=device)
+        mms_result = mms_det.detect(str(audio_path))
+        if _mms_owned:
+            mms_det.unload()
+            del mms_det
 
         lang = mms_result.get("language", "")
         conf = mms_result.get("confidence", 0.0)
@@ -196,17 +244,71 @@ def run_pipeline(
     _skipped_stages: list = []
     logger.info(f"  Audio mode: {_audio_mode} | SNR={_snr_db} dB | clean_path={_clean_mode}")
 
+    # ── Remote nodes (3-node LAN integration) ─────────────────────────────────
+    # Strictly additive: with remote.enabled=false this whole block is inert and
+    # the pipeline behaves exactly as before. With fallback_on_error=true any
+    # remote failure drops back to the local stage below.
+    _remote_cfg    = config.get("remote", {}) or {}
+    _remote_on     = bool(_remote_cfg.get("enabled", False))
+    _fallback      = bool(_remote_cfg.get("fallback_on_error", True))
+    _remote_client = RemoteClient(_remote_cfg, logger) if _remote_on else None
+    _remote_nodes: list  = []          # which nodes actually served this run
+    _node_a: dict        = None        # NODE-A denoise/diarize result (or None)
+    _node_b_per_speaker: list = []     # NODE-B per-speaker LID results
+    _speakers_meta: list = []          # per-speaker cards for the GUI/result dict
+    _diarizer_variant    = None
+    _der_source          = "local"
+
+    _a_cfg = _remote_cfg.get("denoise_diarize", {}) or {}
+    _use_node_a = (_remote_on and _a_cfg.get("enabled", False)
+                   and not (_clean_mode and not _a_cfg.get("call_on_clean", False)))
+    if _use_node_a:
+        # Coarse local MMS-LID probe on the VAD'd audio → NODE-A's language tag
+        # (his clustering needs it; "default" measurably hurts accuracy).
+        _coarse      = _mms_probe_lang(vad_out, paths, device, models, logger)
+        _coarse_lang = (_coarse or {}).get("language")
+        _gaurav_lang = map_vani_to_gaurav(_coarse_lang)
+        if _gaurav_lang == "default":
+            logger.warning(f"  NODE-A: no tuned operating point for '{_coarse_lang}' "
+                           f"— sending 'default'")
+        try:
+            _node_a = _remote_client.denoise_diarize(
+                vad_out, lang=_gaurav_lang,
+                out_dir=output_dir / f"{audio_file.stem}_nodeA",
+                variant=_a_cfg.get("variant", "robust"),
+                mode=_a_cfg.get("mode", "diarization-guided"),
+            )
+            _remote_nodes.append("A")
+            _diarizer_variant = _node_a.get("variant")
+            _der_source       = "remote:A"
+        except RemoteNodeError as e:
+            if not _fallback:
+                raise
+            logger.warning(f"  NODE-A failed ({e}) — local denoise+diarize fallback")
+            _node_a = None
+
     # ── STAGE 2: Preprocessing ────────────────────────────────────────────────
     progress("Preprocessing")
-    _pre_cfg = dict(config.get("preprocessing", {}))
-    if _clean_mode:
+    _pre_cfg   = dict(config.get("preprocessing", {}))
+    _pre_input = str(vad_out)
+    if _node_a is not None:
+        # NODE-A already denoised speaker-wise → consume its mixed track and skip
+        # our denoise/bandpass, but KEEP normalize:true to neutralise any DFN3
+        # gain-convention mismatch (before downstream + before forwarding to B).
+        _pre_input = str(_node_a["mixed_denoised"])
+        _pre_cfg["noise_reduce"]    = False
+        _pre_cfg["bandpass_filter"] = False
+        _pre_cfg["normalize"]       = True
+        _skipped_stages.append("denoise/bandpass (remote NODE-A)")
+        logger.info("  Using NODE-A mixed_denoised.wav — skipping local denoise + bandpass")
+    elif _clean_mode:
         _pre_cfg["noise_reduce"]    = False
         _pre_cfg["bandpass_filter"] = False
         _skipped_stages.append("denoise/bandpass")
         logger.info("  Clean audio — skipping denoise + bandpass")
     pre      = AudioPreprocessor(cfg=_pre_cfg)
     pre_out  = output_dir / f"{audio_file.stem}_preprocessed.wav"
-    pre_info = pre.preprocess(str(vad_out), str(pre_out))
+    pre_info = pre.preprocess(_pre_input, str(pre_out))
     logger.info(f"  Duration after preprocessing: {pre_info['duration_sec']}s")
     del pre;  free_memory(logger)
 
@@ -244,10 +346,52 @@ def run_pipeline(
     # Runs MMS-LID on the preprocessed audio to select a language-specific
     # Whisper model when one is configured (e.g. whisper_model_zh, whisper_model_ps).
     # The mms_result is cached and reused in Stage 5 to avoid loading MMS-LID twice.
+    #
+    # When NODE-B is enabled, its per-speaker LID (trained on the post-denoiser
+    # distribution) is the authoritative answer: the dominant speaker's language
+    # both selects the Whisper model and enters Stage 5's vote as mms_lang.
     _pre_asr_mms_result = None
-    if not config.get("language_override"):
+    _b_cfg      = _remote_cfg.get("lid", {}) or {}
+    _use_node_b = _remote_on and _b_cfg.get("enabled", False)
+
+    if not config.get("language_override") and _use_node_b:
+        # Prefer NODE-A's clean per-speaker tracks; if A didn't run, do a single
+        # call on the mixed preprocessed track so LID can be exercised on its own.
+        _b_tracks = [t for t in (_node_a["speaker_tracks"] if _node_a else []) if t.get("path")]
+        try:
+            if _b_tracks:
+                for t in _b_tracks:
+                    _lid = _remote_client.identify_language(t["path"])
+                    if _lid:
+                        _lid["talk_time"] = t.get("talk_time", 0.0)
+                        _lid["speaker"]   = t["label"]
+                        _node_b_per_speaker.append(_lid)
+            else:
+                _lid = _remote_client.identify_language(pre_out)
+                if _lid:
+                    _node_b_per_speaker.append(_lid)
+
+            _min_conf = float(_b_cfg.get("min_confidence", 0.60))
+            _dom_lang, _dom_conf = dominant_language(_node_b_per_speaker, _min_conf)
+            if _dom_lang:
+                whisper_path = _build_lang_model_map(paths).get(
+                    _dom_lang, ROOT / paths["whisper_model"])
+                _pre_asr_mms_result = {"language": _dom_lang, "confidence": _dom_conf}
+                if "B" not in _remote_nodes:
+                    _remote_nodes.append("B")
+                logger.info(f"  NODE-B LID: dominant={_dom_lang} (p={_dom_conf:.2f}) "
+                            f"over {len(_node_b_per_speaker)} speaker(s)")
+            else:
+                logger.info("  NODE-B LID: no confident/actionable language "
+                            "— deferring to local MMS-LID")
+        except RemoteNodeError as e:
+            if not _fallback:
+                raise
+            logger.warning(f"  NODE-B failed ({e}) — falling back to local MMS-LID probe")
+
+    if not config.get("language_override") and _pre_asr_mms_result is None:
         whisper_path, _pre_asr_mms_result = _probe_and_select_asr_model(
-            paths, pre_out, config, device, logger
+            paths, pre_out, config, device, logger, models=models
         )
         if _pre_asr_mms_result:
             logger.info(f"  Pre-ASR probe: {_pre_asr_mms_result['language']} "
@@ -262,13 +406,25 @@ def run_pipeline(
     _seamless_langs = set(config.get("asr", {}).get("seamless_langs", []) or [])
     _use_seamless   = _probe_lang is not None and _probe_lang in _seamless_langs
 
+    _seamless_used = False
     if _use_seamless:
-        from seamless_asr import SeamlessASR
         _seamless_path = ROOT / paths.get("seamless_model", "models/seamless-m4t-v2-large")
-        logger.info(f"  ASR backend: SeamlessM4T (zero-shot) for {_probe_lang}")
-        asr = SeamlessASR(model_path=str(_seamless_path), device=device,
-                          default_lang=_probe_lang)
-        _asr_cached = False
+        _cached_seamless = models.get("seamless")
+        if _cached_seamless is not None:
+            logger.info(f"  ASR backend: SeamlessM4T (cached) for {_probe_lang}")
+            asr = _cached_seamless
+            # default_lang is constructor-set — must be re-pointed per file
+            asr.default_lang = _probe_lang
+            if hasattr(asr, "to_device"):
+                asr.to_device(device)   # promote parked weights CPU → GPU
+            _asr_cached = True
+        else:
+            from seamless_asr import SeamlessASR
+            logger.info(f"  ASR backend: SeamlessM4T (zero-shot) for {_probe_lang}")
+            asr = SeamlessASR(model_path=str(_seamless_path), device=device,
+                              default_lang=_probe_lang)
+            _asr_cached = False
+        _seamless_used = True
     else:
         # Use the cached ASR only if it is the SAME model that Stage 3.5 selected.
         # The app pre-caches the default model; blindly reusing it here silently
@@ -333,10 +489,33 @@ def run_pipeline(
     logger.info(f"  Transcript: {len(transcript_text)} chars")
     if not _asr_cached:
         del asr;  free_memory(logger)
+    elif _seamless_used and hasattr(asr, "to_device"):
+        # Cached Seamless: park weights back in CPU RAM so the GPU is free
+        # for NLLB / the next file's ASR (8 GB card)
+        asr.to_device("cpu");  free_memory(logger)
 
     # ── STAGE 4.5: Speaker Diarization ───────────────────────────────────────
     _diar_cfg = config.get("diarization", {})
-    if _diar_cfg.get("enabled", True) and all_segments and not _clean_mode:
+    if _node_a is not None and all_segments:
+        # NODE-A already diarized — label ASR segments by max time-overlap against
+        # its diarization.json (replaces the local MFCC diarize_module).
+        progress("Diarization")
+        assign_speakers_from_diarization(all_segments, _node_a["diarization"])
+        _n_spk = len({s.get("speaker") for s in all_segments if s.get("speaker")})
+        logger.info(f"  Diarization from NODE-A: {_n_spk} speaker(s) by time-overlap")
+        # Per-speaker cards (join NODE-A talk time with NODE-B language/dialect).
+        _b_by_label = {r.get("speaker"): r for r in _node_b_per_speaker if r.get("speaker")}
+        for t in _node_a.get("speaker_tracks", []):
+            _lid = _b_by_label.get(t["label"], {})
+            _speakers_meta.append({
+                "label":      t["label"],
+                "talk_time":  t.get("talk_time", 0.0),
+                "track_path": str(t.get("path")) if t.get("path") else None,
+                "language":   _lid.get("language"),
+                "confidence": _lid.get("confidence"),
+                "dialect":    _lid.get("dialect"),
+            })
+    elif _diar_cfg.get("enabled", True) and all_segments and not _clean_mode:
         progress("Diarization")
         try:
             from diarize_module import diarize as _diarize
@@ -387,18 +566,20 @@ def run_pipeline(
         # Disabled by default on low-memory systems via memory.use_mms_lid: false
         _use_mms  = config.get("memory", {}).get("use_mms_lid", True)
         mms_result = None
-        if _use_mms and models.get("mms") is not None:
+        if _use_mms and _pre_asr_mms_result is not None:
+            # Reuse the pre-ASR probe result — it scored the SAME pre_out file,
+            # so re-running detect() here (the old first branch when the app
+            # passed a cached model) was a pure duplicate inference.
+            mms_result = _pre_asr_mms_result
+            logger.info(f"  MMS-LID (cached from pre-ASR probe): "
+                        f"{mms_result['language']} (p={mms_result['confidence']:.2f})")
+        elif _use_mms and models.get("mms") is not None:
             try:
                 mms_result = models["mms"].detect(str(pre_out))
                 logger.info(f"  MMS-LID: {mms_result['language']} "
                             f"(p={mms_result['confidence']:.2f})")
             except Exception as e:
                 logger.warning(f"  MMS-LID skipped: {e}")
-        elif _use_mms and _pre_asr_mms_result is not None:
-            # Reuse result from pre-ASR language probe — avoids loading MMS-LID twice
-            mms_result = _pre_asr_mms_result
-            logger.info(f"  MMS-LID (cached from pre-ASR probe): "
-                        f"{mms_result['language']} (p={mms_result['confidence']:.2f})")
         elif _use_mms and _mms_lid_available(paths):
             try:
                 from mms_module import MMSLangDetector
@@ -432,7 +613,8 @@ def run_pipeline(
 
     # ── STAGE 6: Translation ──────────────────────────────────────────────────
     progress("Translation")
-    translator  = TranslationModule(
+    _translator_cached = models.get("translator") is not None
+    translator = models.get("translator") or TranslationModule(
         str(indic_path), str(nllb_path),
         device=device,
         cfg=config.get("translation", {}),
@@ -463,7 +645,9 @@ def run_pipeline(
     else:
         logger.info("  Back-translation skipped (back_translation=false)")
 
-    del translator;  free_memory(logger)
+    if not _translator_cached:
+        del translator
+    free_memory(logger)
 
     # ── STAGE 7: Keyword Detection ────────────────────────────────────────────
     progress("Keywords")
@@ -479,10 +663,6 @@ def run_pipeline(
     # ── STAGE 8: ISUM ─────────────────────────────────────────────────────────
     progress("ISUM")
     t_elapsed = elapsed(t_start)
-
-    # Finalise last stage time
-    if _stage_order:
-        _stage_times[_stage_order[-1]] = round(time.time() - _stage_t0, 2)
 
     # Peak memory
     _mem_peak_mb = None
@@ -531,6 +711,13 @@ def run_pipeline(
                   if isum_mode != "rule_based" and _qwen_available(paths) else None)
     isum       = isum_gen.generate(intermediate, processing_time_s=t_elapsed,
                                    qwen_model_path=str(qwen_path) if qwen_path else None)
+
+    # Finalise last stage time — must run AFTER isum_gen.generate(), otherwise
+    # the ISUM stage records ~0 s (bug found 2026-07-08: it hid a 60 s Ollama call)
+    if _stage_order:
+        _stage_times[_stage_order[-1]] = round(time.time() - _stage_t0, 2)
+    # Total including ISUM (t_elapsed above is pre-ISUM, kept for the ISUM report)
+    t_elapsed = elapsed(t_start)
 
     # ── Cross-file speaker re-identification (needs report_id from ISUM) ──────
     # Default OFF: MFCC-stat cosine cannot separate speakers on bandpassed radio
@@ -613,6 +800,12 @@ def run_pipeline(
         "snr_db":                  _snr_db,
         "clean_path":              _clean_mode,
         "skipped_stages":          _skipped_stages,
+        # ── 3-node integration telemetry ───────────────────────────────────
+        "remote_nodes":            _remote_nodes,
+        "diarizer_variant":        _diarizer_variant,
+        "der_source":              _der_source,
+        "speakers":                _speakers_meta,
+        "denoised_audio":          str(_node_a["mixed_denoised"]) if _node_a else None,
     }
 
     # Save JSON

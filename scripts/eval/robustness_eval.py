@@ -36,20 +36,32 @@ os.environ["HF_HUB_OFFLINE"]      = "0"
 os.environ["TRANSFORMERS_OFFLINE"] = "0"
 
 ROOT = Path(__file__).resolve().parent
-sys.path.insert(0, str(ROOT / "src"))
-CACHE_DIR = ROOT / "robustness_cache"
+# scripts/eval/ → scripts/ → project root → src/
+sys.path.insert(0, str(ROOT.parent.parent / "src"))
+# CACHE_DIR set after VANI_ROOT import below
 
 from utils import load_config, ROOT as VANI_ROOT
 
+CACHE_DIR = VANI_ROOT / "robustness_cache"
+
 DATASETS = {
-    "pa": {"hf_id": "google/fleurs", "config": "pa_in",  "split": "test",
+    "pa": {"hf_id": "google/fleurs", "config": "pa_in",      "split": "test",
            "audio_col": "audio", "label": "pa", "name": "Punjabi"},
-    "hi": {"hf_id": "google/fleurs", "config": "hi_in",  "split": "test",
+    "hi": {"hf_id": "google/fleurs", "config": "hi_in",      "split": "test",
            "audio_col": "audio", "label": "hi", "name": "Hindi"},
-    "ur": {"hf_id": "google/fleurs", "config": "ur_pk",  "split": "test",
+    "ur": {"hf_id": "google/fleurs", "config": "ur_pk",      "split": "test",
            "audio_col": "audio", "label": "ur", "name": "Urdu"},
-    "ne": {"hf_id": "google/fleurs", "config": "ne_np",  "split": "test",
+    "ne": {"hf_id": "google/fleurs", "config": "ne_np",      "split": "test",
            "audio_col": "audio", "label": "ne", "name": "Nepali"},
+    "zh": {"hf_id": "google/fleurs", "config": "cmn_hans_cn","split": "test",
+           "audio_col": "audio", "label": "zh", "name": "Mandarin"},
+    "ps": {"hf_id": "google/fleurs", "config": "ps_af",      "split": "test",
+           "audio_col": "audio", "label": "ps", "name": "Pashto"},
+    # ks has no FLEURS data; audio must be pre-populated in robustness_cache/ks/
+    # from IndicVoices-R test split (16 kHz mono WAVs)
+    "ks": {"hf_id": None, "config": None, "split": "test",
+           "audio_col": "audio", "label": "ks", "name": "Kashmiri",
+           "local_only": True},
 }
 
 MIN_DUR, MAX_DUR = 2.0, 20.0
@@ -138,10 +150,55 @@ def degrade(arr, sr, condition):
 
 # ── Phase 1: download and cache ────────────────────────────────────────────────
 
+def _patch_audio_decode():
+    """Monkey-patch datasets Audio.decode_example to use soundfile instead of torchcodec.
+    Must be called before any audio data is streamed from load_dataset().
+    """
+    import io as _io
+    try:
+        import datasets.features.audio as _dfa
+        _orig = _dfa.Audio.decode_example
+
+        def _sf_decode(self, value, token_per_repo_id=None):
+            if isinstance(value, dict):
+                raw = value.get("bytes")
+                if raw:
+                    arr, sr = sf.read(_io.BytesIO(raw), dtype="float32")
+                    if arr.ndim > 1:
+                        arr = arr.mean(axis=1)
+                    return {"array": arr, "sampling_rate": sr, "path": value.get("path")}
+            return _orig(self, value, token_per_repo_id)
+
+        _dfa.Audio.decode_example = _sf_decode
+        return True
+    except Exception:
+        return False
+
+
+def _iter_fleurs_audio(hf_id, config_name, split):
+    """Yield (float32 array, sr) from FLEURS via datasets+soundfile (no torchcodec)."""
+    from datasets import load_dataset
+    _patch_audio_decode()
+    ds = load_dataset(hf_id, name=config_name, split=split, streaming=True,
+                      trust_remote_code=False)
+    for sample in ds:
+        audio_data = sample.get("audio")
+        if audio_data is None:
+            continue
+        try:
+            if isinstance(audio_data, dict) and audio_data.get("array") is not None:
+                arr = np.array(audio_data["array"], dtype=np.float32)
+                sr  = int(audio_data.get("sampling_rate", 16000))
+                if arr.ndim > 1:
+                    arr = arr.mean(axis=1)
+                yield arr, sr
+        except Exception as e:
+            print(f"  [audio err] {e}", flush=True)
+            continue
+
+
 def download_and_cache(languages, n_samples):
     """Download n_samples per language from FLEURS and save as WAV to cache."""
-    from datasets import load_dataset
-
     CACHE_DIR.mkdir(exist_ok=True)
     cached = {}
 
@@ -156,28 +213,18 @@ def download_and_cache(languages, n_samples):
             cached[lang] = existing[:n_samples]
             continue
 
-        print(f"\n  Downloading {info['name']} from {info['hf_id']} ...", flush=True)
-        ds = load_dataset(info["hf_id"], name=info["config"],
-                          split=info["split"], streaming=True)
+        # ks has no FLEURS source; audio must be pre-populated by extract_ks_audio.py
+        if info.get("local_only"):
+            print(f"  {info['name']}: local-only language, found {len(existing)} WAVs "
+                  f"(need {n_samples}). Run extract_ks_audio.py to populate.", flush=True)
+            cached[lang] = existing[:n_samples]
+            continue
+
+        print(f"\n  Downloading {info['name']} ({info['config']}) from HuggingFace Hub ...", flush=True)
         saved, skipped = 0, 0
-        for sample in ds:
+        for arr, sr in _iter_fleurs_audio(info["hf_id"], info["config"], info["split"]):
             if saved >= n_samples:
                 break
-            audio_data = sample.get(info["audio_col"])
-            if audio_data is None:
-                skipped += 1; continue
-            try:
-                if hasattr(audio_data, "get_all_samples"):
-                    s = audio_data.get_all_samples()
-                    arr = np.array(s.data[0], dtype=np.float32)
-                    sr  = int(s.sample_rate)
-                elif isinstance(audio_data, dict):
-                    arr = np.array(audio_data["array"], dtype=np.float32)
-                    sr  = int(audio_data["sampling_rate"])
-                else:
-                    skipped += 1; continue
-            except Exception:
-                skipped += 1; continue
 
             dur = len(arr) / sr
             if dur < MIN_DUR or dur > MAX_DUR:
@@ -386,6 +433,8 @@ def main():
     parser.add_argument("--phase1-only", action="store_true")
     parser.add_argument("--conditions", nargs="*", default=CONDITIONS,
                         help="Subset of conditions to run")
+    parser.add_argument("--append", action="store_true",
+                        help="Append rows to existing CSV instead of overwriting")
     args = parser.parse_args()
 
     bad = [l for l in args.languages if l not in DATASETS]
@@ -448,18 +497,28 @@ def main():
     # Phase 3: output
     print_table(all_rows, args.languages)
 
-    csv_path = ROOT / "robustness_results.csv"
+    csv_path = VANI_ROOT / "eval_data" / "robustness_results.csv"
+    if args.append and csv_path.exists():
+        existing = list(csv.DictReader(open(csv_path, newline="")))
+        # Convert ok columns back to int (csv.DictReader returns strings)
+        for row in existing:
+            for k in ("c1_ok", "c2_ok", "c3_ok", "c4_ok"):
+                if k in row:
+                    row[k] = int(row[k])
+        all_rows = existing + all_rows
     with open(csv_path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=all_rows[0].keys())
         writer.writeheader()
         writer.writerows(all_rows)
     print(f"\nResults saved to {csv_path}", flush=True)
 
-    tex = build_latex_table(all_rows, args.languages)
+    tex_langs = sorted({r["lang"] for r in all_rows if r["lang"] in DATASETS})
+    tex = build_latex_table(all_rows, tex_langs)
     print("\n--- LaTeX table ---\n")
     print(tex)
-    (ROOT / "robustness_table.tex").write_text(tex)
-    print("\nLatex table saved to robustness_table.tex")
+    tex_path = VANI_ROOT / "eval_data" / "robustness_table.tex"
+    tex_path.write_text(tex)
+    print(f"\nLatex table saved to {tex_path}")
 
 
 if __name__ == "__main__":

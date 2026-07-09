@@ -470,6 +470,21 @@ def _get_mms_model(model_path: str):
     from mms_module import MMSLangDetector
     return MMSLangDetector(model_path=model_path)
 
+@st.cache_resource(show_spinner="Loading translator (first run only)...")
+def _get_translator(indic_path: str, nllb_path: str, device: str):
+    from translation_module import TranslationModule
+    return TranslationModule(indic_path, nllb_path, device=device,
+                             cfg=cfg.get("translation", {}))
+
+@st.cache_resource(show_spinner="Loading SeamlessM4T (first run only)...")
+def _get_seamless_model(model_path: str, device: str):
+    from seamless_asr import SeamlessASR
+    m = SeamlessASR(model_path=model_path, device=device)
+    # Park in CPU RAM immediately — the pipeline promotes it to GPU only for
+    # the ASR stage (constructing on cuda first keeps the fp16 weights)
+    m.to_device("cpu")
+    return m
+
 
 def tbadge(level: str):
     level = (level or "CLEAR").upper()
@@ -667,6 +682,64 @@ with st.sidebar:
     sc1,sc2 = st.columns(2)
     sc1.metric("Intercepts", stats["total_intercepts"])
     sc2.metric("Critical",   stats["by_threat_level"].get("CRITICAL",0))
+
+    # ── Network mode (standalone <-> 3-node LAN) ──────────────────────────────
+    # One build, one switch. Auto uses whatever nodes are reachable and otherwise
+    # runs fully local; Standalone never touches the network; Networked trusts the
+    # configured LAN nodes (falling back per-node on failure).
+    _rcfg = cfg.get("remote", {}) or {}
+    if _rcfg:
+        st.markdown('<div class="section-hdr">Network Mode</div>', unsafe_allow_html=True)
+        _mode_labels = ["Auto", "Standalone", "Networked"]
+        _mode_keys   = ["auto", "standalone", "networked"]
+        _cur_mode    = st.session_state.get("_remote_mode",
+                                            "auto" if _rcfg.get("enabled") else "standalone")
+        _sel = st.radio(
+            "Network mode", _mode_labels,
+            index=_mode_keys.index(_cur_mode) if _cur_mode in _mode_keys else 0,
+            key="_remote_mode_radio", label_visibility="collapsed",
+            help="Auto: use reachable nodes, else run local.  "
+                 "Standalone: never use the network.  "
+                 "Networked: use the LAN nodes, fall back per-node on failure.",
+        )
+        st.session_state["_remote_mode"] = _mode_keys[_mode_labels.index(_sel)]
+        _mode = st.session_state["_remote_mode"]
+
+        def _probe_nodes(fast=True):
+            try:
+                from remote_client import RemoteClient
+                _rc = RemoteClient(_rcfg)
+                _to = 1.5 if fast else None
+                st.session_state["_remote_health"] = {
+                    "A": _rc.available("a", timeout=_to),
+                    "B": _rc.available("b", timeout=_to),
+                }
+            except Exception as _rerr:
+                st.session_state["_remote_health"] = {"A": False, "B": False,
+                                                      "error": str(_rerr)}
+
+        # One-time startup probe for auto/networked (short timeout so a standalone
+        # box with unreachable LAN nodes doesn't hang; result is cached for the
+        # session and reused by every file until 'Re-check nodes' is pressed).
+        if _mode != "standalone" and "_remote_health" not in st.session_state:
+            _probe_nodes(fast=True)
+
+        if _mode == "standalone":
+            st.caption("Local only — network disabled")
+        else:
+            if st.button("Re-check nodes", key="remote_health_btn", use_container_width=True):
+                _probe_nodes(fast=False)
+            _rh = st.session_state.get("_remote_health") or {}
+            for _n in ("A", "B"):
+                _ok  = _rh.get(_n)
+                _clr = "#00ff88" if _ok else "#ff5555"
+                st.markdown(
+                    f'<div style="font-size:0.72rem;color:{_clr};margin:0.1rem 0">'
+                    f'&#9679; NODE-{_n}: {"online" if _ok else "offline"}</div>',
+                    unsafe_allow_html=True,
+                )
+            if _rh.get("error"):
+                st.caption(f"probe error: {_rh['error']}")
 
     st.markdown('<div class="section-hdr">System</div>', unsafe_allow_html=True)
 
@@ -1222,8 +1295,26 @@ with tab_process:
                 _mms_path = ROOT / _paths.get("mms_lid_model", "models/mms-lid-256")
                 if _use_mms_lid and _mms_path.exists() and any(_mms_path.iterdir()):
                     _cached_models["mms"] = _get_mms_model(str(_mms_path))
+                _cached_models["translator"] = _get_translator(
+                    str(ROOT / _paths["indictrans_model"]),
+                    str(ROOT / _paths["nllb_model"]),
+                    _run_device,
+                )
+                _seam_path = ROOT / _paths.get("seamless_model", "models/seamless-m4t-v2-large")
+                if (cfg.get("asr", {}).get("seamless_langs")
+                        and _seam_path.exists() and any(_seam_path.iterdir())):
+                    _cached_models["seamless"] = _get_seamless_model(
+                        str(_seam_path), _run_device)
 
                 _run_cfg = {**cfg, "device": _run_device}
+                # Apply the operator-selected network mode (Auto/Standalone/Networked)
+                # + the cached health probe, so this run uses exactly the reachable nodes.
+                from remote_client import resolve_remote_mode as _resolve_remote
+                _run_cfg["remote"] = _resolve_remote(
+                    cfg.get("remote", {}),
+                    st.session_state.get("_remote_mode", "auto"),
+                    st.session_state.get("_remote_health"),
+                )
                 if _lang_override_code:
                     _run_cfg["language_override"] = _lang_override_code
                 _run_cfg["language"] = {
@@ -1703,11 +1794,22 @@ function seekAudio(t) {{
         if _stem:
             _pre_path = OUT_DIR / f"{_stem}_preprocessed.wav"
             if _pre_path.exists():
-                with st.expander("Audio: Original vs Preprocessed"):
+                # Denoiser source depends on the path taken: NODE-A (DeepFilterNet3)
+                # when remote denoising served this run, else VANI's local preprocessing.
+                _denoised_by_a = "A" in (result.get("remote_nodes") or [])
+                _den_label = ("Denoised · NODE-A (DeepFilterNet3, speaker-wise)"
+                              if _denoised_by_a else
+                              "Denoised (VANI preprocessing · normalized)")
+                # Prefer NODE-A's true denoised mix for playback when present.
+                _den_play = result.get("denoised_audio") if _denoised_by_a else None
+                if not (_den_play and Path(_den_play).exists()):
+                    _den_play = str(_pre_path)
+                with st.expander("Audio: Original (noisy) vs Denoised", expanded=True):
                     _oc1, _oc2 = st.columns(2)
                     with _oc1:
                         st.markdown(
-                            '<div class="isum-lbl" style="margin-bottom:0.3rem">Original</div>',
+                            '<div class="isum-lbl" style="margin-bottom:0.3rem">'
+                            'Original (noisy)</div>',
                             unsafe_allow_html=True,
                         )
                         _ob = st.session_state.get("_audio_bytes") or _active_audio_bytes
@@ -1716,11 +1818,10 @@ function seekAudio(t) {{
                             st.audio(_ob, format=f"audio/{_oe}")
                     with _oc2:
                         st.markdown(
-                            '<div class="isum-lbl" style="margin-bottom:0.3rem">'
-                            'Preprocessed (denoised · normalized)</div>',
+                            f'<div class="isum-lbl" style="margin-bottom:0.3rem">{_den_label}</div>',
                             unsafe_allow_html=True,
                         )
-                        st.audio(str(_pre_path))
+                        st.audio(str(_den_play))
 
                     # Waveform comparison
                     try:
@@ -1740,8 +1841,8 @@ function seekAudio(t) {{
                             _fig, (_ax1, _ax2) = _plt.subplots(2, 1, figsize=(12, 3.5))
                             _fig.patch.set_facecolor("#1f2e3f")
                             for _ax, _data, _sr, _lbl, _col in [
-                                (_ax1, _orig_data, _orig_sr, "Original",      "#00aaff"),
-                                (_ax2, _pre_data,  _pre_sr,  "Preprocessed",  "#00ff88"),
+                                (_ax1, _orig_data, _orig_sr, "Original (noisy)", "#00aaff"),
+                                (_ax2, _pre_data,  _pre_sr,  "Denoised",          "#00ff88"),
                             ]:
                                 _t = _np.arange(len(_data)) / _sr
                                 _ax.plot(_t, _data, color=_col, linewidth=0.4, alpha=0.85)
@@ -1756,6 +1857,53 @@ function seekAudio(t) {{
                             _plt.close(_fig)
                     except Exception as _we:
                         st.caption(f"Waveform preview unavailable: {_we}")
+
+        # ── 3-Node Integration: Remote Nodes + Per-Speaker Panel ──────────────
+        _remote_nodes = result.get("remote_nodes") or []
+        _speakers     = result.get("speakers") or []
+        _denoised     = result.get("denoised_audio")
+        if _remote_nodes or _speakers:
+            st.markdown(
+                '<div class="isum-lbl" style="margin:0.7rem 0 0.3rem">'
+                'REMOTE NODE ANALYSIS &middot; 3-NODE LAN</div>',
+                unsafe_allow_html=True,
+            )
+            _rb1, _rb2, _rb3 = st.columns(3)
+            _rb1.metric("Nodes served", ", ".join(_remote_nodes) if _remote_nodes else "local")
+            _rb2.metric("Diarizer variant", result.get("diarizer_variant") or "—")
+            _rb3.metric("DER source", result.get("der_source") or "local")
+            # (Original-vs-Denoised mix players live in the "Audio: Original (noisy)
+            #  vs Denoised" expander above; here we add the per-speaker breakdown.)
+
+            # Per-speaker cards: NODE-A talk time + track, NODE-B language/dialect
+            if _speakers:
+                st.markdown(
+                    '<div class="isum-lbl" style="margin:0.5rem 0 0.3rem">'
+                    'PER-SPEAKER &middot; NODE-A tracks &middot; NODE-B language</div>',
+                    unsafe_allow_html=True,
+                )
+                for _sp in _speakers:
+                    _lbl  = _sp.get("label", "?")
+                    _col  = _speaker_color(_lbl)
+                    _lang = _sp.get("language") or "—"
+                    _cf   = _sp.get("confidence")
+                    _cfs  = f"{_cf:.2f}" if isinstance(_cf, (int, float)) else "—"
+                    _dia  = _sp.get("dialect") or "—"
+                    _tt   = _sp.get("talk_time")
+                    _tts  = f"{_tt:.1f}s" if isinstance(_tt, (int, float)) else "—"
+                    st.markdown(
+                        f'<div style="border-left:3px solid {_col};padding:0.35rem 0.6rem;'
+                        f'margin:0.25rem 0;background:#141c24;border-radius:3px">'
+                        f'<span style="color:{_col};font-weight:600">{_lbl}</span>'
+                        f'<span style="color:#8a9aaa;font-size:0.78rem">'
+                        f' &nbsp;&middot;&nbsp; talk {_tts} &nbsp;&middot;&nbsp; '
+                        f'lang <b style="color:#cfe3f5">{_lang}</b> (conf {_cfs}) '
+                        f'&nbsp;&middot;&nbsp; dialect {_dia}</span></div>',
+                        unsafe_allow_html=True,
+                    )
+                    _tp = _sp.get("track_path")
+                    if _tp and Path(_tp).exists():
+                        st.audio(str(_tp))
 
         # ── Per-Segment Re-Transcription ──────────────────────────────────────
         _retrans_segs = result.get("segments", [])
@@ -4454,12 +4602,32 @@ with tab_batch:
                 _bcached_models = {
                     "asr":      _get_asr_model(
                         str(ROOT / _bpaths_cfg["whisper_model"]),
-                        "cpu",
+                        _brun_device,   # was hardcoded "cpu" — batch ASR never used the GPU
                         cfg.get("asr", {}).get("beam_size", 4),
                     ),
                     "fasttext": _get_fasttext_model(str(ROOT / _bpaths_cfg["fasttext_model"])),
+                    "translator": _get_translator(
+                        str(ROOT / _bpaths_cfg["indictrans_model"]),
+                        str(ROOT / _bpaths_cfg["nllb_model"]),
+                        _brun_device,
+                    ),
                 }
+                _bmms_path = ROOT / _bpaths_cfg.get("mms_lid_model", "models/mms-lid-256")
+                if (cfg.get("memory", {}).get("use_mms_lid", True)
+                        and _bmms_path.exists() and any(_bmms_path.iterdir())):
+                    _bcached_models["mms"] = _get_mms_model(str(_bmms_path))
+                _bseam_path = ROOT / _bpaths_cfg.get("seamless_model", "models/seamless-m4t-v2-large")
+                if (cfg.get("asr", {}).get("seamless_langs")
+                        and _bseam_path.exists() and any(_bseam_path.iterdir())):
+                    _bcached_models["seamless"] = _get_seamless_model(
+                        str(_bseam_path), _brun_device)
                 _brun_cfg  = {**cfg, "device": _brun_device}
+                from remote_client import resolve_remote_mode as _resolve_remote_b
+                _brun_cfg["remote"] = _resolve_remote_b(
+                    cfg.get("remote", {}),
+                    st.session_state.get("_remote_mode", "auto"),
+                    st.session_state.get("_remote_health"),
+                )
                 _bprogress = {
                     "files_done": 0, "files_total": len(_init_queue),
                     "file_name": "", "stage": "Starting...",

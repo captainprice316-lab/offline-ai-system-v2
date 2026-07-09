@@ -46,19 +46,22 @@ MODELS_DIR.mkdir(exist_ok=True)
 # ── Per-language config ────────────────────────────────────────────────────────
 LANG_CONFIG = {
     "pa": {
-        "hf_model":      "openai/whisper-large-v3",
-        "whisper_lang":  "pa",
-        "task":          "transcribe",
-        "fleurs_config": "pa_in",
-        "cv_config":     "pa-IN",
-        "ct2_name":      "whisper-large-v3-pa-ct2",
-        "lora_r":        8,
-        "lora_alpha":    16,
-        "lora_dropout":  0.05,
-        "batch_size":    2,
-        "grad_accum":    1,   # no accumulation: ~19s/step vs 150s at accum=8
-        "learning_rate": 5e-5,
-        "warmup_steps":  50,
+        "hf_model":              "openai/whisper-large-v3",
+        "whisper_lang":          "pa",
+        "task":                  "transcribe",
+        "fleurs_config":         "pa_in",
+        "cv_config":             "pa-IN",
+        "indicvoices_config":    "Punjabi",
+        "indicvoices_train_cap": 20000,   # v3: doubled from 10k (25.7k available)
+        "ct2_name":              "whisper-large-v3-pa-ct2",
+        "lora_r":                16,      # v3: doubled from 8 for Gurmukhi complexity
+        "lora_alpha":            32,
+        "lora_dropout":          0.05,
+        "batch_size":            2,
+        "grad_accum":            1,       # no accumulation: ~19s/step vs 150s at accum=8
+        "learning_rate":         5e-5,
+        "warmup_steps":          100,     # v3: longer warmup for r=16
+        "max_grad_norm":         0.5,     # prevent fp16 gradient spikes (seen in zh)
     },
     "ps": {
         "hf_model":      "Nasimbahar/pashto-ghag-whisper-medium-asr",
@@ -91,19 +94,21 @@ LANG_CONFIG = {
         "warmup_steps":  50,
     },
     "ne": {
-        "hf_model":      "openai/whisper-large-v3",
-        "whisper_lang":  "ne",
-        "task":          "transcribe",
-        "fleurs_config": "ne_np",
-        "cv_config":     "ne-NP",
-        "ct2_name":      "whisper-large-v3-ne-ct2",
-        "lora_r":        8,
-        "lora_alpha":    16,
-        "lora_dropout":  0.05,
-        "batch_size":    2,
-        "grad_accum":    1,
-        "learning_rate": 5e-5,
-        "warmup_steps":  50,
+        "hf_model":              "openai/whisper-large-v3",
+        "whisper_lang":          "ne",
+        "task":                  "transcribe",
+        "fleurs_config":         "ne_np",
+        "cv_config":             "ne-NP",
+        "indicvoices_config":    "Nepali",
+        "indicvoices_train_cap": 10000,
+        "ct2_name":              "whisper-large-v3-ne-ct2",
+        "lora_r":                8,
+        "lora_alpha":            16,
+        "lora_dropout":          0.05,
+        "batch_size":            2,
+        "grad_accum":            1,
+        "learning_rate":         5e-5,
+        "warmup_steps":          50,
     },
     "zh": {
         "hf_model":      "openai/whisper-large-v3",
@@ -137,22 +142,24 @@ LANG_CONFIG = {
         "max_grad_norm": 0.5,   # prevent fp16 gradient spike (seen in zh at step ~820)
     },
     "ks": {
-        "hf_model":        "openai/whisper-large-v3",
-        "whisper_lang":    "ur",   # Nastaliq proxy — Kashmiri shares Arabic/Nastaliq script with Urdu; gives computable WER
-        "task":            "transcribe",
-        "fleurs_config":   None,   # FLEURS has no Kashmiri config
-        "cv_config":       None,
-        "custom_dataset":  "humair025/KashmiriSpeech-IndicVoices",  # IndicVoices Kashmiri; 160k samples
-        "ct2_name":        "whisper-large-v3-ks-ct2",
-        "lora_r":          8,
-        "lora_alpha":      16,
-        "lora_dropout":    0.05,
-        "batch_size":      1,
-        "grad_accum":      2,      # effective batch = 2; lower per-step VRAM
-        "learning_rate":   5e-5,
-        "warmup_steps":    50,
-        "max_grad_norm":   0.5,
-        "train_samples":   20000,  # increased from 8k; more data needed for low-resource language
+        # Base is the vocab-patched local model (run scripts/add_ks_token.py first)
+        "hf_model":                "models/whisper-large-v3-ks-base",
+        "whisper_lang":            "ks",   # custom token added by add_ks_token.py
+        "task":                    "transcribe",
+        "fleurs_config":           None,   # FLEURS has no Kashmiri config
+        "cv_config":               None,
+        # Local parquet files already downloaded to E:\hf_ks_temp
+        "indicvoices_parquet_dir": r"E:\hf_ks_temp\hub\datasets--ai4bharat--indicvoices_r\snapshots\5f4495c91d500742a58d1be2ab07d77f73c0acf8\Kashmiri",
+        "indicvoices_train_cap":   20000,
+        "ct2_name":                "whisper-large-v3-ks-ct2",
+        "lora_r":                  8,
+        "lora_alpha":              16,
+        "lora_dropout":            0.05,
+        "batch_size":              2,
+        "grad_accum":              1,
+        "learning_rate":           5e-5,
+        "warmup_steps":            50,
+        "max_grad_norm":           0.5,
     },
 }
 
@@ -177,6 +184,65 @@ def _hf_token() -> Optional[str]:
         return HfFolder.get_token()
     except Exception:
         return None
+
+
+def _resolve_model(cfg: dict) -> str:
+    """Return absolute path for local models; pass through HF hub IDs unchanged."""
+    path = cfg["hf_model"]
+    if "/" in path and not path.startswith("models/"):
+        return path  # HF hub ID like "openai/whisper-large-v3"
+    return str(ROOT / path)
+
+
+def _setup_ks_prefix(processor):
+    """
+    Wire up the tokenizer post-processor to emit the Kashmiri prefix
+    [<|startoftranscript|> <|ks|> <|transcribe|> <|notimestamps|>] on every
+    tokenize() call, and return the corresponding forced_decoder_ids for eval.
+
+    This bypasses WhisperTokenizer.prefix_tokens (which computes language IDs
+    as fixed offsets from bos_id and cannot handle the new out-of-range <|ks|>
+    token) by directly setting backend_tokenizer.post_processor.
+    """
+    from tokenizers import processors as hf_processors
+
+    tok = processor.tokenizer
+    bos_id          = tok.convert_tokens_to_ids("<|startoftranscript|>")
+    ks_id           = tok.convert_tokens_to_ids("<|ks|>")
+    transcribe_id   = tok.convert_tokens_to_ids("<|transcribe|>")
+    notimestamps_id = tok.convert_tokens_to_ids("<|notimestamps|>")
+    eos_id          = tok.eos_token_id
+    eos_str         = tok.eos_token
+
+    assert ks_id != tok.unk_token_id, (
+        "<|ks|> not in tokenizer — run `python scripts/add_ks_token.py` first"
+    )
+
+    bos_str = "<|startoftranscript|>"
+    ks_str  = "<|ks|>"
+    tr_str  = "<|transcribe|>"
+    nts_str = "<|notimestamps|>"
+    tmpl    = f"{bos_str}:0 {ks_str}:0 {tr_str}:0 {nts_str}:0"
+
+    tok.backend_tokenizer.post_processor = hf_processors.TemplateProcessing(
+        single=f"{tmpl} $A:0 {eos_str}:0",
+        pair=f"{tmpl} $A:0 $B:1 {eos_str}:1",
+        special_tokens=[
+            (eos_str, eos_id),
+            (bos_str, bos_id),
+            (ks_str,  ks_id),
+            (tr_str,  transcribe_id),
+            (nts_str, notimestamps_id),
+        ],
+    )
+
+    print(f"  <|ks|> token ID : {ks_id}")
+    print(f"  Label prefix    : [<|startoftranscript|>({bos_id}), <|ks|>({ks_id}), "
+          f"<|transcribe|>({transcribe_id}), <|notimestamps|>({notimestamps_id})]")
+
+    # forced_decoder_ids for eval generate(): positions 1,2,3 after bos
+    forced_decoder_ids = [(1, ks_id), (2, transcribe_id), (3, notimestamps_id)]
+    return forced_decoder_ids
 
 
 # ── Dataset loading ────────────────────────────────────────────────────────────
@@ -211,6 +277,85 @@ def load_datasets(lang: str, cfg: dict, use_cv: bool, token: Optional[str]) -> d
     data_dir.mkdir(parents=True, exist_ok=True)
 
     splits = {"train": [], "validation": []}
+
+    # ── IndicVoices-R local parquet (Kashmiri) ───────────────────────────────────
+    # Uses IterableDataset (streaming) for train to avoid Windows file-locking
+    # that occurs when HF datasets tries to finalize Arrow shard temp files.
+    # Val is small enough (372 samples) to load into a regular in-memory Dataset.
+    if cfg.get("indicvoices_parquet_dir"):
+        import pyarrow.parquet as pq
+        from datasets import Dataset, IterableDataset as HFIterableDataset, Features, Value
+
+        parquet_dir = Path(cfg["indicvoices_parquet_dir"])
+        train_files = sorted(parquet_dir.glob("train-*.parquet"))
+        test_files  = sorted(parquet_dir.glob("test-*.parquet"))
+        min_dur, max_dur = 2.0, 20.0
+        train_cap = cfg.get("indicvoices_train_cap", 20000)
+
+        audio_features = Features({
+            "audio": {"bytes": Value("binary"), "path": Value("string")},
+            "text":  Value("string"),
+        })
+
+        def _ks_gen(pq_files, max_samples):
+            count = 0
+            for pq_file in pq_files:
+                if count >= max_samples:
+                    break
+                try:
+                    t   = pq.read_table(pq_file, columns=["audio", "normalized", "duration"])
+                    raw = t.to_pydict()
+                    del t
+                    for audio, text, dur in zip(raw["audio"], raw["normalized"], raw["duration"]):
+                        if count >= max_samples:
+                            break
+                        if dur is None or not (min_dur <= dur <= max_dur) or not text:
+                            continue
+                        yield {"audio": audio, "text": text}
+                        count += 1
+                    del raw
+                except Exception as gen_e:
+                    print(f"         [WARN] {Path(pq_file).name}: {gen_e}")
+
+        # Train: IterableDataset — no Arrow temp files, no Windows file locks
+        if train_files:
+            try:
+                train_iterable = HFIterableDataset.from_generator(
+                    _ks_gen,
+                    gen_kwargs={"pq_files": train_files, "max_samples": train_cap},
+                    features=audio_features,
+                ).shuffle(seed=42, buffer_size=3000)
+                splits["train"].append(train_iterable)
+                print(f"\n  [data] IndicVoices-R KS train: {train_cap} samples (streaming, no cache)")
+            except Exception as e:
+                print(f"         [WARN] KS train IterableDataset: {e}")
+
+        # Validation: 372 samples fit in RAM — use regular Dataset
+        if test_files:
+            try:
+                val_audio, val_text = [], []
+                for pq_file in test_files:
+                    if len(val_text) >= 400:
+                        break
+                    t   = pq.read_table(pq_file, columns=["audio", "normalized", "duration"])
+                    raw = t.to_pydict()
+                    del t
+                    for audio, text, dur in zip(raw["audio"], raw["normalized"], raw["duration"]):
+                        if len(val_text) >= 400:
+                            break
+                        if dur is None or not (min_dur <= dur <= max_dur) or not text:
+                            continue
+                        val_audio.append(audio)
+                        val_text.append(text)
+                    del raw
+                val_ds = Dataset.from_dict(
+                    {"audio": val_audio, "text": val_text},
+                    features=audio_features,
+                )
+                splits["validation"].append(val_ds)
+                print(f"  IndicVoices-R KS val: {len(val_ds)} samples")
+            except Exception as e:
+                print(f"         [WARN] KS val Dataset: {e}")
 
     # ── Custom dataset (e.g. IndicVoices for Kashmiri) ────────────────────────
     if cfg.get("custom_dataset"):
@@ -267,6 +412,37 @@ def load_datasets(lang: str, cfg: dict, use_cv: bool, token: Optional[str]) -> d
             except Exception as e:
                 print(f"         [WARN] FLEURS {split}: {e}")
 
+    # ── IndicVoices-R (ai4bharat/indicvoices_r) ───────────────────────────────
+    if cfg.get("indicvoices_config"):
+        iv_lang = cfg["indicvoices_config"]
+        print(f"\n  [data] Loading indicvoices_r ({iv_lang}) ...")
+        # dataset only has train + test splits; use test as extra validation
+        for hf_split, out_split in [("train", "train"), ("test", "validation")]:
+            try:
+                ds = load_dataset(
+                    "ai4bharat/indicvoices_r",
+                    iv_lang,
+                    split=hf_split,
+                    token=token,
+                    cache_dir=str(data_dir / "indicvoices_r"),
+                )
+                ds = ds.cast_column("audio", Audio(decode=False))
+                before = len(ds)
+                ds = ds.filter(
+                    lambda x: x["duration"] is not None and 2.0 <= float(x["duration"]) <= 20.0
+                )
+                print(f"         duration filter: {before:,} -> {len(ds):,}")
+                # drop existing text column; use normalized (cleaner for ASR)
+                ds = ds.remove_columns([c for c in ds.column_names if c not in ("audio", "normalized")])
+                ds = ds.rename_column("normalized", "text")
+                cap = cfg.get("indicvoices_train_cap", 10000)
+                if hf_split == "train" and len(ds) > cap:
+                    ds = ds.shuffle(seed=42).select(range(cap))
+                splits[out_split].append(ds)
+                print(f"         indicvoices_r {out_split}: {len(ds):,} samples")
+            except Exception as e:
+                print(f"         [WARN] indicvoices_r {hf_split}: {e}")
+
     # ── Common Voice -- token required ────────────────────────────────────────
     if use_cv and cfg.get("cv_config"):
         if not token:
@@ -298,11 +474,23 @@ def load_datasets(lang: str, cfg: dict, use_cv: bool, token: Optional[str]) -> d
         print("[ERROR] No training data loaded.")
         sys.exit(1)
 
+    from datasets import IterableDataset as HFIterableDataset
+
     result = {}
     for split, ds_list in splits.items():
-        if ds_list:
-            result[split] = concatenate_datasets(ds_list).shuffle(seed=42)
-            print(f"\n  [data] Total {split}: {len(result[split]):,} samples")
+        if not ds_list:
+            continue
+        if len(ds_list) == 1:
+            ds = ds_list[0]
+        else:
+            ds = concatenate_datasets(ds_list)
+        # IterableDataset handles its own shuffling (buffer_size already set);
+        # only shuffle regular datasets here.
+        if not isinstance(ds, HFIterableDataset):
+            ds = ds.shuffle(seed=42)
+        result[split] = ds
+        n_str = f"{len(ds):,}" if hasattr(ds, "__len__") else "streaming"
+        print(f"\n  [data] Total {split}: {n_str} samples")
 
     return result
 
@@ -340,18 +528,19 @@ def setup_model(cfg: dict, run_dir: Path, resume: bool):
     from transformers import WhisperForConditionalGeneration
     from peft import LoraConfig, get_peft_model, PeftModel
 
-    adapter_dir = run_dir / "adapter"
+    adapter_dir   = run_dir / "adapter"
+    hf_model_path = _resolve_model(cfg)
 
     if resume and (adapter_dir / "adapter_config.json").exists():
         print(f"\n  Resuming from {adapter_dir}")
         base  = WhisperForConditionalGeneration.from_pretrained(
-            cfg["hf_model"], torch_dtype=torch.float16,
+            hf_model_path, torch_dtype=torch.float16,
         )
         model = PeftModel.from_pretrained(base, str(adapter_dir), is_trainable=True)
     else:
-        print(f"\n  Loading base model: {cfg['hf_model']}")
+        print(f"\n  Loading base model: {hf_model_path}")
         model = WhisperForConditionalGeneration.from_pretrained(
-            cfg["hf_model"], torch_dtype=torch.float16,
+            hf_model_path, torch_dtype=torch.float16,
         )
         lora_cfg = LoraConfig(
             # No task_type: creates base PeftModel (pass-through forward) instead of
@@ -385,7 +574,18 @@ def train(lang: str, args: argparse.Namespace) -> Path:
         Seq2SeqTrainer,
         Seq2SeqTrainingArguments,
         EarlyStoppingCallback,
+        TrainerCallback,
     )
+
+    class EmptyCacheCallback(TrainerCallback):
+        """Free CUDA memory before each eval to avoid OOM from fragmentation
+        on small-VRAM GPUs (8 GB RTX 5060). Added after PA v3 OOM'd at step 2400."""
+        def on_evaluate(self, args, state, control, **kwargs):
+            torch.cuda.empty_cache()
+        def on_step_end(self, args, state, control, **kwargs):
+            # clear right before the eval step fires
+            if args.eval_steps and state.global_step % args.eval_steps == 0:
+                torch.cuda.empty_cache()
 
     cfg     = LANG_CONFIG[lang]
     run_dir = RUNS_DIR / lang
@@ -403,33 +603,47 @@ def train(lang: str, args: argparse.Namespace) -> Path:
 
     # Processor
     print("\n  Loading processor ...")
-    whisper_lang = cfg.get("whisper_lang")   # None = no forced language token
-    try:
-        processor = WhisperProcessor.from_pretrained(
-            cfg["hf_model"], language=whisper_lang, task=cfg["task"],
-        )
-    except Exception:
-        # Community model may not have processor -- fall back to base arch
-        base_arch = "openai/whisper-large-v3" if "large" in cfg["hf_model"] else "openai/whisper-medium"
-        print(f"  [WARN] Processor not found in repo, using {base_arch}")
-        processor = WhisperProcessor.from_pretrained(
-            base_arch, language=whisper_lang, task=cfg["task"],
-        )
+    hf_model_path = _resolve_model(cfg)
+    whisper_lang  = cfg.get("whisper_lang")   # None = no forced language token
 
-    # forced_decoder_ids for generation during eval (None when whisper_lang unset)
-    if whisper_lang:
-        forced_decoder_ids = processor.get_decoder_prompt_ids(
-            language=whisper_lang, task=cfg["task"]
-        )
+    if lang == "ks":
+        # Kashmiri uses a custom <|ks|> token added by scripts/add_ks_token.py.
+        # WhisperTokenizer.prefix_tokens computes language IDs as fixed offsets
+        # from bos_id (positions 50259-50358) so it cannot handle a new token at
+        # ID 51866.  We load the processor without a language arg and set up the
+        # backend post-processor manually via _setup_ks_prefix().
+        processor = WhisperProcessor.from_pretrained(hf_model_path)
+        forced_decoder_ids = _setup_ks_prefix(processor)
     else:
-        forced_decoder_ids = None
-        print("  [INFO] No forced language token — model will auto-detect language from audio")
+        try:
+            processor = WhisperProcessor.from_pretrained(
+                hf_model_path, language=whisper_lang, task=cfg["task"],
+            )
+        except Exception:
+            # Community model may not have processor -- fall back to base arch
+            base_arch = "openai/whisper-large-v3" if "large" in cfg["hf_model"] else "openai/whisper-medium"
+            print(f"  [WARN] Processor not found in repo, using {base_arch}")
+            processor = WhisperProcessor.from_pretrained(
+                base_arch, language=whisper_lang, task=cfg["task"],
+            )
+
+        # forced_decoder_ids for generation during eval (None when whisper_lang unset)
+        if whisper_lang:
+            forced_decoder_ids = processor.get_decoder_prompt_ids(
+                language=whisper_lang, task=cfg["task"]
+            )
+        else:
+            forced_decoder_ids = None
+            print("  [INFO] No forced language token — model will auto-detect language from audio")
 
     # Datasets
     token  = _hf_token()
     raw    = load_datasets(lang, cfg, not args.no_cv, token)
 
     print("\n  Preprocessing audio features ...")
+
+    from datasets import IterableDataset as HFIterableDataset
+    is_iterable_train = isinstance(raw.get("train"), HFIterableDataset)
 
     def prepare(batch):
         data = _decode_audio(batch["audio"], target_sr=16000)
@@ -448,11 +662,34 @@ def train(lang: str, args: argparse.Namespace) -> Path:
         num_proc=1,
         desc="features",
     )
-    train_ds = raw["train"].map(**proc_kwargs)
-    if "validation" in raw:
-        eval_ds = raw["validation"].map(**proc_kwargs)
+    # IterableDataset.map() doesn't accept num_proc or desc
+    iterable_proc_kwargs = dict(function=prepare, remove_columns=["audio", "text"])
+
+    # Use C: drive for map() cache to avoid filling D: (source data is on D: junction)
+    _map_cache = Path("C:/hf_ds_map_cache")
+    _map_cache.mkdir(exist_ok=True)
+
+    if is_iterable_train:
+        # Lazy map — prepare() runs per-batch during training (no upfront cache)
+        train_ds = raw["train"].map(**iterable_proc_kwargs)
+        print("  [INFO] Train dataset: streaming (IterableDataset), features computed on-the-fly")
     else:
+        train_ds = raw["train"].map(
+            **proc_kwargs,
+            cache_file_name=str(_map_cache / f"{lang}_train_features.arrow"),
+        )
+
+    if args.no_eval:
+        eval_ds = None
+    elif "validation" in raw:
+        eval_ds = raw["validation"].map(
+            **proc_kwargs,
+            cache_file_name=str(_map_cache / f"{lang}_eval_features.arrow"),
+        )
+    elif not is_iterable_train:
         eval_ds = train_ds.select(range(min(500, len(train_ds))))
+    else:
+        eval_ds = None  # no eval without a validation split
 
     collator = DataCollator(
         processor=processor,
@@ -475,7 +712,9 @@ def train(lang: str, args: argparse.Namespace) -> Path:
 
     # Set forced_decoder_ids on generation config for eval generate() calls
     model.generation_config.forced_decoder_ids = forced_decoder_ids
+    model.generation_config.num_beams = 1   # greedy eval decoding (low VRAM)
 
+    has_eval = eval_ds is not None
     training_args = Seq2SeqTrainingArguments(
         output_dir=str(adapter_dir),
         per_device_train_batch_size=cfg["batch_size"],
@@ -486,32 +725,39 @@ def train(lang: str, args: argparse.Namespace) -> Path:
         max_grad_norm=cfg.get("max_grad_norm", 1.0),
         gradient_checkpointing=False,
         fp16=True,
-        eval_strategy="steps",
-        per_device_eval_batch_size=max(1, cfg["batch_size"] // 2),
-        predict_with_generate=True,
+        eval_strategy="steps" if has_eval else "no",
+        per_device_eval_batch_size=1,          # smallest eval batch (8 GB VRAM)
+        predict_with_generate=has_eval,
         generation_max_length=225,
+        generation_num_beams=1,                # greedy eval decoding — lowers eval VRAM,
+                                               # prevents the OOM that halted PA v3 at step 2400
+        eval_accumulation_steps=1,             # offload eval preds to CPU each step
         save_steps=args.save_steps,
-        eval_steps=args.save_steps,
+        eval_steps=args.save_steps if has_eval else None,
         logging_steps=max(10, args.save_steps // 5),
         report_to="none",
-        load_best_model_at_end=True,
-        metric_for_best_model="wer",
-        greater_is_better=False,
+        load_best_model_at_end=has_eval,
+        metric_for_best_model="wer" if has_eval else None,
+        greater_is_better=False if has_eval else None,
         push_to_hub=False,
         dataloader_num_workers=0,   # Windows: no fork-based multiprocessing
         remove_unused_columns=False,
     )
 
-    trainer = Seq2SeqTrainer(
+    trainer_kwargs = dict(
         model=model,
         args=training_args,
         train_dataset=train_ds,
-        eval_dataset=eval_ds,
         data_collator=collator,
-        compute_metrics=compute_metrics,
         processing_class=processor.feature_extractor,
-        callbacks=[EarlyStoppingCallback(early_stopping_patience=3)],
     )
+    if eval_ds is not None:
+        trainer_kwargs["eval_dataset"]    = eval_ds
+        trainer_kwargs["compute_metrics"] = compute_metrics
+        trainer_kwargs["callbacks"]       = [EarlyStoppingCallback(early_stopping_patience=3),
+                                             EmptyCacheCallback()]
+
+    trainer = Seq2SeqTrainer(**trainer_kwargs)
 
     if args.resume and adapter_dir.exists():
         if (adapter_dir / "trainer_state.json").exists():
@@ -546,7 +792,7 @@ def merge_and_convert(lang: str, adapter_dir: Path) -> bool:
 
     print(f"\n  [1/2] Merging LoRA adapter into base model ...")
     base   = WhisperForConditionalGeneration.from_pretrained(
-        cfg["hf_model"], torch_dtype=torch.float16,
+        _resolve_model(cfg), torch_dtype=torch.float16,
     )
     peft_m = PeftModel.from_pretrained(base, str(adapter_dir))
     merged = peft_m.merge_and_unload()
@@ -637,6 +883,8 @@ def main():
         help="Resume from last checkpoint in finetune_runs/<lang>/adapter/")
     parser.add_argument("--skip-ct2",   action="store_true",
         help="Save LoRA adapter only; skip merge + CT2 conversion")
+    parser.add_argument("--no-eval",    action="store_true",
+        help="Disable evaluation during training (speeds up runs with slow generate())")
     args = parser.parse_args()
 
     cfg = LANG_CONFIG[args.lang]

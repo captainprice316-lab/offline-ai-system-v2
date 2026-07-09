@@ -46,6 +46,17 @@ class SeamlessASR:
         """Call between unrelated audio files (interface parity with ASRModule)."""
         self._detected_language = None
 
+    def to_device(self, device: str):
+        """Move the model between CPU RAM and GPU (dtype preserved).
+
+        Lets a cached instance park on CPU between files and promote to GPU
+        only for the ASR stage — PCIe transfer (~1 s) vs disk reload (~8 s).
+        """
+        device = "cpu" if device not in ("cpu", "cuda") else device
+        if next(self.model.parameters()).device.type != device:
+            self.model.to(device)
+        self.device = device
+
     def transcribe(self, audio_path: str, language_hint: str = None) -> dict:
         lang    = language_hint or self.default_lang or self._detected_language or "pa"
         sm_lang = SEAMLESS_LANG.get(lang, "pan")

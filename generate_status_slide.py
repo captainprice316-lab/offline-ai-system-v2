@@ -59,11 +59,8 @@ header(0.30, top_t, col_w, "DELIVERABLES", BLUE)
 box(0.30, top_t + 0.45, col_w, body_h, fill=LIGHT)
 deliv = [
     "Real-time multilingual ASR (fine-tuned Whisper)",
-    "Automatic language identification (MMS-LID, 256 langs)",
     "English translation (NLLB-200 / IndicTrans2)",
-    "Keyword & threat detection",
-    "Structured Intelligence Summaries (ISUM, Gemma 3:12B)",
-    "Searchable transcript database + Streamlit UI",
+    "Sentiment analysis and reports",
     "Fully offline — no internet after setup",
 ]
 add_text(0.50, top_t + 0.58, col_w - 0.35, body_h,
@@ -77,8 +74,6 @@ done = [
     "Full 10-stage pipeline verified end-to-end (06 Jul)",
     "Cross-model eval: Whisper vs SeamlessM4T (7 langs)",
     "Robustness eval: 7 langs × 5 noise/distortion conditions",
-    "Reports generated (PDF + PPTX)",
-    "Infra upgrade: 2 TB SSD + 32 GB RAM; data moved to SN7100",
 ]
 add_text(7.05, top_t + 0.58, col_w - 0.35, body_h,
          [("✓ " + d, 13, GREY, False) for d in done], space=7)
@@ -88,14 +83,11 @@ pend_t = 5.30
 header(0.30, pend_t, 12.73, "PENDING WORK  —  TIMELINE", AMBER)
 box(0.30, pend_t + 0.45, 12.73, 1.45, fill=LIGHT)
 pend = [
-    ("06 Jul 2026", "Verify G: backup of E: model dirs (in progress)"),
-    ("08 Jul 2026", "PROJECT DEMO — full pipeline via Streamlit UI"),
-    ("Post-demo",   "Detailed parameter/method explainer (LoRA, CT2, eval metrics)"),
-    ("Backlog",     "Kashmiri WER not meaningful; SeamlessM4T S2TT (ASR-only LoRA) to revisit"),
+    "ASR improvement  →  Reduce WER for languages still above acceptable (~25%):",
+    "                          Punjabi 55.7%,   Nepali 49.2%,   Pashto 38.6%",
+    "Backlog          →  Kashmiri WER not meaningful; SeamlessM4T S2TT (ASR-only LoRA) to revisit",
 ]
-runs = []
-for date, task in pend:
-    runs.append((f"{date:<12}  →  {task}", 13, GREY, False))
+runs = [(line, 13, GREY, False) for line in pend]
 add_text(0.50, pend_t + 0.56, 12.4, 1.3, runs, space=8)
 
 out = "docs/VANI_Status_Slide.pptx"

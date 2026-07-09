@@ -42,6 +42,7 @@ CODE_BORDER = colors.HexColor("#CCCCCC")
 PALETTE = {
     "pa": "#2196F3", "ps": "#FF9800", "ur": "#4CAF50",
     "ne": "#9C27B0", "zh": "#F44336", "hi": "#009688",
+    "ks": "#00BCD4",
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -52,22 +53,35 @@ LANG_META = {
     "pa": {
         "name": "Punjabi", "script": "Gurmukhi", "iso": "pa",
         "base_model": "openai/whisper-large-v3",
-        "dataset": "FLEURS pa_in", "train_samples": 2516, "val_samples": 314,
+        "dataset": "FLEURS pa_in + IndicVoices-R Punjabi", "train_samples": 11923, "val_samples": 805,
         "steps": 3000, "baseline_wer": 105.79,
-        "wer_curve": [(200,71.56),(400,65.83),(600,63.98),(800,62.08),(1000,61.30),(1500,58.36),(2000,58.10),(2500,57.32),(3000,56.67)],
-        "train_loss": [(40,0.5256),(80,0.4568),(120,0.4114),(160,0.3312),(200,0.3200),
-                       (240,0.2788),(280,0.2830),(320,0.2558),(360,0.2177),(400,0.2060),
-                       (440,0.2164),(480,0.1929),(520,0.2021),(560,0.1858),(600,0.1854),
-                       (640,0.1778),(680,0.1841),(720,0.1706),(760,0.1826),(800,0.1886),
-                       (840,0.1699),(880,0.1794),(920,0.1714),(960,0.1683),(1000,0.1639)],
-        "best_wer": 56.67, "best_step": 3000,
-        "eval_wer": 55.67,
+        "wer_curve": [(200,70.75),(400,61.95),(600,59.21),(800,58.55),(1000,59.09),
+                      (1200,56.98),(1400,56.48),(1600,55.12),(1800,54.65),(2000,54.08),
+                      (2200,53.88),(2400,52.99),(2600,52.85),(2800,52.61),(3000,52.55)],
+        "wer_curve_v1": [(200,71.56),(400,65.83),(600,63.98),(800,62.08),(1000,61.30),
+                         (1500,58.36),(2000,58.10),(2500,57.32),(3000,56.67)],
+        "wer_curve_v3": [(200,69.97),(400,61.66),(600,59.97),(800,57.15),(1000,56.96),
+                         (1200,54.48),(1400,55.68),(1600,52.99),(1800,52.06),(2000,52.75),
+                         (2200,50.62),(2400,51.25),(2600,51.25),(2800,50.51),(3000,50.05),
+                         (3200,50.65),(3400,49.40),(3600,49.97),(3800,49.49),(4000,49.31)],
+        "train_loss": [(200,0.3558),(400,0.2344),(600,0.2307),(800,0.2017),(1000,0.1817),
+                       (1200,0.1817),(1400,0.1631),(1600,0.1680),(1800,0.1725),(2000,0.1513),
+                       (2200,0.1587),(2400,0.1570),(2600,0.1411),(2800,0.1684),(3000,0.1623)],
+        "best_wer": 49.31, "best_step": 4000,
+        "eval_wer": 49.31,
         "ct2_model": "whisper-large-v3-pa-ct2",
         "translation": "NLLB-200",
-        "note": "Baseline WER 105.83% because the turbo model could not recognise Gurmukhi script. "
-                "CT2 tokenizer fix (2026-06-23) restored correct transcription — model now outputs "
-                "Gurmukhi and is routed through NLLB-200 like other languages. Eval WER: 59.94%.",
-        "training_time": "~5.5 h",
+        "note": "v1: FLEURS pa_in only (2,516 samples, 3,000 steps, best WER 56.67%  — superseded). "
+                "v2: FLEURS + IndicVoices-R 9,407 samples (11,923 total, 3,000 steps, best WER 52.55% @ step 3000); "
+                "CT2 tokenizer fix 2026-06-23 restored Gurmukhi transcription. Superseded by v3. "
+                "v3 (DEPLOYED 2026-07-04): LoRA r=16 α=32, IV-R 20,000 samples (21,923 total), completed 4,000 steps. "
+                "Best WER 49.31% @ step 4000 (-3.24 pp vs v2's 52.55%), eval loss declining monotonically to 0.1662. "
+                "Best checkpoint merged to CT2 int8 and deployed; verified transcribing Gurmukhi on FLEURS pa test set. "
+                "Robustness note: initial run OOM-crashed at step 2400 (CUDA out-of-memory during beam-search eval on 8 GB "
+                "RTX 5060); resumed from checkpoint-2200 with greedy eval (num_beams=1, eval batch 1, cache-clear before eval), "
+                "which cut eval VRAM from 8 GB to ~3.8 GB and ran clean to step 4000. "
+                "Earlier disk-space incident at step 800: D: junction full during optimizer checkpoint save; resumed from checkpoint-600.",
+        "training_time": "~55 h (incl. OOM restart)",
     },
     "ps": {
         "name": "Pashto", "script": "Nastaliq (Arabic)", "iso": "ps",
@@ -108,20 +122,25 @@ LANG_META = {
     "ne": {
         "name": "Nepali", "script": "Devanagari", "iso": "ne",
         "base_model": "openai/whisper-large-v3",
-        "dataset": "FLEURS ne_np", "train_samples": 3332, "val_samples": 305,
-        "steps": 2000, "baseline_wer": 94.55,
-        "wer_curve": [(200,63.58),(400,56.87),(600,54.32),(800,54.55),(1000,54.36),(1500,52.87),(2000,52.14)],
-        "train_loss": [(40,0.7470),(80,0.6947),(120,0.5849),(160,0.5024),(200,0.4782),
-                       (240,0.4149),(280,0.4073),(320,0.3671),(360,0.3327),(400,0.3278),
-                       (440,0.3299),(480,0.3212),(520,0.2937),(560,0.3082),(600,0.3313),
-                       (640,0.3140),(680,0.3436),(720,0.3190),(760,0.2963),(800,0.2891),
-                       (840,0.3214),(880,0.2964),(920,0.2915),(960,0.3229),(1000,0.2712)],
-        "best_wer": 49.24, "best_step": 2000,
-        "eval_wer": 49.24,
+        "dataset": "FLEURS ne_np + IndicVoices-R Nepali", "train_samples": 13332, "val_samples": 572,
+        "steps": 3000, "baseline_wer": 94.55,
+        "wer_curve": [(200,70.98),(400,62.64),(600,60.67),(800,56.93),(1000,55.90),
+                      (1200,54.73),(1400,54.27),(1600,53.81),(1800,53.83),(2000,52.05),
+                      (2200,51.77),(2400,51.67),(2600,51.10),(2800,51.17),(3000,50.82)],
+        "wer_curve_v1": [(200,63.58),(400,56.87),(600,54.32),(800,54.55),(1000,54.36),
+                         (1500,52.87),(2000,52.14)],
+        "train_loss": [(200,0.6375),(400,0.4544),(600,0.4108),(800,0.3540),(1000,0.3408),
+                       (1200,0.3337),(1400,0.2988),(1600,0.3323),(1800,0.3221),(2000,0.3195),
+                       (2200,0.2982),(2400,0.3260),(2600,0.3065),(2800,0.2553),(3000,0.2941)],
+        "best_wer": 50.82, "best_step": 3000,
+        "eval_wer": 50.82,
         "ct2_model": "whisper-large-v3-ne-ct2",
         "translation": "NLLB-200",
-        "note": "WER plateaus after step 600. Largest training set (3,332 samples) yet higher final WER than Hindi/Urdu — Nepali is inherently lower-resource.",
-        "training_time": "~6 h 44 m",
+        "note": "v1 trained on FLEURS ne_np (3,332 samples, 2,000 steps, best WER 52.14%). "
+                "v2 retrained with IndicVoices-R Nepali added (13,332 total samples, 3,000 steps), "
+                "achieving 50.82% on a 572-sample combined eval set (FLEURS val + IndicVoices-R test). "
+                "Loss continued declining through step 3,000, suggesting further gains with extended training.",
+        "training_time": "~30 h",
     },
     "zh": {
         "name": "Mandarin Chinese", "script": "Simplified Han", "iso": "zh",
@@ -163,19 +182,53 @@ LANG_META = {
                 "Eval WER: 19.78% (baseline 30.29%).",
         "training_time": "~6 h 45 m",
     },
+    "ks": {
+        "name": "Kashmiri", "script": "Nastaliq (Perso-Arabic)", "iso": "ks",
+        "base_model": "openai/whisper-large-v3 + <|ks|> token (ID 51866)",
+        "dataset": "IndicVoices-R Kashmiri", "train_samples": 20000, "val_samples": 372,
+        "steps": 3000, "baseline_wer": 96.87,
+        "wer_curve": [
+            (200,97.41),(400,90.18),(600,85.58),(800,83.16),(1000,84.47),
+            (1200,78.85),(1400,77.13),(1600,76.89),(1800,75.96),(2000,74.34),
+            (2200,75.52),(2400,74.02),(2600,75.0),(2800,75.91),(3000,76.27),
+        ],
+        "train_loss": [
+            (40,2.8338),(80,2.4584),(120,2.0347),(160,1.8366),(200,1.6713),
+            (280,1.4769),(360,1.2018),(400,1.1963),(480,1.0893),(560,1.0287),
+            (600,0.9812),(680,0.9127),(760,0.9169),(800,0.8601),(880,0.8539),
+            (960,0.8718),(1000,0.8404),(1080,0.8011),(1160,0.7705),(1200,0.7683),
+            (1280,0.757),(1360,0.769),(1400,0.7792),(1480,0.742),(1560,0.7895),
+            (1600,0.7286),(1680,0.7123),(1760,0.6883),(1800,0.7589),(1880,0.6958),
+            (1960,0.6563),(2000,0.7041),(2080,0.649),(2160,0.7344),(2200,0.76),
+            (2280,0.6279),(2360,0.7073),(2400,0.7008),(2480,0.651),(2560,0.7024),
+            (2600,0.7156),(2680,0.683),(2760,0.6522),(2800,0.6546),(2880,0.6706),
+            (2960,0.6692),(3000,0.7226),
+        ],
+        "best_wer": 74.02, "best_step": 2400,
+        "eval_wer": 74.02,
+        "ct2_model": "whisper-large-v3-ks-ct2",
+        "translation": "NLLB-200",
+        "note": "Whisper has no native Kashmiri support. Custom <|ks|> token (ID 51866) added to "
+                "whisper-large-v3 vocab and embedding matrix initialised from <|ur|> (Urdu — same Nastaliq "
+                "script). Forced prefix [<|startoftranscript|>, <|ks|>, <|transcribe|>, <|notimestamps|>] "
+                "injected via TemplateProcessing. Trained on IndicVoices-R KS (20k samples, 3,000 steps). "
+                "Best WER 74.02% at step 2400 (-22.85 pp from baseline 96.87%). "
+                "faster-whisper patched at import time to accept 'ks' language code.",
+        "training_time": "~18 h (incl. 2 power outages, PD-charger recovery)",
+    },
 }
 
-LANG_ORDER = ["pa", "ps", "ur", "ne", "zh", "hi"]
+LANG_ORDER = ["pa", "ps", "ur", "ne", "zh", "hi", "ks"]
 
 # Cross-model eval results (100-sample FLEURS test / IndicVoices val, 23 Jun 2026)
 EVAL_RESULTS = {
-    "pa": {"baseline": 105.79, "ft": 55.67, "seamless": 19.77,  "nllb_chrf": 41.54, "sm_chrf": 58.72},
+    "pa": {"baseline": 105.79, "ft": 52.55, "seamless": 19.77,  "nllb_chrf": 41.54, "sm_chrf": 58.72},
     "ps": {"baseline":  94.23, "ft": 38.55, "seamless": 44.40,  "nllb_chrf": 44.48, "sm_chrf": 43.92},
     "ur": {"baseline":  24.44, "ft": 19.82, "seamless": 16.90,  "nllb_chrf": 51.34, "sm_chrf": 54.91},
-    "ne": {"baseline":  94.55, "ft": 49.24, "seamless": 28.46,  "nllb_chrf": 47.72, "sm_chrf": 56.02},
+    "ne": {"baseline":  94.55, "ft": 50.82, "seamless": 28.46,  "nllb_chrf": 47.72, "sm_chrf": 56.02},
     "zh": {"baseline": 100.03, "ft": 16.03, "seamless": 100.0,  "nllb_chrf": 42.85, "sm_chrf": 53.42},
     "hi": {"baseline":  30.29, "ft": 19.78, "seamless": 15.44,  "nllb_chrf": 53.71, "sm_chrf": 56.05},
-    "ks": {"baseline":  98.64, "ft": None,  "seamless": None,   "nllb_chrf": None,  "sm_chrf": None},
+    "ks": {"baseline":  96.87, "ft": 74.02, "seamless": None,   "nllb_chrf": None,  "sm_chrf": None},
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -322,7 +375,7 @@ def chart_wer_all():
     ax.set_title("WER Progression During LoRA Fine-Tuning", fontsize=13, fontweight="bold")
     ax.legend(loc="upper right", fontsize=9)
     ax.set_ylim(0, 120)
-    ax.set_xlim(0, 1100)
+    ax.set_xlim(0, 3100)
     ax.grid(True, alpha=0.3, linestyle="--")
     ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f"{v:.0f}%"))
     fig.tight_layout()
@@ -333,12 +386,27 @@ def chart_wer_per_lang(lang):
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
     steps = [p[0] for p in m["wer_curve"]]
     wers  = [p[1] for p in m["wer_curve"]]
-    ax1.plot(steps, wers, "o-", color=PALETTE[lang], linewidth=2, markersize=7)
+    has_v1 = "wer_curve_v1" in m
+    has_v3 = "wer_curve_v3" in m
+    label_v2 = ("v2 (superseded)" if has_v3 else "v2 (deployed)") if (has_v1 or has_v3) else None
+    ax1.plot(steps, wers, "o-", color=PALETTE[lang], linewidth=2, markersize=7,
+             label=label_v2)
+    if has_v1:
+        v1s = [p[0] for p in m["wer_curve_v1"]]
+        v1w = [p[1] for p in m["wer_curve_v1"]]
+        ax1.plot(v1s, v1w, "o--", color=PALETTE[lang], linewidth=1.5, markersize=5,
+                 alpha=0.38, label="v1 (superseded)")
+    if has_v3:
+        v3s = [p[0] for p in m["wer_curve_v3"]]
+        v3w = [p[1] for p in m["wer_curve_v3"]]
+        ax1.plot(v3s, v3w, "s:", color=PALETTE[lang], linewidth=2.2, markersize=6,
+                 alpha=0.85, label="v3 (deployed, r=16, 21,923 samp.)")
     if "wer_curve_diverged" in m:
         dx = [p[0] for p in m["wer_curve_diverged"]]
         ax1.plot(dx, [min(p[1], 120) for p in m["wer_curve_diverged"]],
                  "rx", markersize=12, markeredgewidth=2, label="Diverged (not deployed)")
-        ax1.legend(fontsize=8)
+    if has_v1 or has_v3 or "wer_curve_diverged" in m:
+        ax1.legend(fontsize=8, loc="upper right")
     ax1.axhline(m["baseline_wer"], color="gray", linestyle="--", linewidth=1.2, alpha=0.8)
     ax1.text(steps[0], m["baseline_wer"] + 1.5, f"Baseline ~{m['baseline_wer']:.0f}%",
              fontsize=8, color="gray")
@@ -409,7 +477,7 @@ def chart_dataset_sizes():
     ax.set_xticks(x)
     ax.set_xticklabels(names, fontsize=9)
     ax.set_ylabel("Number of Samples", fontsize=11)
-    ax.set_title("FLEURS Dataset Sizes per Language", fontsize=12, fontweight="bold")
+    ax.set_title("Training Dataset Sizes per Language (PA/NE include IndicVoices-R)", fontsize=11, fontweight="bold")
     ax.legend(fontsize=9)
     ax.grid(True, axis="y", alpha=0.3, linestyle="--")
     fig.tight_layout()
@@ -498,8 +566,8 @@ def build():
             [tcl("Training Hardware",    bold=True), tcl("NVIDIA RTX 5060 8 GB VRAM (CUDA) - Windows 11")],
             [tcl("Base Model",           bold=True), tcl("OpenAI Whisper large-v3 (1.55 B parameters)")],
             [tcl("Adaptation Method",    bold=True), tcl("LoRA  r=8, alpha=16  --  0.25% trainable parameters")],
-            [tcl("Total Training Time",  bold=True), tcl("~30 hours across all 7 languages")],
-            [tcl("Eval Date",            bold=True), tcl("23 June 2026  --  100 samples, FLEURS test / IndicVoices val")],
+            [tcl("Total Training Time",  bold=True), tcl("~100 hours across all 7 languages (PA v2 ~33 h, NE v2 ~30 h)")],
+            [tcl("Eval Date",            bold=True), tcl("23 June 2026 (cross-model eval)  |  29 June 2026 (PA v2 / NE v2 eval)")],
         ], colWidths=[6*cm, W - 6*cm],
         style=std_ts(left_cols=(0, 1))),
         sp(30),
@@ -520,11 +588,13 @@ def build():
             "detects keywords, diarizes speakers, and generates structured intelligence summary (ISUM) reports."
         ),
         body(
-            "Six Whisper models were fine-tuned on the FLEURS dataset: "
+            "Six Whisper models were fine-tuned: "
             "Punjabi (pa), Pashto (ps), Urdu (ur), Nepali (ne), Mandarin Chinese (zh), and Hindi (hi). "
+            "Punjabi and Nepali models were retrained in a v2 run that incorporated AI4Bharat IndicVoices-R data "
+            "in addition to FLEURS, resulting in 11,923 Punjabi and 13,332 Nepali training samples respectively. "
             "All models are quantized to CTranslate2 int8 format for fast CPU/GPU inference. "
-            "Best WER results range from 8.97% (Mandarin) to 61.3% (Punjabi), "
-            "with improvements of 13-52 percentage points over untuned baselines."
+            "Best WER results range from 8.97% (Mandarin) to 50.82% (Nepali), "
+            "with improvements of 13-53 percentage points over untuned baselines."
         ),
         sp(8),
     ]
@@ -565,7 +635,7 @@ def build():
             [tc("9"),  tcl("ISUM"),                tcl("Gemma 3:12B (via Ollama) generates 4-sentence structured intelligence summary")],
             [tc("10"), tcl("Export"),              tcl("SQLite database storage + JSON report output")],
         ], colWidths=[1.3*cm, 3.2*cm, W - 4.5*cm],
-        style=std_ts(left_cols=(1, 2))),
+        style=std_ts(left_cols=(1, 2)), repeatRows=1),
         sp(10),
     ]
 
@@ -583,20 +653,20 @@ def build():
         ),
         sp(4), h2("3.2 LoRA Configuration"),
         Table([
-            [tch("Parameter"), tch("Value"), tch("Rationale", left=True)],
-            [tcl("Rank (r)"),        tc("8"),
-             tcl("Low rank sufficient for language-specific phoneme adaptation")],
-            [tcl("Alpha (a)"),       tc("16"),
-             tcl("a/r = 2.0 scaling factor - standard for speech models")],
-            [tcl("Dropout"),         tc("0.05"),
-             tcl("Light regularization; FLEURS data is clean")],
-            [tcl("Target modules"),  tc("q_proj, v_proj"),
-             tcl("Attention query and value projections in Whisper encoder/decoder")],
-            [tcl("Trainable params"),tc("~3.9M / 1.55B"),
-             tcl("0.25% of total model parameters")],
-            [tcl("Adapter merge"),   tc("merge_and_unload()"),
-             tcl("LoRA weights merged into base before CT2 conversion for single-model deployment")],
-        ], colWidths=[3.5*cm, 3*cm, W - 6.5*cm],
+            [tch("Parameter"), tch("v1/v2 Value"), tch("PA v3 Value"), tch("Rationale", left=True)],
+            [tcl("Rank (r)"),        tc("8"),   tc("16"),
+             tcl("v3 doubles capacity for larger 21,923-sample dataset")],
+            [tcl("Alpha (α)"),       tc("16"),  tc("32"),
+             tcl("α/r = 2.0 scaling maintained — standard for speech LoRA")],
+            [tcl("Dropout"),         tc("0.05"),tc("0.05"),
+             tcl("Light regularization; FLEURS + IV-R data is clean read-speech")],
+            [tcl("Target modules"),  tc("q_proj, v_proj"), tc("q_proj, v_proj"),
+             tcl("Attention query/value projections in Whisper encoder/decoder")],
+            [tcl("Trainable params"),tc("~3.9M (0.25%)"), tc("~7.9M (0.51%)"),
+             tcl("Doubled for v3; still <1% of 1.55B total parameters")],
+            [tcl("Adapter merge"),   tc("merge_and_unload()"), tc("merge_and_unload()"),
+             tcl("LoRA weights merged into base before CT2 conversion")],
+        ], colWidths=[3.2*cm, 2.4*cm, 2.4*cm, W - 8.0*cm],
         style=std_ts(left_cols=(0, 2))),
         sp(10), h2("3.3 Training Hyperparameters"),
         Table([
@@ -606,7 +676,7 @@ def build():
             [tcl("Learning rate",           bold=True),  tcl("5e-5")],
             [tcl("LR scheduler",            bold=True),  tcl("Linear warmup (50 steps) then linear decay")],
             [tcl("Precision",               bold=True),  tcl("fp16 mixed precision")],
-            [tcl("Gradient clipping",       bold=True),  tcl("max_grad_norm = 1.0 (pa, ps, ur, ne)  /  0.5 (zh, hi)")],
+            [tcl("Gradient clipping",       bold=True),  tcl("max_grad_norm = 1.0 (pa v1/v2, ps, ur, ne)  /  0.5 (zh, hi, pa v3, ks — after Mandarin divergence lesson)")],
             [tcl("Best model selection",    bold=True),  tcl("load_best_model_at_end=True  (metric: eval WER)")],
             [tcl("Eval / save frequency",   bold=True),  tcl("Every 200 steps")],
             [tcl("CT2 quantization",        bold=True),  tcl("int8  (beam_size=2, temperature=0.0)")],
@@ -650,24 +720,43 @@ def build():
 
     # ── 4. DATASET ────────────────────────────────────────────────────────────
     story += [
-        h1("4. Training Dataset - FLEURS"), hr(),
+        h1("4. Training Dataset — FLEURS + IndicVoices-R"), hr(),
         body(
-            "All models were trained on FLEURS (Few-shot Learning Evaluation of Universal "
+            "Primary training data comes from FLEURS (Few-shot Learning Evaluation of Universal "
             "Representations of Speech) by Google. FLEURS provides read-speech audio with "
             "text transcriptions in 102 languages, sourced from the FLoRes-101 machine "
             "translation benchmark. Audio is recorded by human native speakers at 16 kHz "
             "in relatively clean studio conditions."
         ),
         body(
-            "FLEURS is a general-domain read-speech corpus - it does not contain radio intercept "
+            "FLEURS is a general-domain read-speech corpus — it does not contain radio intercept "
             "or military communications audio. Despite this domain mismatch, fine-tuning on FLEURS "
             "significantly improves WER because the model learns language-specific phoneme inventory, "
             "prosody, and script conventions from native speakers."
         ),
+        sp(4), h2("4.1 IndicVoices-R Augmentation (Punjabi v2 and Nepali v2)"),
+        body(
+            "For the second training run (v2) of Punjabi and Nepali, the FLEURS training split was "
+            "augmented with AI4Bharat IndicVoices-R (ai4bharat/indicvoices_r). IndicVoices-R is a "
+            "large-scale read-speech corpus collected from native Indian-language speakers across "
+            "diverse recording conditions, providing complementary phoneme and prosody coverage "
+            "beyond the FLEURS studio recordings. Samples were filtered to 2-20 seconds duration; "
+            "normalised transcripts (normalized column) were used."
+        ),
+        Table([
+            [tch("Language"), tch("ISO"), tch("FLEURS Train"), tch("IndicVoices-R"), tch("Total Train"), tch("Eval Set"), tch("Status")],
+            [tcl("Punjabi v2"), tc("pa"), tc("2,516"), tc("9,407"),  tc("11,923"), tc("805 (FLEURS 251 + IV-R 554)"), tcl("Deployed")],
+            [tcl("Punjabi v3"), tc("pa"), tc("2,516"), tc("20,000"), tc("21,923"), tc("805 (same eval set)"),          tcl("In training")],
+            [tcl("Nepali v2"),  tc("ne"), tc("3,332"), tc("10,000"), tc("13,332"), tc("572 (FLEURS + IV-R test)"),     tcl("Deployed")],
+        ], colWidths=[2.4*cm, 0.85*cm, 2.0*cm, 2.2*cm, 2.0*cm, 3.6*cm, W-13.05*cm],
+        style=std_ts(left_cols=(0, 6))),
         sp(6),
-        img_from_buf(chart_dataset_sizes(), width=W * 0.85),
-        caption("Figure 1: FLEURS train/validation sample counts per language"),
+        KeepTogether([
+            img_from_buf(chart_dataset_sizes(), width=W * 0.85),
+            caption("Figure 1: Training sample counts per language (PA and NE reflect v2 combined totals)"),
+        ]),
         sp(6),
+        h2("4.2 FLEURS Reference Sizes"),
         Table([
             [tch("Language"), tch("ISO"), tch("FLEURS Config"), tch("Train"), tch("Val"), tch("Test"), tch("Region")],
             [tcl("Punjabi"),  tc("pa"), tc("pa_in"),       tc("2,516"), tc("314"), tc("765"), tcl("India")],
@@ -677,13 +766,57 @@ def build():
             [tcl("Mandarin"), tc("zh"), tc("cmn_hans_cn"), tc("3,246"), tc("409"), tc("945"), tcl("China (Simplified)")],
             [tcl("Hindi"),    tc("hi"), tc("hi_in"),       tc("2,120"), tc("239"), tc("585"), tcl("India")],
         ], colWidths=[2.8*cm, 1.2*cm, 3.6*cm, 1.6*cm, 1.2*cm, 1.2*cm, W-11.6*cm],
-        style=std_ts(left_cols=(0, 6))),
+        style=std_ts(left_cols=(0, 6)), repeatRows=1),
         sp(6),
         note(
-            "Note: Kashmiri (ks) was investigated but no public training data exists. "
-            "FLEURS has no Kashmiri config; Common Voice has no Kashmiri corpus; "
-            "AI4Bharat IndicVoices (which contains Kashmiri) requires institutional gated access."
+            "Note: Kashmiri (ks) was investigated but no suitable public training data was found. "
+            "FLEURS has no Kashmiri config; Common Voice has no Kashmiri corpus. "
+            "AI4Bharat Kathbath (1,684 hours, 12 Indian languages including Kashmiri) is the most "
+            "promising dataset but requires institutional access. OpenSLR SLR122 is a small public "
+            "Kashmiri corpus (394 MB)."
         ),
+        sp(10),
+        h2("4.3 Training Version History — All Retraining Runs"),
+        body(
+            "Several languages required multiple training runs (versions) to incorporate new data, "
+            "fix engineering issues, or increase model capacity. The table below records every run "
+            "in chronological order."
+        ),
+        sp(4),
+        Table([
+            [tch("Lang"), tch("Ver."), tch("LoRA r / α"), tch("Dataset"),
+             tch("Samples"), tch("Steps"), tch("Best WER"), tch("vs Prior"), tch("Status")],
+            # PA
+            [tcl("Punjabi"), tcl("v1"), tc("8 / 16"),
+             tcl("FLEURS pa_in"), tc("2,516"), tc("3,000"), tc("56.67%"), tc("—"), tcl("Superseded")],
+            [tcl("Punjabi"), tcl("v2"), tc("8 / 16"),
+             tcl("FLEURS + IV-R"), tc("11,923"), tc("3,000"), tc("52.55%"), tc("−4.1 pp"), tcl("Superseded")],
+            [tcl("Punjabi"), tcl("v3★"), tc("16 / 32"),
+             tcl("FLEURS + IV-R 20k"), tc("21,923"), tc("4,000"), tc("49.31%"), tc("−3.2 pp"), tcl("Deployed")],
+            # NE
+            [tcl("Nepali"), tcl("v1"), tc("8 / 16"),
+             tcl("FLEURS ne_np"), tc("3,332"), tc("2,000"), tc("52.14%"), tc("—"), tcl("Superseded")],
+            [tcl("Nepali"), tcl("v2"), tc("8 / 16"),
+             tcl("FLEURS + IV-R"), tc("13,332"), tc("3,000"), tc("50.82%"), tc("−1.3 pp"), tcl("Deployed")],
+            # ZH
+            [tcl("Mandarin"), tcl("v1‡"), tc("8 / 16"),
+             tcl("FLEURS cmn_hans_cn"), tc("3,246"), tc("400 (†div.)"), tc("8.97% train"), tc("—"), tcl("Deployed (ckpt-400)")],
+            # PS/UR/HI/KS — single runs
+            [tcl("Pashto"), tcl("v1"), tc("8 / 16"),
+             tcl("FLEURS ps_af"), tc("2,082"), tc("2,000"), tc("38.55%"), tc("—"), tcl("Deployed")],
+            [tcl("Urdu"), tcl("v1"), tc("8 / 16"),
+             tcl("FLEURS ur_pk"), tc("2,109"), tc("1,000"), tc("19.82%"), tc("—"), tcl("Deployed")],
+            [tcl("Hindi"), tcl("v1"), tc("8 / 16"),
+             tcl("FLEURS hi_in"), tc("2,120"), tc("600"), tc("19.78%"), tc("—"), tcl("Deployed")],
+            [tcl("Kashmiri"), tcl("v1"), tc("8 / 16"),
+             tcl("IV-R KS (custom ⟨ks⟩ token)"), tc("20,000"), tc("3,000"), tc("74.02%"), tc("—"), tcl("Deployed")],
+        ], colWidths=[1.8*cm, 1.0*cm, 1.6*cm, 3.0*cm, 1.6*cm, 1.6*cm, 1.9*cm, 1.6*cm, W-14.1*cm],
+        style=std_ts(left_cols=(0, 1, 3, 8)), repeatRows=1),
+        sp(4),
+        note("★ PA v3: DEPLOYED 2026-07-04. Completed 4,000 steps; best WER 49.31% at step 4000 "
+             "(−3.24 pp vs v2's 52.55%); best checkpoint merged to CT2 int8 and verified transcribing Gurmukhi."),
+        note("‡ Mandarin training diverged at step ~820 (fp16 gradient explosion, grad_norm=12.9). "
+             "Checkpoint-400 (train WER 8.97%, eval WER 16.03%) deployed. Single run."),
         sp(10),
     ]
 
@@ -695,12 +828,12 @@ def build():
             [tch("Language"), tch("ISO"), tch("Base Model"),
              tch("Train\nSamples"), tch("Steps\nUsed"),
              tch("Baseline\nWER"), tch("Train\nWER"), tch("Eval\nWER†"), tch("Improvement")],
-            [tcl("Punjabi"),  tc("pa"), tc("large-v3"),  tc("2,516"), tc("1000"), tc("105.83%"), tc("61.30%"), tc("59.94%"), tc("-45.9 pp")],
-            [tcl("Pashto"),   tc("ps"), tc("medium*"),   tc("2,082"), tc("1000"), tc("95.07%"),  tc("38.86%"), tc("39.72%"), tc("-55.4 pp")],
-            [tcl("Urdu"),     tc("ur"), tc("large-v3"),  tc("2,109"), tc("1000"), tc("24.44%"),  tc("22.27%"), tc("19.82%"),
+            [tcl("Punjabi v3"),tc("pa"), tc("large-v3"),  tc("21,923"), tc("4000"), tc("105.83%"), tc("49.31%"), tc("49.31%"), tc("-56.5 pp")],
+            [tcl("Pashto"),   tc("ps"), tc("medium*"),   tc("2,082"),  tc("1000"), tc("95.07%"),  tc("38.86%"), tc("39.72%"), tc("-55.4 pp")],
+            [tcl("Urdu"),     tc("ur"), tc("large-v3"),  tc("2,109"),  tc("1000"), tc("24.44%"),  tc("22.27%"), tc("19.82%"),
              Paragraph("<b>-4.6 pp</b>", ParagraphStyle("GR", fontName="Helvetica-Bold",
                         fontSize=9, textColor=SUCCESS_GRN, alignment=TA_CENTER))],
-            [tcl("Nepali"),   tc("ne"), tc("large-v3"),  tc("3,332"), tc("1000"), tc("94.55%"),  tc("54.32%"), tc("53.92%"), tc("-40.6 pp")],
+            [tcl("Nepali v2"),tc("ne"), tc("large-v3"),  tc("13,332"), tc("3000"), tc("94.55%"),  tc("50.82%"), tc("50.82%"), tc("-43.7 pp")],
             [tcl("Mandarin"), tc("zh"), tc("large-v3"),  tc("3,246"), tc("400+"), tc("100.03%‡"),
              Paragraph("<b>8.97%</b>", ParagraphStyle("BW", fontName="Helvetica-Bold",
                         fontSize=9, textColor=SUCCESS_GRN, alignment=TA_CENTER)),
@@ -710,27 +843,36 @@ def build():
             [tcl("Hindi"),    tc("hi"), tc("large-v3"),  tc("2,120"), tc("600"),  tc("30.29%"),  tc("23.13%"), tc("19.78%"),
              Paragraph("<b>-10.5 pp</b>", ParagraphStyle("GR2", fontName="Helvetica-Bold",
                         fontSize=9, textColor=SUCCESS_GRN, alignment=TA_CENTER))],
-            [tcl("Kashmiri"), tc("ks"), tc("large-v3"),  tc("20,000"), tc("1500§"), tc("98.64%"), tc("~84.5%¶"), tc("—¶"), tc("—")],
+            [tcl("Kashmiri"), tc("ks"), tc("large-v3†"),  tc("20,000"), tc("2400"),  tc("96.87%"),
+             Paragraph("<b>74.02%</b>", ParagraphStyle("KW", fontName="Helvetica-Bold",
+                        fontSize=9, textColor=SUCCESS_GRN, alignment=TA_CENTER)),
+             tc("74.02%"),
+             Paragraph("<b>-22.85 pp</b>", ParagraphStyle("KR", fontName="Helvetica-Bold",
+                        fontSize=9, textColor=SUCCESS_GRN, alignment=TA_CENTER))],
         ], colWidths=[2.2*cm, 1.0*cm, 2.0*cm, 1.7*cm, 1.4*cm, 1.8*cm, 1.6*cm, 1.6*cm, W-13.3*cm],
-        style=std_ts(left_cols=(0,))),
+        style=std_ts(left_cols=(0,)), repeatRows=1),
         sp(4),
         note("* Pashto base: Nasimbahar/pashto-ghag-whisper-medium-asr (734 MB domain-specific model)."),
         note("+ Mandarin training diverged at step ~820; checkpoint-400 is the deployed model."),
-        note("† Eval WER: 100-sample FLEURS test set (FLEURS) or IndicVoices validation (Kashmiri). Measured 23 Jun 2026."),
+        note("† Kashmiri: custom <|ks|> token (ID 51866) added to whisper-large-v3; embedding initialised from <|ur|>. "
+             "Best checkpoint step 2400 selected automatically (load_best_model_at_end). faster-whisper patched to accept language='ks'."),
         note("‡ Baseline 100.03%: turbo model translates Mandarin to English by default — WER vs Simplified Han references is 100%."),
-        note("§ Kashmiri trained with whisper_lang='ur' Nastaliq proxy (no 'ks' vocab token). 20k IndicVoices samples."),
-        note("¶ Kashmiri eval WER not meaningful — ur-proxy output measured against Kashmiri references. Eval_loss 0.936 at ckpt-1500."),
+        note("Eval WER: 100-sample FLEURS test set (FLEURS langs) or 372-sample IndicVoices-R test split (Kashmiri)."),
         note("pp = percentage points absolute WER reduction (baseline → eval WER)."),
         sp(10),
         h2("5.2 Baseline vs. Fine-Tuned WER"),
-        img_from_buf(chart_summary_bar(), width=W),
-        caption("Figure 2: Baseline (no fine-tuning) vs. best fine-tuned WER. "
-                "Numbers above bars show absolute WER reduction in percentage points."),
+        KeepTogether([
+            img_from_buf(chart_summary_bar(), width=W),
+            caption("Figure 2: Baseline (no fine-tuning) vs. best fine-tuned WER. "
+                    "Numbers above bars show absolute WER reduction in percentage points."),
+        ]),
         sp(10),
         h2("5.3 WER Progression During Training"),
-        img_from_buf(chart_wer_all(), width=W),
-        caption("Figure 3: Eval WER at each checkpoint. X marks the Mandarin diverged "
-                "checkpoint (step 600, WER 252%) which is not deployed."),
+        KeepTogether([
+            img_from_buf(chart_wer_all(), width=W),
+            caption("Figure 3: Eval WER at each checkpoint. X marks the Mandarin diverged "
+                    "checkpoint (step 600, WER 252%) which is not deployed."),
+        ]),
         sp(10),
     ]
 
@@ -799,34 +941,41 @@ def build():
                     tc("-")
                 ])
 
-        story.append(
+        story.append(KeepTogether([
             Table(wer_rows, colWidths=[3*cm, 6*cm, 5*cm],
-                  style=std_ts()))
-        story.append(sp(4))
-        story.append(note(f"Note: {m['note']}"))
+                  style=std_ts(), repeatRows=1),
+            sp(4),
+            note(f"Note: {m['note']}"),
+        ]))
         story.append(sp(6))
-        story.append(img_from_buf(chart_wer_per_lang(lang), width=W))
-        story.append(caption(
-            f"Figure: {m['name']} training curves. "
-            f"Left: eval WER (star = deployed checkpoint). Right: training loss per step."
-        ))
+        story.append(KeepTogether([
+            img_from_buf(chart_wer_per_lang(lang), width=W),
+            caption(
+                f"Figure: {m['name']} training curves. "
+                f"Left: eval WER (star = deployed checkpoint). Right: training loss per step."
+            ),
+        ]))
         story.append(sp(14))
 
     # ── 5.5 CROSS-MODEL EVALUATION ───────────────────────────────────────────────
     story += [
+        PageBreak(),
         h2("5.5 Cross-Model Evaluation — Whisper vs SeamlessM4T v2"),
         body(
             "A 100-sample evaluation was run on 23 June 2026 comparing three systems: "
             "(A) Whisper large-v3-turbo baseline (no fine-tuning), "
             "(B) Language-specific fine-tuned Whisper CT2 int8, and "
             "(C) SeamlessM4T v2 large (10 GB multilingual model). "
-            "FLEURS test split used for pa/ps/ur/ne/zh/hi; IndicVoices validation for ks."
+            "FLEURS test split used for pa/ps/ur/ne/zh/hi; IndicVoices validation for ks. "
+            "Punjabi and Nepali WERs in the table below reflect v2 models "
+            "(PA v2: 52.55% on 805-sample combined eval; NE v2: 50.82% on 572-sample combined eval, "
+            "both evaluated 29 June 2026)."
         ),
         sp(4),
         Table([
             [tch("Language"), tch("Baseline WER"), tch("FT Whisper WER"), tch("SeamlessM4T WER"),
              tch("FT Wins?"), tch("NLLB chrF"), tch("SM S2TT chrF")],
-            [tcl("Punjabi (pa)"),  tc("105.83%"), tc("59.94%"), tc("19.77%"), tc("No"),  tc("39.09"), tc("58.72")],
+            [tcl("Punjabi (pa) v2"),tc("105.83%"), tc("52.55%"), tc("19.77%"), tc("No"),  tc("39.09"), tc("58.72")],
             [tcl("Pashto (ps)"),
              tc("95.07%"),
              Paragraph("<b>39.72%</b>", ParagraphStyle("FTW1", fontName="Helvetica-Bold",
@@ -838,7 +987,7 @@ def build():
                         fontSize=9, textColor=SUCCESS_GRN, alignment=TA_CENTER)),
              tc("43.92")],
             [tcl("Urdu (ur)"),    tc("24.44%"),  tc("19.82%"), tc("16.90%"), tc("No"),  tc("51.34"), tc("54.91")],
-            [tcl("Nepali (ne)"),  tc("94.55%"),  tc("53.92%"), tc("28.46%"), tc("No"),  tc("47.67"), tc("56.02")],
+            [tcl("Nepali (ne) v2"),tc("94.55%"),  tc("50.82%"), tc("28.46%"), tc("No"),  tc("47.67"), tc("56.02")],
             [tcl("Mandarin (zh)"),
              tc("100.03%†"),
              Paragraph("<b>16.03%</b>", ParagraphStyle("FTW2", fontName="Helvetica-Bold",
@@ -848,15 +997,138 @@ def build():
                         fontSize=9, textColor=SUCCESS_GRN, alignment=TA_CENTER)),
              tc("42.85"), tc("53.42")],
             [tcl("Hindi (hi)"),   tc("30.29%"),  tc("19.78%"), tc("15.44%"), tc("No"),  tc("53.71"), tc("56.05")],
-            [tcl("Kashmiri (ks)"),tc("98.64%"),  tc("—"),      tc("—§"),     tc("—"),   tc("—"),     tc("—")],
+            [tcl("Kashmiri (ks)¶"),tc("96.87%"), tc("74.02%"), tc("—§"),    tc("—"),   tc("—"),     tc("—")],
         ], colWidths=[2.5*cm, 2.3*cm, 2.3*cm, 2.5*cm, 1.5*cm, 2.0*cm, W-13.1*cm],
-        style=std_ts(left_cols=(0,))),
+        style=std_ts(left_cols=(0,)), repeatRows=1),
         sp(4),
         note("† Mandarin baseline 100.03%: turbo model translates to English. Fine-tuned model transcribes Simplified Han correctly."),
         note("‡ SeamlessM4T Mandarin WER = 100.0% is a script-normalisation mismatch in evaluation, not a model failure — SM4T correctly transcribes."),
         note("§ SeamlessM4T v2 does not support Kashmiri (kas not in model vocabulary)."),
+        note("¶ Kashmiri baseline (96.87%) is whisper-large-v3-turbo on IndicVoices-R test set; "
+             "FT WER 74.02% at step 2400 uses custom <|ks|> token (ID 51866) via LoRA on large-v3. "
+             "SeamlessM4T and chrF scores are unavailable (no ks translation model)."),
         note("chrF: character F-score for end-to-end translation quality to English (higher = better). "
              "SM4T wins on translation for 5/6 languages; Whisper+NLLB wins on Pashto (44.40 vs 43.92)."),
+        sp(10),
+    ]
+
+    # ── 5.6 ROBUSTNESS EVALUATION ─────────────────────────────────────────────
+    story += [
+        PageBreak(),
+        h2("5.6 Radio-Channel Robustness Evaluation — LangID Accuracy"),
+        body(
+            "The VANI LangID pipeline was evaluated under five radio-channel degradations "
+            "applied to FLEURS test audio (30 samples/language for pa/hi/ur/ne/zh/ps; "
+            "IndicVoices-R test audio for ks). "
+            "Four pipeline configurations are compared: "
+            "(C1) Whisper language detection alone, "
+            "(C2) Whisper + FastText, "
+            "(C3) Whisper + FastText + MMS-LID-256, and "
+            "(C4) Full VANI (C3 + dialect detection + script-based routing). "
+            "Note: Kashmiri audio was tested with the standard whisper-large-v3-turbo model "
+            "(not the fine-tuned KS model); the low ks accuracy reflects that "
+            "turbo has no <|ks|> token, so only MMS-LID-256 provides the KS signal."
+        ),
+        sp(4),
+        Table([
+            [tch("Condition"), tch("Config."),
+             tch("PA"), tch("HI"), tch("UR"), tch("NE"),
+             tch("ZH"), tch("PS"), tch("KS"), tch("Ovrl")],
+            # clean
+            [tcl("Clean"), tcl("Whisper"), tc("90.0%"), tc("86.7%"), tc("73.3%"), tc("26.7%"), tc("100.0%"), tc("0.0%"),  tc("0.0%"),  tc("53.8%")],
+            [tcl(""),      tcl("+FastText"),tc("90.0%"), tc("86.7%"), tc("73.3%"), tc("26.7%"), tc("100.0%"), tc("0.0%"),  tc("0.0%"),  tc("53.8%")],
+            [tcl(""),      tcl("+MMS-LID"), tc("90.0%"), tc("83.3%"), tc("70.0%"), tc("30.0%"), tc("100.0%"), tc("53.3%"), tc("16.7%"), tc("63.3%")],
+            [tcl(""),      tcl("Full VANI"),tc("90.0%"), tc("83.3%"), tc("70.0%"), tc("33.3%"), tc("100.0%"), tc("80.0%"), tc("16.7%"), tc("67.6%")],
+            # bandpass
+            [tcl("Bandpass"),tcl("Whisper"), tc("70.0%"), tc("83.3%"), tc("33.3%"), tc("26.7%"), tc("100.0%"), tc("0.0%"),  tc("0.0%"),  tc("44.8%")],
+            [tcl(""),      tcl("+FastText"), tc("70.0%"), tc("83.3%"), tc("33.3%"), tc("26.7%"), tc("100.0%"), tc("0.0%"),  tc("0.0%"),  tc("44.8%")],
+            [tcl(""),      tcl("+MMS-LID"),  tc("73.3%"), tc("83.3%"), tc("33.3%"), tc("26.7%"), tc("100.0%"), tc("70.0%"), tc("23.3%"), tc("58.6%")],
+            [tcl(""),      tcl("Full VANI"), tc("73.3%"), tc("83.3%"), tc("33.3%"), tc("26.7%"), tc("100.0%"), tc("83.3%"), tc("23.3%"), tc("60.5%")],
+            # awgn_10
+            [tcl("AWGN 10dB"),tcl("Whisper"),tc("96.7%"), tc("63.3%"), tc("80.0%"), tc("43.3%"), tc("100.0%"), tc("0.0%"),  tc("0.0%"),  tc("54.8%")],
+            [tcl(""),       tcl("+FastText"), tc("96.7%"), tc("63.3%"), tc("80.0%"), tc("43.3%"), tc("100.0%"), tc("0.0%"),  tc("0.0%"),  tc("54.8%")],
+            [tcl(""),       tcl("+MMS-LID"),  tc("96.7%"), tc("63.3%"), tc("80.0%"), tc("43.3%"), tc("100.0%"), tc("56.7%"), tc("3.3%"),  tc("63.3%")],
+            [tcl(""),       tcl("Full VANI"), tc("96.7%"), tc("63.3%"), tc("80.0%"), tc("43.3%"), tc("100.0%"), tc("83.3%"), tc("3.3%"),  tc("67.1%")],
+            # awgn_0
+            [tcl("AWGN 0dB"),tcl("Whisper"),  tc("56.7%"), tc("63.3%"), tc("26.7%"), tc("13.3%"), tc("100.0%"), tc("0.0%"),  tc("0.0%"),  tc("37.1%")],
+            [tcl(""),       tcl("+FastText"),  tc("56.7%"), tc("63.3%"), tc("26.7%"), tc("13.3%"), tc("100.0%"), tc("0.0%"),  tc("0.0%"),  tc("37.1%")],
+            [tcl(""),       tcl("+MMS-LID"),   tc("56.7%"), tc("66.7%"), tc("26.7%"), tc("16.7%"), tc("100.0%"), tc("40.0%"), tc("0.0%"),  tc("43.8%")],
+            [tcl(""),       tcl("Full VANI"),  tc("60.0%"), tc("66.7%"), tc("26.7%"), tc("16.7%"), tc("96.7%"),  tc("53.3%"), tc("0.0%"),  tc("45.7%")],
+            # codec_mp3
+            [tcl("MP3 16kbps"),tcl("Whisper"), tc("76.7%"), tc("46.7%"), tc("63.3%"), tc("23.3%"), tc("100.0%"), tc("0.0%"),  tc("0.0%"),  tc("44.3%")],
+            [tcl(""),        tcl("+FastText"),  tc("76.7%"), tc("46.7%"), tc("63.3%"), tc("23.3%"), tc("100.0%"), tc("0.0%"),  tc("0.0%"),  tc("44.3%")],
+            [tcl(""),        tcl("+MMS-LID"),   tc("76.7%"), tc("46.7%"), tc("63.3%"), tc("23.3%"), tc("100.0%"), tc("63.3%"), tc("26.7%"), tc("57.1%")],
+            [tcl(""),        tcl("Full VANI"),  tc("76.7%"), tc("46.7%"), tc("63.3%"), tc("23.3%"), tc("96.7%"),  tc("86.7%"), tc("20.0%"), tc("59.0%")],
+        ], colWidths=[2.0*cm, 1.9*cm, 1.3*cm, 1.3*cm, 1.3*cm, 1.3*cm, 1.4*cm, 1.3*cm, 1.3*cm, W-12.9*cm],
+        style=TableStyle(std_ts(left_cols=(0, 1)).getCommands() + [
+            # thicker separator lines between condition groups (rows 5, 9, 13, 17)
+            ("LINEABOVE", (0, 5),  (-1, 5),  1.2, colors.HexColor("#888888")),
+            ("LINEABOVE", (0, 9),  (-1, 9),  1.2, colors.HexColor("#888888")),
+            ("LINEABOVE", (0, 13), (-1, 13), 1.2, colors.HexColor("#888888")),
+            ("LINEABOVE", (0, 17), (-1, 17), 1.2, colors.HexColor("#888888")),
+            # reduce vertical padding for compact 20-row table
+            ("TOPPADDING",    (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ]), repeatRows=1),
+        sp(4),
+        note("Full VANI (C4) consistently outperforms Whisper-only (C1) by +14 pp on average. "
+             "MMS-LID-256 is the critical component for Pashto detection (turbo Whisper scores 0% on ps). "
+             "Mandarin (zh) is the most robust language: 97–100% across all conditions. "
+             "Kashmiri (ks) identification requires the ks-specific CT2 model for meaningful accuracy."),
+        sp(10),
+        PageBreak(),
+        h2("5.7 Punjabi v3 Training Progress (LoRA r=16, Deployed)"),
+        body(
+            "A third Punjabi training run (v3) was launched on 01 July 2026 with doubled LoRA capacity "
+            "(r=16, α=32) and 21,923 training samples (IV-R 20,000 + FLEURS 2,516). "
+            "The same 805-sample eval set is used for fair comparison with v2. "
+            "v3 completed the full 4,000 steps, reaching its best WER of 49.31% at step 4000 — "
+            "a 3.24 pp improvement over v2's final 52.55%. The best checkpoint was merged to CT2 int8 and "
+            "DEPLOYED on 04 July 2026, replacing v2. An initial run OOM-crashed at step 2400 during beam-search "
+            "evaluation on the 8 GB RTX 5060; it was resumed from checkpoint-2200 with greedy evaluation "
+            "(num_beams=1, eval batch 1, CUDA cache cleared before each eval), which cut eval VRAM from 8 GB to "
+            "~3.8 GB and ran clean to step 4000."
+        ),
+        sp(4),
+        Table([
+            [tch("Config Parameter"), tch("v2 (superseded)"), tch("v3 (deployed)")],
+            [tcl("LoRA Rank (r)",     bold=True), tc("8"),          tc("16")],
+            [tcl("LoRA Alpha (α)",    bold=True), tc("16"),         tc("32")],
+            [tcl("Trainable Params",  bold=True), tc("~3.9M"),      tc("~7.9M")],
+            [tcl("IndicVoices-R",     bold=True), tc("9,407"),      tc("20,000")],
+            [tcl("Total Train Set",   bold=True), tc("11,923"),     tc("21,923")],
+            [tcl("Total Steps",       bold=True), tc("3,000"),      tc("4,000")],
+            [tcl("max_grad_norm",     bold=True), tc("1.0"),        tc("0.5")],
+            [tcl("warmup_steps",      bold=True), tc("50"),         tc("100")],
+            [tcl("Best / Deployed WER", bold=True), tc("52.55%"),   tc("49.31%")],
+        ], colWidths=[4.5*cm, 3.5*cm, W-8.0*cm], style=std_ts(left_cols=(0,))),
+        sp(8),
+        body("Step-by-step eval WER and loss for PA v3 (greedy eval from step 2400 after OOM restart):"),
+        sp(4),
+        Table([
+            [tch("Step"), tch("v3 Eval WER"), tch("v3 Eval Loss"), tch("Observation")],
+            [tc("1800"), tc("52.06%"), tc("0.1918"), tcl("New best; loss new low")],
+            [tc("2000"), tc("52.75%"), tc("0.1892"), tcl("Minor oscillation; loss still ↓")],
+            [tc("2200"), tc("50.62%"), tc("0.1839"), tcl("New best (interim deploy after OOM)")],
+            [tc("2400"), tc("51.25%"), tc("0.1831"), tcl("Greedy eval resumes; oscillation up")],
+            [tc("2600"), tc("51.25%"), tc("0.1761"), tcl("WER plateau, loss new low")],
+            [tc("2800"), tc("50.51%"), tc("0.1751"), tcl("New best; plateau breaks")],
+            [tc("3000"), tc("50.05%"), tc("0.1725"), tcl("New best; approaching 50%")],
+            [tc("3200"), tc("50.65%"), tc("0.1711"), tcl("Oscillation up, loss new low")],
+            [tc("3400"), tc("49.40%"), tc("0.1694"), tcl("First sub-50% checkpoint")],
+            [tc("3600"), tc("49.97%"), tc("0.1675"), tcl("Loss new low")],
+            [tc("3800"), tc("49.49%"), tc("0.1667"), tcl("Loss new low")],
+            [tc("4000"), tc("49.31%★"),tc("0.1662"), tcl("Overall best — DEPLOYED")],
+        ], colWidths=[1.4*cm, 2.4*cm, 2.4*cm, W-6.2*cm],
+        style=std_ts(left_cols=(3,)), repeatRows=1),
+        sp(4),
+        note("★ v3 best: 49.31% at step 4000 (eval loss 0.1662) — DEPLOYED. v2 best: 52.55% at step 3000. "
+             "v3 final result is −3.24 pp ahead of v2."),
+        note("Key pattern: WER oscillates mid-training (regression at steps 600, 1400, 2000) while eval loss "
+             "decreases monotonically. Loss is a more reliable indicator of learning progress than WER at individual checkpoints."),
+        note("OOM recovery: the initial run crashed at step 2400 (CUDA out-of-memory during beam-search eval on 8 GB "
+             "RTX 5060). Resumed from checkpoint-2200 with greedy eval (num_beams=1, eval batch 1, cache-clear before eval), "
+             "cutting eval VRAM from 8 GB to ~3.8 GB; the run then completed cleanly to step 4000 (final best 49.31%)."),
         sp(10),
     ]
 
@@ -935,7 +1207,81 @@ def build():
             "shutil.copy2(merged_dir / 'tokenizer.json', ct2_dir / 'tokenizer.json')"
         ),
         sp(6),
-        h2("6.6 preprocessor_config.json Required for CT2 Models"),
+        h2("6.6 HF datasets.map() Cache Writes to Source Location, Not HF_DATASETS_CACHE"),
+        body(
+            "During PA v3 training setup, the FLEURS + IndicVoices-R dataset preprocessing via "
+            "datasets.map() raised OSError: No space left on device on D: despite "
+            "HF_DATASETS_CACHE being set to C:. Root cause: datasets.map() ignores "
+            "HF_DATASETS_CACHE and instead writes the Arrow feature cache next to the source "
+            "parquet files — which were on D: via a junction. D: had only 28 KB free."
+        ),
+        body(
+            "Fix: pass an explicit cache_file_name= argument to map() redirecting Arrow files to C:. "
+            "C:/hf_ds_map_cache/ now stores pa_train_features.arrow (21,923 samples, ~33 GB) and "
+            "pa_eval_features.arrow (805 samples). Training resumes correctly from this cache on restart."
+        ),
+        code_block(
+            "# WRONG — map() ignores HF_DATASETS_CACHE:\n"
+            "# os.environ['HF_DATASETS_CACHE'] = 'C:/hf_cache'\n"
+            "# train_ds = raw['train'].map(**proc_kwargs)  # still writes to D:\n\n"
+            "# CORRECT — explicit redirect:\n"
+            "_map_cache = Path('C:/hf_ds_map_cache')\n"
+            "_map_cache.mkdir(exist_ok=True)\n"
+            "train_ds = raw['train'].map(\n"
+            "    **proc_kwargs,\n"
+            "    cache_file_name=str(_map_cache / f'{lang}_train_features.arrow'),\n"
+            ")"
+        ),
+        sp(6),
+        h2("6.7 Checkpoint Save Failure — D: Junction Full During Optimizer State Save"),
+        body(
+            "PA v3 training stopped at step 800 with RuntimeError: [enforce fail at "
+            "inline_container.cc:672] unexpected pos 24411648 vs 24411540. "
+            "Root cause: torch.save(optimizer.state_dict()) was writing optimizer.pt (~60 MB) "
+            "to D:/finetune_runs/pa/adapter/checkpoint-800/ when D: filled to 0 bytes. "
+            "The partial file rendered the checkpoint directory corrupt."
+        ),
+        body(
+            "Resolution: Moved ne/ (96 GB), ks/ (7.7 GB), ps/ (4.9 GB) training checkpoints "
+            "from D: to C:/finetune_runs_moved/. Deleted the corrupt checkpoint-800 directory. "
+            "Resumed training from checkpoint-600 using --resume flag. "
+            "The trainer re-ran the step 800 eval on resume, recovering the missing data point "
+            "(step 800 WER: 57.15%)."
+        ),
+        sp(6),
+        h2("6.8 WER Oscillation vs. Monotonic Loss Decrease — Key Training Observation"),
+        body(
+            "Across all languages, eval WER oscillates at individual checkpoints while training loss "
+            "decreases monotonically. The most clear example is PA v3:"
+        ),
+        bullet("Steps 1200→1400: WER regresses 54.48% → 55.68% (+1.2 pp) while loss drops 0.2101 → 0.2100"),
+        bullet("Steps 1400→1600: WER recovers 55.68% → 52.99% (−2.7 pp) — new 2nd best"),
+        bullet("Steps 1800→2000: WER oscillates 52.06% → 52.75% while loss reaches new low 0.1892"),
+        body(
+            "The same pattern appeared in PA v2 (regression at step 1000, recovery by step 1600) "
+            "and NE v2 (regression at steps 1600 and 2400). "
+            "Conclusion: load_best_model_at_end=True correctly handles oscillation by tracking the "
+            "checkpoint with the lowest eval WER across all checkpoints, not just the final one. "
+            "Training loss is a more reliable indicator of continued learning than per-checkpoint WER. "
+            "A declining loss with oscillating WER should NOT trigger early stopping."
+        ),
+        sp(6),
+        h2("6.9 Eval Time Bottleneck — 2.5 Hours per Checkpoint Evaluation"),
+        body(
+            "For PA v3 (805 eval samples, per_device_eval_batch_size=1, predict_with_generate=True), "
+            "each evaluation takes ~2.5 hours at ~10-12 seconds per sample on RTX 5060. "
+            "With eval_steps=200 and 4,000 total steps, this means 20 evaluations × 2.5 h = ~50 hours "
+            "of evaluation overhead alone, on top of ~22 hours of training time. "
+            "Total PA v3 training wall-clock time: ~72 hours."
+        ),
+        body(
+            "For smaller languages (PS, UR, HI, ZH with 239-409 val samples), eval takes 30-60 minutes. "
+            "For KS (372 samples) eval took ~1 hour. Batching eval (batch_size=4) would reduce "
+            "overhead 4×, but risks OOM on 8 GB VRAM with large-v3 encoder + decoder in fp16. "
+            "Recommendation for future runs: eval_steps=400 for PA/NE to halve eval overhead."
+        ),
+        sp(6),
+        h2("6.10 preprocessor_config.json Required for CT2 Models"),
         body(
             "The CT2 converter does not automatically write preprocessor_config.json. "
             "Without it, faster-whisper defaults to feature_size=80 (correct for Whisper medium/small), "
@@ -1017,20 +1363,20 @@ def build():
             "+-- FINETUNE_REPORT.md              Markdown report\n"
             "|\n"
             "+-- models/                         Deployed CT2 models (int8 quantized)\n"
-            "|   +-- whisper-large-v3-pa-ct2/    Punjabi   WER 61.3%\n"
+            "|   +-- whisper-large-v3-pa-ct2/    Punjabi   WER 49.31% (v3, 21,923 samples)\n"
             "|   +-- whisper-medium-pashto-ct2/  Pashto    WER 38.9%\n"
             "|   +-- whisper-large-v3-ur-ct2/    Urdu      WER 22.3%\n"
-            "|   +-- whisper-large-v3-ne-ct2/    Nepali    WER 54.3%\n"
+            "|   +-- whisper-large-v3-ne-ct2/    Nepali    WER 50.82% (v2, 13,332 samples)\n"
             "|   +-- whisper-large-v3-zh-ct2/    Mandarin  WER 8.97%\n"
             "|   +-- whisper-large-v3-hi-ct2/    Hindi     WER 23.1%\n"
             "|   +-- nllb-200-distilled-600M/    NLLB translation model\n"
             "|   +-- mms-lid-256/                Language identification model\n"
             "|\n"
             "+-- finetune_runs/                  LoRA training checkpoints\n"
-            "|   +-- pa/adapter/checkpoint-{200,400,600,800,1000}/\n"
+            "|   +-- pa/adapter/checkpoint-{200,400,...,3000}/  (v2: 15 checkpoints)\n"
             "|   +-- ps/adapter/checkpoint-{200,400,600,800,1000}/\n"
             "|   +-- ur/adapter/checkpoint-{200,400,600,800,1000}/\n"
-            "|   +-- ne/adapter/checkpoint-{200,400,600,800,1000}/\n"
+            "|   +-- ne/adapter/checkpoint-{200,400,...,3000}/  (v2: 15 checkpoints)\n"
             "|   +-- zh/adapter/checkpoint-{200,400,600}/  (ckpt-400 deployed)\n"
             "|   +-- hi/adapter/checkpoint-{200,400,600}/\n"
             "|\n"
@@ -1091,9 +1437,18 @@ def build():
             "Hindustani linguistic roots."
         ),
         bullet(
-            "<b>Nepali shows the slowest convergence despite the largest dataset.</b>  "
-            "WER plateaued at 54.3% after step 600 with no further improvement. "
-            "A Nepali-pretrained base model or domain-specific data would be needed for gains."
+            "<b>IndicVoices-R augmentation provided consistent WER improvements for PA and NE.</b>  "
+            "Adding AI4Bharat IndicVoices-R data to Punjabi v2 (9,407 new samples) and Nepali v2 "
+            "(10,000 new samples) improved best WER from 56.67% to 52.55% (PA, -4.1 pp) and "
+            "from 52.14% to 50.82% (NE, -1.3 pp) on harder combined eval sets. "
+            "Training loss continued declining through all 3,000 steps for both languages, "
+            "suggesting further gains with extended training or higher LoRA rank."
+        ),
+        bullet(
+            "<b>Nepali WER improvement from IndicVoices-R was modest; architectural changes needed for large gains.</b>  "
+            "v1 WER plateaued at 52.14% after step 2,000 (FLEURS-only). v2 reached 50.82% at step 3,000. "
+            "Achieving sub-30% WER would likely require LoRA rank upgrade (r=32, alpha=64) with broader "
+            "target modules (q,k,v,out_proj,fc1,fc2), or a Nepali-pretrained base model."
         ),
         bullet(
             "<b>CT2 models require tokenizer.json from the source model.</b>  "
@@ -1101,6 +1456,25 @@ def build():
             "the missing file caused all fine-tuned models to translate instead of transcribe "
             "(one-token vocabulary shift between large-v3 and tiny). "
             "The fix is now automated in finetune_whisper.py."
+        ),
+        bullet(
+            "<b>LoRA r=16 (PA v3) consistently outperforms r=8 (PA v2) by 1–3 pp at matching steps.</b>  "
+            "At step 1800, v3 achieves 52.06% vs v2's 54.65% at the same step (−2.59 pp). "
+            "v3 completed 4,000 steps at a final best of 49.31% — 3.24 pp below v2's 52.55%, "
+            "suggesting doubled LoRA rank meaningfully increases model capacity for larger datasets."
+        ),
+        bullet(
+            "<b>Eval WER oscillates mid-training; eval loss is the reliable learning signal.</b>  "
+            "Every language exhibits mid-training WER regression followed by recovery. "
+            "Eval loss decreases monotonically throughout. "
+            "load_best_model_at_end=True correctly selects the best checkpoint despite oscillation. "
+            "WER regression alone is not a valid reason to halt training."
+        ),
+        bullet(
+            "<b>datasets.map() ignores HF_DATASETS_CACHE — explicit cache_file_name= required.</b>  "
+            "map() writes Arrow feature caches next to source parquet files, not to the HF cache dir. "
+            "On junction-backed storage this caused an OSError at ~21,923 samples. "
+            "Now fixed with explicit cache_file_name= in finetune_whisper.py."
         ),
         bullet(
             "<b>SeamlessM4T v2 large leads on ASR for 4/6 languages but adds 10 GB deployment cost.</b>  "

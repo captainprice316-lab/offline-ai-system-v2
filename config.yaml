@@ -100,7 +100,9 @@ translation:
   max_output_tokens: 256
   nllb_num_beams: 4        # raised from hardcoded 2 (2026-07-06) — better English
                            # on long sentences, ~1-2 s extra per file on GPU
-  unload_after_use: true
+  unload_after_use: false   # 2026-07-08: keep NLLB cached (was: reload ~4 s/file)
+  offload_to_cpu: true      # park fp16 weights in CPU RAM between files,
+                            # promote to GPU only for the translation stage
   back_translation: false   # disable to save ~1.2 GB RAM (NLLB loads twice if true)
 
 # ── Memory management ─────────────────────────────────────────────────────────
@@ -120,13 +122,48 @@ diarization:
 # ── ISUM ───────────────────────────────────────────────────────────────────────
 isum:
   enabled: true
-  model: ollama        # priority: ollama (gemma3:12b) → qwen → rule_based
-  ollama_model: gemma3:12b
+  model: ollama        # priority: ollama (gemma3) → qwen → rule_based
+  ollama_model: gemma3:4b   # 2026-07-08 A5 eval: matched 12b threat/5W on 3 cases
+                            # at ~2x speed; rollback = gemma3:12b (still installed)
   ollama_url: http://localhost:11434
   max_summary_sentences: 4
+  # Speed knobs (2026-07-08). keep_alive 0 = unload Gemma after each reply
+  # (12b resident would starve Seamless/Whisper on the 8 GB card).
+  ollama_keep_alive: 0
+  num_predict: 320          # was hardcoded 512; ISUM JSON rarely needs >300 tokens
+  transcript_chars: 600     # prompt truncation (was 1200)
+  translation_chars: 600    # prompt truncation (was 800)
 
 # ── Database ───────────────────────────────────────────────────────────────────
 database:
   enabled: true
   store_segments: true
   store_words: false        # set true on lab server (large storage)
+
+# ── 3-node LAN integration (NODE-C orchestrator) ────────────────────────────────
+# All remote work is strictly additive and behind flags. With enabled:false the
+# pipeline behaves EXACTLY as before. With enabled:true + fallback_on_error:true,
+# any unreachable/failed node silently falls back to the local stage, so the
+# working demo path cannot regress. See integration/INTEGRATION_PLAN.md.
+remote:
+  enabled: false             # master switch — false restores exact current behaviour.
+                             # GUI "Network Mode" (Auto/Standalone/Networked) overrides per session.
+  fallback_on_error: true    # any remote failure -> run the existing local stage
+  timeout_connect_s: 5
+
+  denoise_diarize:           # NODE-A (Gaurav)
+    enabled: true
+    url: http://192.168.10.11:8801
+    timeout_s: 180
+    variant: robust          # clean | robust — NOT interchangeable (plan §5.3)
+    mode: diarization-guided # | blind (blind is hard-capped at 2 speakers)
+    call_on_clean: false     # skip the round trip when VANI's SNR gate says clean
+    use_mixed_track: true    # Phase 1. false -> per-speaker ASR (Phase 2, not yet)
+
+  lid:                       # NODE-B (Sanket)
+    enabled: true
+    url: http://192.168.10.12:8802
+    timeout_s: 30
+    per_speaker: true
+    min_confidence: 0.60     # below this, defer to local MMS-LID
+    windows: 3               # >10 s tracks: N windows, client-side prob averaging

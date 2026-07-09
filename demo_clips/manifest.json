@@ -1,0 +1,240 @@
+[
+  {
+    "lang": "pa",
+    "name": "Punjabi",
+    "status": "ok",
+    "sanket_class": "punjabi",
+    "clips": [
+      {
+        "file": "pa_punjabi_1.wav",
+        "duration_sec": 9.5,
+        "source": "robustness_cache\\pa\\0007.wav"
+      },
+      {
+        "file": "pa_punjabi_2.wav",
+        "duration_sec": 9.8,
+        "source": "robustness_cache\\pa\\0014.wav"
+      },
+      {
+        "file": "pa_punjabi_3.wav",
+        "duration_sec": 10.3,
+        "source": "robustness_cache\\pa\\0001.wav"
+      },
+      {
+        "file": "pa_punjabi_4.wav",
+        "duration_sec": 10.6,
+        "source": "robustness_cache\\pa\\0019.wav"
+      },
+      {
+        "file": "pa_punjabi_5.wav",
+        "duration_sec": 10.9,
+        "source": "robustness_cache\\pa\\0018.wav"
+      }
+    ]
+  },
+  {
+    "lang": "hi",
+    "name": "Hindi",
+    "status": "ok",
+    "sanket_class": null,
+    "clips": [
+      {
+        "file": "hi_hindi_1.wav",
+        "duration_sec": 9.7,
+        "source": "robustness_cache\\hi\\0028.wav"
+      },
+      {
+        "file": "hi_hindi_2.wav",
+        "duration_sec": 10.3,
+        "source": "robustness_cache\\hi\\0013.wav"
+      },
+      {
+        "file": "hi_hindi_3.wav",
+        "duration_sec": 10.4,
+        "source": "robustness_cache\\hi\\0018.wav"
+      },
+      {
+        "file": "hi_hindi_4.wav",
+        "duration_sec": 10.5,
+        "source": "robustness_cache\\hi\\0015.wav"
+      },
+      {
+        "file": "hi_hindi_5.wav",
+        "duration_sec": 10.6,
+        "source": "robustness_cache\\hi\\0005.wav"
+      }
+    ]
+  },
+  {
+    "lang": "ur",
+    "name": "Urdu",
+    "status": "ok",
+    "sanket_class": "urdu",
+    "clips": [
+      {
+        "file": "ur_urdu_1.wav",
+        "duration_sec": 9.9,
+        "source": "robustness_cache\\ur\\0015.wav"
+      },
+      {
+        "file": "ur_urdu_2.wav",
+        "duration_sec": 9.9,
+        "source": "robustness_cache\\ur\\0028.wav"
+      },
+      {
+        "file": "ur_urdu_3.wav",
+        "duration_sec": 10.0,
+        "source": "robustness_cache\\ur\\0008.wav"
+      },
+      {
+        "file": "ur_urdu_4.wav",
+        "duration_sec": 10.4,
+        "source": "robustness_cache\\ur\\0007.wav"
+      },
+      {
+        "file": "ur_urdu_5.wav",
+        "duration_sec": 10.4,
+        "source": "robustness_cache\\ur\\0018.wav"
+      }
+    ]
+  },
+  {
+    "lang": "ne",
+    "name": "Nepali",
+    "status": "ok",
+    "sanket_class": null,
+    "clips": [
+      {
+        "file": "ne_nepali_1.wav",
+        "duration_sec": 9.6,
+        "source": "robustness_cache\\ne\\0000.wav"
+      },
+      {
+        "file": "ne_nepali_2.wav",
+        "duration_sec": 10.1,
+        "source": "robustness_cache\\ne\\0027.wav"
+      },
+      {
+        "file": "ne_nepali_3.wav",
+        "duration_sec": 10.3,
+        "source": "robustness_cache\\ne\\0008.wav"
+      },
+      {
+        "file": "ne_nepali_4.wav",
+        "duration_sec": 10.3,
+        "source": "robustness_cache\\ne\\0029.wav"
+      },
+      {
+        "file": "ne_nepali_5.wav",
+        "duration_sec": 10.4,
+        "source": "robustness_cache\\ne\\0018.wav"
+      }
+    ]
+  },
+  {
+    "lang": "zh",
+    "name": "Mandarin",
+    "status": "ok",
+    "sanket_class": "mandarin",
+    "clips": [
+      {
+        "file": "zh_mandarin_1.wav",
+        "duration_sec": 9.2,
+        "source": "robustness_cache\\zh\\0019.wav"
+      },
+      {
+        "file": "zh_mandarin_2.wav",
+        "duration_sec": 9.7,
+        "source": "robustness_cache\\zh\\0025.wav"
+      },
+      {
+        "file": "zh_mandarin_3.wav",
+        "duration_sec": 9.7,
+        "source": "robustness_cache\\zh\\0028.wav"
+      },
+      {
+        "file": "zh_mandarin_4.wav",
+        "duration_sec": 10.4,
+        "source": "robustness_cache\\zh\\0000.wav"
+      },
+      {
+        "file": "zh_mandarin_5.wav",
+        "duration_sec": 11.2,
+        "source": "robustness_cache\\zh\\0029.wav"
+      }
+    ]
+  },
+  {
+    "lang": "ps",
+    "name": "Pashto",
+    "status": "ok",
+    "sanket_class": "pashto",
+    "clips": [
+      {
+        "file": "ps_pashto_1.wav",
+        "duration_sec": 9.5,
+        "source": "robustness_cache\\ps\\0022.wav"
+      },
+      {
+        "file": "ps_pashto_2.wav",
+        "duration_sec": 10.0,
+        "source": "robustness_cache\\ps\\0008.wav"
+      },
+      {
+        "file": "ps_pashto_3.wav",
+        "duration_sec": 10.2,
+        "source": "robustness_cache\\ps\\0014.wav"
+      },
+      {
+        "file": "ps_pashto_4.wav",
+        "duration_sec": 10.3,
+        "source": "robustness_cache\\ps\\0020.wav"
+      },
+      {
+        "file": "ps_pashto_5.wav",
+        "duration_sec": 10.7,
+        "source": "robustness_cache\\ps\\0011.wav"
+      }
+    ]
+  },
+  {
+    "lang": "ks",
+    "name": "Kashmiri",
+    "status": "ok",
+    "sanket_class": "kashmiri",
+    "clips": [
+      {
+        "file": "ks_kashmiri_1.wav",
+        "duration_sec": 7.3,
+        "source": "robustness_cache\\ks\\0025.wav"
+      },
+      {
+        "file": "ks_kashmiri_2.wav",
+        "duration_sec": 7.4,
+        "source": "robustness_cache\\ks\\0026.wav"
+      },
+      {
+        "file": "ks_kashmiri_3.wav",
+        "duration_sec": 7.5,
+        "source": "robustness_cache\\ks\\0027.wav"
+      },
+      {
+        "file": "ks_kashmiri_4.wav",
+        "duration_sec": 7.6,
+        "source": "robustness_cache\\ks\\0028.wav"
+      },
+      {
+        "file": "ks_kashmiri_5.wav",
+        "duration_sec": 7.7,
+        "source": "robustness_cache\\ks\\0029.wav"
+      }
+    ]
+  },
+  {
+    "lang": "doi",
+    "name": "Dogri",
+    "clips": [],
+    "status": "missing",
+    "sanket_class": "dogri"
+  }
+]

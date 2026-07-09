@@ -85,6 +85,11 @@ class ISUMGenerator:
         self.device        = device
         self.ollama_url    = cfg.get("ollama_url", "http://localhost:11434").rstrip("/")
         self.ollama_model  = cfg.get("ollama_model", "gemma3:4b")
+        # Speed knobs (config.yaml isum block, 2026-07-08)
+        self.ollama_keep_alive = cfg.get("ollama_keep_alive", 0)
+        self.num_predict       = int(cfg.get("num_predict", 320))
+        self.transcript_chars  = int(cfg.get("transcript_chars", 600))
+        self.translation_chars = int(cfg.get("translation_chars", 600))
 
     def generate(self, pipeline_result: dict, processing_time_s: float = 0.0,
                  qwen_model_path: str = None) -> dict:
@@ -132,9 +137,9 @@ class ISUMGenerator:
         """Call Ollama REST API for structured ISUM. Returns 5W dict or None."""
         import urllib.request, urllib.error, json as _json, re
 
-        transcript   = (r.get("transcript") or "")[:800]
+        transcript   = (r.get("transcript") or "")[:self.transcript_chars]
         trans_obj    = r.get("translation", {})
-        translation  = ((trans_obj.get("translated_text") or "")[:800]
+        translation  = ((trans_obj.get("translated_text") or "")[:self.translation_chars]
                         if isinstance(trans_obj, dict) else "")
         kw           = r.get("keyword_alerts", {}) if isinstance(r.get("keyword_alerts"), dict) else {}
         threat       = kw.get("threat_level", "CLEAR")
@@ -150,7 +155,7 @@ class ISUMGenerator:
         except Exception:
             spk_transcript = ""
 
-        transcript_block = (spk_transcript[:1200] if spk_transcript
+        transcript_block = (spk_transcript[:self.transcript_chars] if spk_transcript
                             else transcript)
         n_speakers = (len({seg.get("speaker") for seg in r.get("segments", [])
                            if seg.get("speaker")})
@@ -184,11 +189,11 @@ TASK: Produce a structured intelligence summary. Extract ONLY what is explicitly
 
 Respond with this exact JSON structure:
 {{
-  "who": "<Semicolon-separated LABELLED groups, using ONLY these labels: 'Callsigns: <names, e.g. Alpha-3, Bravo-2>'; 'Unit designators: <sector/grid/unit ids>'; 'Units: <formations>'; 'Ranks/titles: <ranks>'; and 'Friendly forces' or 'Hostile forces' if stated. Example: 'Callsigns: Alpha-3, Bravo-2; Units: 2 Battalion; Ranks/titles: Commander'. Output exactly 'Not identified' if no actors are present.>",
+  "who": "<Semicolon-separated labelled groups, labels ONLY from: Callsigns / Unit designators / Units / Ranks/titles / Friendly forces / Hostile forces. Example: 'Callsigns: Alpha-3, Bravo-2; Ranks/titles: Commander'. Exactly 'Not identified' if no actors.>",
   "what": "<Specific activity, orders, events, or 'No significant activity detected'>",
   "where": "<Locations, grid references, directions, or 'No location identified'>",
   "when": "<Times, dates, temporal references, or 'No temporal reference'>",
-  "assessment": "<2-3 sentence intelligence assessment: significance, reliability, recommended action>",
+  "assessment": "<2-3 sentences: significance, reliability, recommended action>",
   "threat_level": "<CRITICAL|HIGH|MEDIUM|LOW|CLEAR>"
 }}"""
 
@@ -200,11 +205,12 @@ Respond with this exact JSON structure:
             ],
             "stream":  False,
             "format":  "json",
-            "options": {"temperature": 0.1, "num_predict": 512},
-            # Unload Gemma immediately after the reply. Default keep_alive (5 min)
-            # left ~6 GB VRAM occupied, starving Whisper ASR on back-to-back runs
-            # (8 GB card). Costs ~10-15 s model reload per ISUM.
-            "keep_alive": 0,
+            "options": {"temperature": 0.1, "num_predict": self.num_predict},
+            # keep_alive 0 unloads Gemma after the reply — default (5 min) left
+            # ~6 GB VRAM occupied, starving Whisper ASR on back-to-back runs
+            # (8 GB card). Costs ~10-15 s model reload per ISUM. Configurable
+            # via isum.ollama_keep_alive for smaller models with VRAM headroom.
+            "keep_alive": self.ollama_keep_alive,
         }).encode()
 
         req = urllib.request.Request(
