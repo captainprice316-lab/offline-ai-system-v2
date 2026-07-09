@@ -259,7 +259,7 @@ class RemoteClient:
 
     # -- NODE-B: per-track language ID ---------------------------------------
 
-    def identify_language(self, wav_path) -> Optional[dict]:
+    def identify_language(self, wav_path, hint: str = None) -> Optional[dict]:
         """
         POST one speaker track to NODE-B. Handles tracks longer than 10 s by
         sending up to ``windows`` non-overlapping 10 s windows and averaging the
@@ -305,6 +305,7 @@ class RemoteClient:
             buf.seek(0)
             r = self._post(
                 url, read_timeout=read_timeout,
+                params={"src": hint} if hint else None,
                 files={"file": ("speaker.wav", buf.read(), "audio/wav")},
             )
             try:

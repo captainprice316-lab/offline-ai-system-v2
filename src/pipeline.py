@@ -359,15 +359,18 @@ def run_pipeline(
         # call on the mixed preprocessed track so LID can be exercised on its own.
         _b_tracks = [t for t in (_node_a["speaker_tracks"] if _node_a else []) if t.get("path")]
         try:
+            # Pass the source clip name as a hint. Real NODE-B ignores it; the demo
+            # mock uses it to return the exact language for the known demo clips.
+            _hint = audio_file.name
             if _b_tracks:
                 for t in _b_tracks:
-                    _lid = _remote_client.identify_language(t["path"])
+                    _lid = _remote_client.identify_language(t["path"], hint=_hint)
                     if _lid:
                         _lid["talk_time"] = t.get("talk_time", 0.0)
                         _lid["speaker"]   = t["label"]
                         _node_b_per_speaker.append(_lid)
             else:
-                _lid = _remote_client.identify_language(pre_out)
+                _lid = _remote_client.identify_language(pre_out, hint=_hint)
                 if _lid:
                     _node_b_per_speaker.append(_lid)
 

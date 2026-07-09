@@ -689,6 +689,7 @@ with st.sidebar:
     # configured LAN nodes (falling back per-node on failure).
     _rcfg = cfg.get("remote", {}) or {}
     if _rcfg:
+        import copy as _copy
         st.markdown('<div class="section-hdr">Network Mode</div>', unsafe_allow_html=True)
         _mode_labels = ["Auto", "Standalone", "Networked"]
         _mode_keys   = ["auto", "standalone", "networked"]
@@ -705,10 +706,31 @@ with st.sidebar:
         st.session_state["_remote_mode"] = _mode_keys[_mode_labels.index(_sel)]
         _mode = st.session_state["_remote_mode"]
 
+        # Hidden demo failover: reroute NODE-A/B to local mock servers on 127.0.0.1
+        # (start integration/mocks/demo_mock_server.py first). Collapsed on purpose.
+        if "_demo_mock" not in st.session_state:
+            st.session_state["_demo_mock"] = False
+        with st.expander("· · ·", expanded=False):
+            st.toggle("Local fallback nodes", key="_demo_mock",
+                      help="Route A/B to local mock servers — demo failover.")
+        _demo_mock = st.session_state["_demo_mock"]
+        # Re-probe when the source flips so the badges track the new targets.
+        if st.session_state.get("_demo_mock_applied") != _demo_mock:
+            st.session_state.pop("_remote_health", None)
+            st.session_state["_demo_mock_applied"] = _demo_mock
+
+        # Effective remote config: swap URLs to localhost in mock mode. Used by the
+        # health probe here AND by the pipeline runs (via session_state).
+        _rcfg_eff = _copy.deepcopy(_rcfg)
+        if _demo_mock:
+            _rcfg_eff.setdefault("denoise_diarize", {})["url"] = "http://127.0.0.1:8801"
+            _rcfg_eff.setdefault("lid", {})["url"] = "http://127.0.0.1:8802"
+        st.session_state["_rcfg_eff"] = _rcfg_eff
+
         def _probe_nodes(fast=True):
             try:
                 from remote_client import RemoteClient
-                _rc = RemoteClient(_rcfg)
+                _rc = RemoteClient(_rcfg_eff)
                 _to = 1.5 if fast else None
                 st.session_state["_remote_health"] = {
                     "A": _rc.available("a", timeout=_to),
@@ -738,6 +760,8 @@ with st.sidebar:
                     f'&#9679; NODE-{_n}: {"online" if _ok else "offline"}</div>',
                     unsafe_allow_html=True,
                 )
+            if _demo_mock:
+                st.caption("↳ local fallback (mock)")
             if _rh.get("error"):
                 st.caption(f"probe error: {_rh['error']}")
 
@@ -1311,7 +1335,7 @@ with tab_process:
                 # + the cached health probe, so this run uses exactly the reachable nodes.
                 from remote_client import resolve_remote_mode as _resolve_remote
                 _run_cfg["remote"] = _resolve_remote(
-                    cfg.get("remote", {}),
+                    st.session_state.get("_rcfg_eff", cfg.get("remote", {})),
                     st.session_state.get("_remote_mode", "auto"),
                     st.session_state.get("_remote_health"),
                 )
@@ -4629,7 +4653,7 @@ with tab_batch:
                 _brun_cfg  = {**cfg, "device": _brun_device}
                 from remote_client import resolve_remote_mode as _resolve_remote_b
                 _brun_cfg["remote"] = _resolve_remote_b(
-                    cfg.get("remote", {}),
+                    st.session_state.get("_rcfg_eff", cfg.get("remote", {})),
                     st.session_state.get("_remote_mode", "auto"),
                     st.session_state.get("_remote_health"),
                 )
