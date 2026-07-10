@@ -7,6 +7,71 @@ this project. Written 2026-07-09.
 
 ---
 
+## ★ LATEST — 2026-07-10 (account-switch handoff; read this first)
+
+The 3-node LAN integration is **DONE and the live demo was delivered 2026-07-10.** This section
+supersedes the older §3–§6 status below where they conflict.
+
+**What exists now (all committed on `master`, NOT pushed — no remote configured):**
+- A full **3-node speech-intelligence pipeline** across an isolated LAN:
+  - **NODE-A** (Gaurav, `192.168.10.11:8801`) — DiariZen diarization + DeepFilterNet3 denoise,
+    `POST /process` → zip (`diarization.json`, `summary.json`, `mixed_denoised.wav`, per-speaker
+    tracks). His code, his machine.
+  - **NODE-B** (Sanket, `192.168.10.12:8802`) — MMS-LID-4017 language + Mandarin dialect,
+    `POST /api/analyze`. His code, his machine. Frozen checkpoint pair `stage2_v3` + `stage4_phaseB`.
+  - **NODE-C** (this repo, `192.168.10.13`, Ethernet static IP set) — VAD, ASR, translation,
+    keywords, ISUM, Streamlit GUI, and the **sole orchestrator**.
+- **NODE-C is the only code in this repo.** A and B are external HTTP services. VANI pulls their
+  *results* (denoised audio + JSON), never their models.
+- Every remote hop is behind a flag with `fallback_on_error: true`. **`config.yaml`
+  `remote.enabled: true`** now, so the app boots in **Auto** mode (probes A/B once, uses whichever
+  are reachable, else runs 100% local). Set `false` or pick **Standalone** in the GUI for pure local.
+
+**Verified live on 2026-07-10:** real nodes returned Mandarin `zh` p=1.00 (dialect=mandarin) and
+Urdu `ur` p=0.9994, both `remote_nodes ['A','B']`, correct transcript + translation. Graceful
+degradation proven: A-down/B-up → `remote_nodes ['B']` (B does LID, A falls back to local denoise);
+all-down → fully local, still correct.
+
+**Key new files (this integration):**
+- `src/remote_client.py` — HTTP client, §4 language mapping, speaker labelling, dominant-language
+  vote, RMS normalisation at the B boundary, `resolve_remote_mode()`.
+- `src/pipeline.py` — wired: coarse MMS probe on `vad_out` → A's lang tag; Stage 2 uses
+  `mixed_denoised.wav`; Stage 3.5 uses B's LID (sends a `?src=<clip>` filename hint that real B
+  ignores); Stage 4.5 labels segments from A's diarization; result dict gains `remote_nodes`,
+  `speakers`, `diarizer_variant`, `der_source`, `denoised_audio`.
+- `app.py` — sidebar **Network Mode** (Auto/Standalone/Networked) + startup health-gate; per-result
+  **REMOTE NODE ANALYSIS** panel (per-speaker cards, noisy-vs-denoised players); hidden `· · ·`
+  expander with **per-node mock toggles** (Mock NODE-A / Mock NODE-B).
+- `config.yaml` — `remote:` block (LAN IPs, `enabled: true`).
+- `integration/` — `INTEGRATION_PLAN.md`, `PROCESS_OVERVIEW.md` (+`.pdf`), partner briefs
+  `NODE_A_GAURAV_TASKS.md` / `NODE_B_SANKET_TASKS.md`, `run_networked_test.py`, `start_demo.ps1`,
+  and `mocks/` (`demo_mock_server.py` + the lightweight mocks + tests).
+- `demo_clips/` — 5 clips × 7 languages (pa/hi/ur/ne/zh/ps/ks) + `manifest.json`. **No Dogri**
+  (no source audio anywhere). `scripts/data/build_demo_clips.py` regenerates them.
+
+**Demo failover (insurance):** `integration/mocks/demo_mock_server.py` runs local mock A (real
+denoise) + mock B on `127.0.0.1:8801/8802`. Mock B returns the correct language via the
+`?src=<clipname>` hint — **so demo-clip filenames must stay `<lang>_<name>_<n>.wav`.** In the GUI,
+the hidden `· · ·` expander → toggle **Mock NODE-A** and/or **Mock NODE-B** to reroute a down node
+to its mock while keeping the other real (used at the demo when NODE-A was down). Start the mock
+server first, then flip the toggle, then **Re-check nodes**.
+
+**0700 auto-start:** a Windows scheduled task `VANI_Demo_Startup` runs `integration/start_demo.ps1`
+(launches app + mock server, logs to `logs/demo_startup.log`); wake timers enabled AC+DC. Remove
+with `schtasks /Delete /TN VANI_Demo_Startup` if no longer wanted.
+
+**To run VANI now:** `venv\Scripts\python.exe -m streamlit run app.py --server.port 8501` → open
+`http://localhost:8501`. For the networked path, partners bring up A/B, then **Re-check nodes**.
+
+**Commits (this work):** `6e384ed` (integration build, also swept in the previously-uncommitted
+tree) → `a9f355b` (demo-ready) → `8a87164` (mock failover) → `9a0be8c` (0700 task) → `01df4c9`
+(per-node toggles). **Working tree clean. Nothing pushed** — push if you want it off-machine.
+
+**Open items:** (1) Dogri clip still missing. (2) Phase 2 = per-speaker ASR (deferred; see plan §8).
+(3) push to a remote if desired. (4) the detailed-parameters explainer is still owed (§8 below).
+
+---
+
 ## 0. The prompt to paste on a fresh session
 
 > Read `HANDOVER.md` at the repo root, then `integration/INTEGRATION_PLAN.md`. Confirm the git
@@ -82,6 +147,11 @@ re-downloadable.
 ---
 
 ## 3. Git state as of 2026-07-09 — READ THIS FIRST
+
+> **⚠ SUPERSEDED 2026-07-10:** the tree described below is now **committed** (HEAD `01df4c9`, still
+> on `master`, not pushed). The working tree is **clean** — the "~52 uncommitted files" warning no
+> longer applies. See the ★ LATEST section at the top for the current commit chain. The history
+> below is kept for context on what those commits contain.
 
 Branch `master`, HEAD `e79a863` "Add India critical-infrastructure detection + map pins".
 
