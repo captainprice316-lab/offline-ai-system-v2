@@ -182,6 +182,25 @@ def make_whisper(cfg, lang, device):
     return ASRModule(str(path), device=device, cfg=asr_cfg), path.name, is_ft
 
 
+def make_whisper_base(cfg, device):
+    """The TRUE large-v3 baseline (whisper-large-v3-ct2), one model for every language.
+
+    Built by scripts/build_baseline_ct2.py. The point of including it here: the routing
+    sweep compared fine-tuned Whisper vs Seamless, but for Mandarin the un-fine-tuned
+    baseline beats BOTH on clean speech (10.99% vs ft 14.22 vs seamless 11.69). This
+    tests whether that clean-speech win survives radio degradation.
+    """
+    from asr_module import ASRModule
+    path = VANI_ROOT / "models" / "whisper-large-v3-ct2"
+    if not path.exists():
+        raise FileNotFoundError(f"missing baseline model: {path} "
+                                f"(build with scripts/build_baseline_ct2.py)")
+    asr_cfg = dict(cfg.get("asr", {}))
+    asr_cfg["vad_filter"]      = False
+    asr_cfg["word_timestamps"] = False
+    return ASRModule(str(path), device=device, cfg=asr_cfg), path.name
+
+
 def make_seamless(cfg, device):
     from seamless_asr import SeamlessASR
     path = VANI_ROOT / cfg["paths"]["seamless_model"]
@@ -245,10 +264,14 @@ def sweep(systems, langs, conditions, n_samples, device):
     for system in systems:
         print(f"\n{'='*74}\nSYSTEM: {system}\n{'='*74}", flush=True)
 
-        # SeamlessM4T is one model for every language; Whisper is one per language.
-        seamless = None
+        # seamless_zs and whisper_base are ONE model for every language; whisper_ft is
+        # one model per language.
+        shared = None
         if system == "seamless_zs":
-            seamless, model_name = make_seamless(cfg, device)
+            shared, model_name = make_seamless(cfg, device)
+            print(f"  loaded {model_name}", flush=True)
+        elif system == "whisper_base":
+            shared, model_name = make_whisper_base(cfg, device)
             print(f"  loaded {model_name}", flush=True)
 
         for lang in langs:
@@ -272,7 +295,7 @@ def sweep(systems, langs, conditions, n_samples, device):
                 tag = "fine-tuned" if is_ft else "TURBO FALLBACK (no fine-tuned model)"
                 print(f"\n  [{lang}] {model_name}  ({tag})", flush=True)
             else:
-                asr, model_name = seamless, "seamless-m4t-v2-large"
+                asr = shared
                 print(f"\n  [{lang}] {model_name}", flush=True)
 
             for condition in conditions:
@@ -300,8 +323,8 @@ def sweep(systems, langs, conditions, n_samples, device):
             if system == "whisper_ft":
                 _free(asr)
 
-        if seamless is not None:
-            _free(seamless)
+        if shared is not None:
+            _free(shared)
 
     fh.close()
 
@@ -322,7 +345,7 @@ def main():
     ap.add_argument("--langs",      nargs="+", default=DEFAULT_LANGS)
     ap.add_argument("--conditions", nargs="+", default=DEFAULT_CONDITIONS)
     ap.add_argument("--systems",    nargs="+", default=DEFAULT_SYSTEMS,
-                    choices=["whisper_ft", "seamless_zs"])
+                    choices=["whisper_ft", "seamless_zs", "whisper_base"])
     ap.add_argument("--n",          type=int, default=30, help="samples per language")
     ap.add_argument("--device",     default="cuda")
     args = ap.parse_args()

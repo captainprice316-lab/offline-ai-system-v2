@@ -145,6 +145,24 @@ def main():
             print("\n'MIXED' means the clean-speech ranking does not hold under "
                   "degradation. Route on the noisy conditions, not on clean.")
 
+    # Three-way check for any language evaluated under all of base / ft / seamless.
+    # This is the whole point of the zh baseline noise test: on clean zh the un-fine-tuned
+    # large-v3 wins, but VANI runs on noisy radio -- does that hold under degradation?
+    three = ["whisper_base", "whisper_ft", "seamless_zs"]
+    if all(s in systems for s in three):
+        for l in langs:
+            if not any(get(s, l, c) is not None for s in three for c in conds):
+                continue
+            print(f"\n\nTHREE-WAY — {l}, {M.upper()} % (lower is better); winner per condition")
+            print("cond        " + "".join(f"{s.replace('whisper_','w_'):>13}" for s in three) + "    winner")
+            print("-" * 66)
+            for c in conds:
+                vals = {s: get(s, l, c) for s in three}
+                cells = "".join(f"{(fmt(vals[s])):>13}" for s in three)
+                present = {s: v for s, v in vals.items() if v is not None}
+                win = min(present, key=present.get).replace("whisper_", "w_") if present else "-"
+                print(f"{c:11} {cells}    {win}")
+
     if any(r["lang"] in NO_WORD_BOUNDARY for r in rows):
         print("\n[caveat] zh is char-segmented before scoring (see NO_WORD_BOUNDARY). Numbers are"
               "\n         still NOT normalised: Seamless writes 二零一一年, FLEURS writes 2011年."
