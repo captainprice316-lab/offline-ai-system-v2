@@ -706,24 +706,29 @@ with st.sidebar:
         st.session_state["_remote_mode"] = _mode_keys[_mode_labels.index(_sel)]
         _mode = st.session_state["_remote_mode"]
 
-        # Hidden demo failover: reroute NODE-A/B to local mock servers on 127.0.0.1
-        # (start integration/mocks/demo_mock_server.py first). Collapsed on purpose.
-        if "_demo_mock" not in st.session_state:
-            st.session_state["_demo_mock"] = False
+        # Hidden per-node demo failover: reroute NODE-A and/or NODE-B independently
+        # to local mock servers on 127.0.0.1 (start demo_mock_server.py first).
+        # Lets you mock a down node (e.g. A) while keeping the other real (e.g. B).
+        for _k in ("_mock_a", "_mock_b"):
+            st.session_state.setdefault(_k, False)
         with st.expander("· · ·", expanded=False):
-            st.toggle("Local fallback nodes", key="_demo_mock",
-                      help="Route A/B to local mock servers — demo failover.")
-        _demo_mock = st.session_state["_demo_mock"]
-        # Re-probe when the source flips so the badges track the new targets.
-        if st.session_state.get("_demo_mock_applied") != _demo_mock:
+            st.toggle("Mock NODE-A", key="_mock_a",
+                      help="Route NODE-A to the local mock (127.0.0.1:8801).")
+            st.toggle("Mock NODE-B", key="_mock_b",
+                      help="Route NODE-B to the local mock (127.0.0.1:8802).")
+        _mock_a = st.session_state["_mock_a"]
+        _mock_b = st.session_state["_mock_b"]
+        # Re-probe when either source flips so the badges track the new targets.
+        if st.session_state.get("_mock_applied") != (_mock_a, _mock_b):
             st.session_state.pop("_remote_health", None)
-            st.session_state["_demo_mock_applied"] = _demo_mock
+            st.session_state["_mock_applied"] = (_mock_a, _mock_b)
 
-        # Effective remote config: swap URLs to localhost in mock mode. Used by the
+        # Effective remote config: swap the mocked node(s) to localhost. Used by the
         # health probe here AND by the pipeline runs (via session_state).
         _rcfg_eff = _copy.deepcopy(_rcfg)
-        if _demo_mock:
+        if _mock_a:
             _rcfg_eff.setdefault("denoise_diarize", {})["url"] = "http://127.0.0.1:8801"
+        if _mock_b:
             _rcfg_eff.setdefault("lid", {})["url"] = "http://127.0.0.1:8802"
         st.session_state["_rcfg_eff"] = _rcfg_eff
 
@@ -760,8 +765,6 @@ with st.sidebar:
                     f'&#9679; NODE-{_n}: {"online" if _ok else "offline"}</div>',
                     unsafe_allow_html=True,
                 )
-            if _demo_mock:
-                st.caption("↳ local fallback (mock)")
             if _rh.get("error"):
                 st.caption(f"probe error: {_rh['error']}")
 
