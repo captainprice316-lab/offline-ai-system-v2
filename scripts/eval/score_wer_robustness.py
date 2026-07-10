@@ -22,7 +22,7 @@ Usage
     python scripts/eval/score_wer_robustness.py --csv eval_data/wer_robustness_results.csv
 """
 
-import sys, json, csv, io, re, argparse, unicodedata
+import sys, json, csv, io, argparse
 from pathlib import Path
 from collections import defaultdict
 
@@ -37,39 +37,17 @@ OUT_CSV  = ROOT / "eval_data" / "wer_robustness_results.csv"
 CONDITION_ORDER = ["clean", "bandpass", "awgn_10", "awgn_0", "codec_mp3"]
 
 
-def normalise(text: str, lang: str) -> str:
-    """Identical to compare_all_models.normalise, kept in sync deliberately.
-
-    NFC first: the Kashmiri baseline was once reported at 96.87% WER because
-    references and hypotheses used different Unicode compositions of the same
-    Perso-Arabic graphemes.
-    """
-    text = unicodedata.normalize("NFC", text.strip())
-    text = re.sub(r"[،,؟?!\.؛;:\-–—۔]", " ", text)     # punctuation, incl. Arabic/Urdu
-    text = re.sub(r"[​‌‍﻿]", "", text)  # zero-width, breaks alignment
-    text = re.sub(r"\s+", " ", text).strip()
-    if lang in ("en", "eng"):
-        text = text.lower()
-    return text
+# One normaliser for every evaluator. See text_norm.py for why.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from text_norm import normalise, compute_wer, compute_cer, NO_WORD_BOUNDARY  # noqa: E402
 
 
 def score(refs, hyps, lang):
     """Return (wer, cer) as percentages, or (None, None) if nothing scorable."""
-    import jiwer
-    pairs = [(normalise(r, lang), normalise(h, lang))
-             for r, h in zip(refs, hyps) if r and r.strip()]
-    if not pairs:
+    wer = compute_wer(hyps, refs, lang)
+    cer = compute_cer(hyps, refs, lang)
+    if wer is None:
         return None, None
-    r_list, h_list = zip(*pairs)
-    # jiwer errors on an all-empty hypothesis side; that is a real 100% result.
-    try:
-        wer = jiwer.wer(list(r_list), list(h_list)) * 100
-    except ValueError:
-        wer = 100.0
-    try:
-        cer = jiwer.cer(list(r_list), list(h_list)) * 100
-    except ValueError:
-        cer = 100.0
     return round(min(wer, 999.9), 2), round(min(cer, 999.9), 2)
 
 
@@ -166,6 +144,11 @@ def main():
                 print(f"{l:5} {cells}    {verdict}")
             print("\n'MIXED' means the clean-speech ranking does not hold under "
                   "degradation. Route on the noisy conditions, not on clean.")
+
+    if any(r["lang"] in NO_WORD_BOUNDARY for r in rows):
+        print("\n[caveat] zh is char-segmented before scoring (see NO_WORD_BOUNDARY). Numbers are"
+              "\n         still NOT normalised: Seamless writes 二零一一年, FLEURS writes 2011年."
+              "\n         That inflates Seamless's zh error. Treat zh numbers as an open item.")
 
     print(f"\nwrote {args.csv}")
 

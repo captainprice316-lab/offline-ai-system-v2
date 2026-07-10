@@ -3,7 +3,11 @@ compare_all_models.py  --  Cross-model WER / chrF evaluation for VANI
 ======================================================================
 Compares three systems across all 7 fine-tuned languages:
 
-  A) Whisper large-v3 baseline  (no fine-tuning)
+  A) Whisper large-v3 baseline  (openai/whisper-large-v3, no fine-tuning)
+     NOTE: until 2026-07-10 this silently loaded whisper-large-v3-TURBO-ct2 while every
+     docstring, report and paper called it "large-v3". Turbo defaults to the translate
+     task, which is the whole reason the published zh baseline read 100.03% WER. Build
+     the real baseline with: python scripts/build_baseline_ct2.py
   B) Whisper fine-tuned CT2     (VANI deployed models)
   C) SeamlessM4T v2 large       (Meta, single-model ASR + translation)
 
@@ -50,6 +54,7 @@ DATA_DIR     = ROOT / "data"
 MODELS_DIR   = ROOT / "models"
 SEAMLESS_DIR = MODELS_DIR / "seamless-m4t-v2-large"
 OUT_JSON     = ROOT / "docs" / "model_comparison_results.json"
+OUT_HYPS     = ROOT / "eval_data" / "model_comparison_hyps.jsonl"
 OUT_MD       = ROOT / "docs" / "model_comparison_report.md"
 
 # ── Language config ────────────────────────────────────────────────────────────
@@ -115,19 +120,10 @@ LANG_CFG = {
 
 # ── Text normalisation ─────────────────────────────────────────────────────────
 
-def normalise(text: str, lang: str) -> str:
-    """Basic normalisation — NFC, strip punctuation, lowercase for Latin scripts."""
-    import unicodedata
-    text = unicodedata.normalize('NFC', text.strip())
-    # remove common punctuation (including Arabic/Urdu variants)
-    text = re.sub(r'[،,؟?!\.؛;:\-–—۔]', ' ', text)
-    # remove zero-width chars that break WER alignment
-    text = re.sub(r'[​‌‍﻿]', '', text)
-    text = re.sub(r'\s+', ' ', text).strip()
-    # lowercase only for Latin-script output (English translations)
-    if lang in ("en", "eng"):
-        text = text.lower()
-    return text
+# Normalisation and WER/CER live in text_norm.py — one definition for every evaluator.
+# Three divergent copies of normalise() are why zh was scored wrong for months.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from text_norm import normalise, compute_wer, compute_cer  # noqa: E402
 
 
 # ── Dataset loader ─────────────────────────────────────────────────────────────
@@ -204,19 +200,26 @@ def _get_audio_array(sample: dict) -> "np.ndarray":
     return decode_audio_bytes(raw)
 
 
+# The TRUE large-v3, built by scripts/build_baseline_ct2.py. Previously this pointed at
+# whisper-large-v3-turbo-ct2 while every docstring and the paper called it "large-v3".
+# Turbo defaults to the translate task, which is why the zh baseline read 100.03%.
+BASELINE_NAME = "whisper-large-v3-ct2"
+
+
 def run_whisper_baseline(samples, lang_cfg: dict, device: str):
-    """Whisper large-v3 with NO fine-tuning."""
+    """Whisper large-v3 (openai/whisper-large-v3), NO fine-tuning. Returns RAW text."""
     from faster_whisper import WhisperModel
-    base_path = MODELS_DIR / "whisper-large-v3-turbo-ct2"
+    base_path = MODELS_DIR / BASELINE_NAME
     if not base_path.exists():
-        print(f"  [WARN] Baseline model not found at {base_path}, skipping baseline")
+        print(f"  [WARN] Baseline model not found at {base_path}. "
+              f"Build it with: python scripts/build_baseline_ct2.py")
         return [None] * len(samples)
     wm = WhisperModel(str(base_path), device=device, compute_type="int8")
     preds = []
     for i, sample in enumerate(samples):
         arr  = _get_audio_array(sample)
         segs, _ = wm.transcribe(arr, language=lang_cfg["whisper_lang"], task="transcribe")
-        preds.append(normalise(" ".join(s.text for s in segs), lang_cfg["whisper_lang"]))
+        preds.append(" ".join(s.text for s in segs).strip())
         if (i + 1) % 10 == 0:
             print(f"    whisper-baseline: {i+1}/{len(samples)}")
     del wm
@@ -224,7 +227,7 @@ def run_whisper_baseline(samples, lang_cfg: dict, device: str):
 
 
 def run_whisper_finetuned(samples, lang: str, lang_cfg: dict, device: str):
-    """Fine-tuned Whisper CT2 (VANI deployed model)."""
+    """Fine-tuned Whisper CT2 (VANI deployed model). Returns RAW text."""
     import yaml
     cfg = yaml.safe_load((ROOT / "config.yaml").read_text(encoding="utf-8"))
     model_key = f"whisper_model_{lang}"
@@ -238,8 +241,7 @@ def run_whisper_finetuned(samples, lang: str, lang_cfg: dict, device: str):
     for i, sample in enumerate(samples):
         arr  = _get_audio_array(sample)
         segs, _ = wm.transcribe(arr, language=lang_cfg["whisper_lang"], task="transcribe")
-        pred = normalise(" ".join(s.text for s in segs), lang_cfg["whisper_lang"])
-        preds.append(pred)
+        preds.append(" ".join(s.text for s in segs).strip())
         if (i + 1) % 10 == 0:
             print(f"    whisper-finetuned: {i+1}/{len(samples)}")
     del wm
@@ -274,7 +276,12 @@ def run_nllb_translation(whisper_preds: list, lang_cfg: dict, device: str):
 
 
 def run_seamless_asr(samples, lang_cfg: dict, device: str):
-    """SeamlessM4T v2: speech -> source-language text."""
+    """SeamlessM4T v2: speech -> source-language text. Returns RAW text.
+
+    Note it used to normalise with `sm_lang` ("cmn"), while references were normalised
+    with the dataset code ("zh") -- so the two sides never went through the same
+    normaliser. Raw text now, normalised once in compute_wer against the dataset code.
+    """
     import torch
     from transformers import AutoProcessor, SeamlessM4Tv2ForSpeechToText
     if not SEAMLESS_DIR.exists():
@@ -300,8 +307,8 @@ def run_seamless_asr(samples, lang_cfg: dict, device: str):
             # S2TT -> English
             toks_en  = model.generate(**inputs, tgt_lang="eng")
             en_text  = proc.decode(toks_en[0], skip_special_tokens=True)
-        asr_preds.append(normalise(asr_text, sm_lang))
-        s2tt_preds.append(normalise(en_text, "en"))
+        asr_preds.append(asr_text.strip())
+        s2tt_preds.append(en_text.strip())
         if (i + 1) % 10 == 0:
             print(f"    seamless: {i+1}/{len(samples)}")
     del model, proc
@@ -310,13 +317,7 @@ def run_seamless_asr(samples, lang_cfg: dict, device: str):
 
 # ── Metrics ────────────────────────────────────────────────────────────────────
 
-def compute_wer(preds: list, refs: list) -> float:
-    import jiwer
-    valid = [(p, r) for p, r in zip(preds, refs) if p is not None and r]
-    if not valid:
-        return None
-    p_list, r_list = zip(*valid)
-    return round(jiwer.wer(list(r_list), list(p_list)) * 100, 2)
+# compute_wer / compute_cer come from text_norm; do not redefine them here.
 
 
 def compute_chrf(preds: list, refs: list) -> float:
@@ -340,19 +341,29 @@ def evaluate_language(lang: str, n_samples: int, skip_seamless: bool,
 
     # ── Load dataset ──────────────────────────────────────────────────────────
     print("  Loading test data ...")
+    # References stay RAW. Normalisation happens once, inside compute_wer/compute_cer,
+    # so both sides always go through the identical normaliser.
     if cfg.get("fleurs"):
         samples  = list(load_fleurs_test(cfg["fleurs"], n_samples, token))
-        src_refs = [normalise(s["transcription"], lang) for s in samples]
+        src_refs = [s["transcription"] for s in samples]
         en_refs  = load_fleurs_en_refs_for_samples(samples, token)
     else:
         raw      = load_indicvoices_test(n_samples, token)
         samples  = list(raw)
-        src_refs = [normalise(s["normalized"], lang) for s in samples]
+        src_refs = [s["normalized"] for s in samples]
         en_refs  = None   # no English references for Kashmiri IndicVoices
 
     print(f"  Loaded {len(samples)} samples")
 
     results = {"lang": lang, "name": cfg["name"], "n": len(samples)}
+    hyps = []   # raw per-utterance output, so this never has to be re-run to re-score
+
+    def record(system, preds, model_name):
+        for i, p in enumerate(preds):
+            if p is None:
+                continue
+            hyps.append({"lang": lang, "system": system, "model": model_name,
+                         "idx": i, "ref": src_refs[i], "hyp": p})
 
     # ── A: Whisper baseline ───────────────────────────────────────────────────
     if skip_baseline:
@@ -360,26 +371,34 @@ def evaluate_language(lang: str, n_samples: int, skip_seamless: bool,
         results["whisper_baseline_time"] = 0
         print("\n  [A] Whisper baseline: skipped")
     else:
-        print("\n  [A] Whisper large-v3 baseline ...")
+        print(f"\n  [A] Whisper large-v3 baseline ({BASELINE_NAME}) ...")
         t0 = time.time()
         base_preds = run_whisper_baseline(samples, cfg, device)
-        results["whisper_baseline_wer"]  = compute_wer(base_preds, src_refs)
+        results["whisper_baseline_wer"]  = compute_wer(base_preds, src_refs, lang)
+        results["whisper_baseline_cer"]  = compute_cer(base_preds, src_refs, lang)
         results["whisper_baseline_time"] = round(time.time() - t0, 1)
-        print(f"    WER: {results['whisper_baseline_wer']}%  ({results['whisper_baseline_time']}s)")
+        record("whisper_baseline", base_preds, BASELINE_NAME)
+        print(f"    WER: {results['whisper_baseline_wer']}%  "
+              f"CER: {results['whisper_baseline_cer']}%  ({results['whisper_baseline_time']}s)")
 
     # ── B: Whisper fine-tuned ─────────────────────────────────────────────────
     print("\n  [B] Whisper fine-tuned (CT2 int8) ...")
     t0 = time.time()
     ft_preds = run_whisper_finetuned(samples, lang, cfg, device)
-    results["whisper_ft_wer"]  = compute_wer(ft_preds, src_refs)
+    results["whisper_ft_wer"]  = compute_wer(ft_preds, src_refs, lang)
+    results["whisper_ft_cer"]  = compute_cer(ft_preds, src_refs, lang)
     results["whisper_ft_time"] = round(time.time() - t0, 1)
-    print(f"    WER: {results['whisper_ft_wer']}%  ({results['whisper_ft_time']}s)")
+    record("whisper_ft", ft_preds, f"whisper_model_{lang}")
+    print(f"    WER: {results['whisper_ft_wer']}%  CER: {results['whisper_ft_cer']}%  "
+          f"({results['whisper_ft_time']}s)")
 
     # ── B2: Whisper fine-tuned + NLLB translation ─────────────────────────────
     if en_refs:
         print("\n  [B2] Whisper fine-tuned + NLLB-200 -> English ...")
         t0 = time.time()
-        nllb_preds = run_nllb_translation(ft_preds, cfg, device)
+        # NLLB previously received normalised ASR output; keep that so chrF stays comparable.
+        nllb_preds = run_nllb_translation([normalise(p, lang) if p else p for p in ft_preds],
+                                          cfg, device)
         results["whisper_nllb_chrf"]  = compute_chrf(nllb_preds, en_refs)
         results["whisper_nllb_time"]  = round(time.time() - t0, 1)
         print(f"    chrF: {results['whisper_nllb_chrf']}  ({results['whisper_nllb_time']}s)")
@@ -392,10 +411,13 @@ def evaluate_language(lang: str, n_samples: int, skip_seamless: bool,
         print("\n  [C] SeamlessM4T v2 large ...")
         t0 = time.time()
         sm_asr, sm_s2tt = run_seamless_asr(samples, cfg, device)
-        results["seamless_asr_wer"]   = compute_wer(sm_asr, src_refs)
+        results["seamless_asr_wer"]   = compute_wer(sm_asr, src_refs, lang)
+        results["seamless_asr_cer"]   = compute_cer(sm_asr, src_refs, lang)
         results["seamless_s2tt_chrf"] = compute_chrf(sm_s2tt, en_refs) if en_refs else None
         results["seamless_time"]      = round(time.time() - t0, 1)
+        record("seamless_zs", sm_asr, "seamless-m4t-v2-large")
         print(f"    ASR WER: {results['seamless_asr_wer']}%  "
+              f"CER: {results['seamless_asr_cer']}%  "
               f"S2TT chrF: {results['seamless_s2tt_chrf']}  "
               f"({results['seamless_time']}s)")
     else:
@@ -404,9 +426,11 @@ def evaluate_language(lang: str, n_samples: int, skip_seamless: bool,
         if skip_seamless:
             print("\n  [C] SeamlessM4T: skipped (--skip-seamless)")
         else:
+            # ks has seamless_src=None: SeamlessM4T v2 has no Kashmiri. Confirmed
+            # 2026-07-10 -- the urd-proxy also fails (WER 109%, CER 69%).
             print("\n  [C] SeamlessM4T: skipped (language not supported by model)")
 
-    return results
+    return results, hyps
 
 
 # ── Report generation ──────────────────────────────────────────────────────────
@@ -553,16 +577,18 @@ def main():
         except Exception:
             pass
     t_total = time.time()
+    all_hyps = []
 
     for lang in langs:
         try:
-            r = evaluate_language(
+            r, hyps = evaluate_language(
                 lang, args.samples,
                 skip_seamless=args.skip_seamless,
                 skip_baseline=args.skip_baseline,
                 device=device, token=token,
             )
             all_results.append(r)
+            all_hyps.extend(hyps)
         except Exception as e:
             print(f"\n[ERROR] {lang}: {e}")
             import traceback; traceback.print_exc()
@@ -571,6 +597,15 @@ def main():
     OUT_JSON.parent.mkdir(exist_ok=True)
     OUT_JSON.write_text(json.dumps(all_results, indent=2, ensure_ascii=False), encoding="utf-8")
     print(f"\n[OK] Results JSON -> {OUT_JSON}")
+
+    # Raw hypotheses, so a normalisation fix never costs another GPU run again.
+    # (This file not existing is why the zh whitespace bug required a full re-run.)
+    if all_hyps:
+        mode = "a" if (args.lang and OUT_HYPS.exists()) else "w"
+        with OUT_HYPS.open(mode, encoding="utf-8") as fh:
+            for h in all_hyps:
+                fh.write(json.dumps(h, ensure_ascii=False) + "\n")
+        print(f"[OK] Raw hypotheses ({len(all_hyps)} rows) -> {OUT_HYPS}")
 
     report = generate_report(all_results)
     OUT_MD.write_text(report, encoding="utf-8")

@@ -29,6 +29,7 @@ MODELS_DIR   = ROOT / "models"
 SEAMLESS_DIR = MODELS_DIR / "seamless-m4t-v2-large"
 RUNS_DIR     = ROOT / "finetune_runs_seamless"
 OUT_JSON     = ROOT / "docs" / "seamless_ft_results.json"
+OUT_HYPS     = ROOT / "eval_data" / "seamless_ft_hyps.jsonl"
 
 LANG_CFG = {
     "pa": {"fleurs": "pa_in",       "sm_lang": "pan", "name": "Punjabi"},
@@ -41,15 +42,11 @@ LANG_CFG = {
 
 
 # ── Normalisation ──────────────────────────────────────────────────────────────
-
-def normalise(text: str, lang: str) -> str:
-    text = unicodedata.normalize("NFC", text.strip())
-    text = re.sub(r"[،,؟?!\.؛;:\-–—۔]", " ", text)
-    text = re.sub(r"[​‌‍﻿]", "", text)
-    text = re.sub(r"\s+", " ", text).strip()
-    if lang in ("en", "eng"):
-        text = text.lower()
-    return text
+# One definition, in text_norm.py. This file used to carry its own copy with no CJK
+# segmentation, which is why zh sm_ft_asr_wer was published as 60.53 -- a whitespace
+# artefact, not a model result.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from text_norm import normalise, compute_wer, compute_cer  # noqa: E402
 
 
 # ── Audio decoding ─────────────────────────────────────────────────────────────
@@ -104,13 +101,7 @@ def load_en_refs(samples: list) -> list:
 
 # ── Metrics ────────────────────────────────────────────────────────────────────
 
-def compute_wer(preds, refs):
-    import jiwer
-    valid = [(p, r) for p, r in zip(preds, refs) if p and r]
-    if not valid:
-        return None
-    p_list, r_list = zip(*valid)
-    return round(jiwer.wer(list(r_list), list(p_list)) * 100, 2)
+# compute_wer / compute_cer come from text_norm; do not redefine them here.
 
 
 def compute_chrf(preds, refs):
@@ -155,8 +146,11 @@ def run_ft_seamless(samples, sm_lang: str, adapter_dir: pathlib.Path, device: st
             toks_en  = model.generate(**inputs, tgt_lang="eng")
             en_text  = processor.decode(toks_en[0],  skip_special_tokens=True)
 
-        asr_preds.append(normalise(asr_text, sm_lang))
-        s2tt_preds.append(normalise(en_text, "en"))
+        # RAW. Normalisation happens once in compute_wer, against the DATASET code.
+        # This used to normalise with sm_lang ("cmn"), while refs used "zh" -- so the
+        # two sides never went through the same normaliser.
+        asr_preds.append(asr_text.strip())
+        s2tt_preds.append(en_text.strip())
 
         if (i + 1) % 10 == 0:
             print(f"    {i+1}/{len(samples)}")
@@ -186,7 +180,7 @@ def evaluate_language(lang: str, n_samples: int, device: str) -> dict:
 
     print("  Loading test data ...")
     samples = load_test_samples(cfg["fleurs"], n_samples)
-    src_refs = [normalise(s["transcription"], lang) for s in samples]
+    src_refs = [s["transcription"] for s in samples]   # RAW; normalised in compute_wer
     en_refs  = load_en_refs(samples)
     print(f"  Loaded {len(samples)} samples")
 
@@ -194,10 +188,18 @@ def evaluate_language(lang: str, n_samples: int, device: str) -> dict:
     asr_preds, s2tt_preds = run_ft_seamless(samples, sm_lang, adapter_dir, device)
     elapsed = round(time.time() - t0, 1)
 
-    asr_wer  = compute_wer(asr_preds, src_refs)
+    asr_wer  = compute_wer(asr_preds, src_refs, lang)
+    asr_cer  = compute_cer(asr_preds, src_refs, lang)
     s2tt_chrf = compute_chrf(s2tt_preds, en_refs)
 
-    print(f"\n  ASR WER : {asr_wer}%")
+    # Raw hypotheses, so a normalisation fix never costs another GPU run.
+    with OUT_HYPS.open("a", encoding="utf-8") as fh:
+        for i, p in enumerate(asr_preds):
+            fh.write(json.dumps({"lang": lang, "system": "seamless_ft",
+                                 "model": str(adapter_dir.name), "idx": i,
+                                 "ref": src_refs[i], "hyp": p}, ensure_ascii=False) + "\n")
+
+    print(f"\n  ASR WER : {asr_wer}%   CER: {asr_cer}%")
     print(f"  S2TT chrF: {s2tt_chrf}")
     print(f"  Time     : {elapsed}s")
 
@@ -206,6 +208,7 @@ def evaluate_language(lang: str, n_samples: int, device: str) -> dict:
         "name":            cfg["name"],
         "n":               len(samples),
         "sm_ft_asr_wer":   asr_wer,
+        "sm_ft_asr_cer":   asr_cer,
         "sm_ft_s2tt_chrf": s2tt_chrf,
         "time":            elapsed,
     }

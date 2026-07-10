@@ -26,4 +26,12 @@ powercfg /change monitor-timeout-dc   $s.monitor.DC
 Write-Host "  sleep      AC=$($s.standby.AC)   DC=$($s.standby.DC)"
 Write-Host "  hibernate  AC=$($s.hibernate.AC)   DC=$($s.hibernate.DC)"
 Write-Host "  monitor    AC=$($s.monitor.AC)   DC=$($s.monitor.DC)"
+
+# The screensaver lives in HKCU, not in the power scheme, so powercfg cannot restore it.
+# It was enabled (ScreenSaveActive=1) before the long runs.
+Set-ItemProperty 'HKCU:\Control Panel\Desktop' -Name ScreenSaveActive -Value '1'
+rundll32.exe user32.dll,UpdatePerUserSystemParameters
+Write-Host "  screensaver re-enabled"
+
 Write-Host "Restored." -ForegroundColor Green
+Write-Host "Note: ASUS AsusOptimization / Armoury Crate panel power saving is not managed here." -ForegroundColor DarkYellow
