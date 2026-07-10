@@ -109,20 +109,40 @@ def apply_ptt_clip(arr, sr):
     return out[:len(arr)]
 
 
+def _ffmpeg_bin():
+    """Resolve an ffmpeg binary: PATH first, else the one imageio_ffmpeg ships in the venv.
+
+    Nothing puts ffmpeg on PATH on this machine, so the bare "ffmpeg" this used to call
+    raises FileNotFoundError and takes the whole codec_mp3 condition down with it.
+    """
+    from shutil import which
+    exe = which("ffmpeg")
+    if exe:
+        return exe
+    try:
+        import imageio_ffmpeg
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception as e:
+        raise RuntimeError(
+            "codec_mp3 needs ffmpeg: not on PATH and imageio_ffmpeg unavailable"
+        ) from e
+
+
 def apply_codec_mp3(arr, sr):
     """MP3 narrowband codec via ffmpeg round-trip (16 kbit/s, ~GSM quality)."""
+    ff = _ffmpeg_bin()
     with tempfile.TemporaryDirectory() as td:
         src = os.path.join(td, "in.wav")
         mp3 = os.path.join(td, "compressed.mp3")
         out = os.path.join(td, "out.wav")
         sf.write(src, arr, sr)
         subprocess.run(
-            ["ffmpeg", "-y", "-loglevel", "error",
+            [ff, "-y", "-loglevel", "error",
              "-i", src, "-codec:a", "libmp3lame", "-b:a", "16k", mp3],
             check=True,
         )
         subprocess.run(
-            ["ffmpeg", "-y", "-loglevel", "error",
+            [ff, "-y", "-loglevel", "error",
              "-i", mp3, "-ar", str(sr), out],
             check=True,
         )
