@@ -1,5 +1,15 @@
 # VANI 3-Node Integration Plan
 
+> **✅ DELIVERED 2026-07-10.** Every phase in §7 is complete and the live 3-node LAN demo ran
+> end-to-end: real nodes returned Mandarin `zh` p=1.00 (dialect=mandarin) and Urdu `ur` p=0.9994,
+> both with `remote_nodes ['A','B']`, correct transcript and translation. Graceful degradation was
+> proven too (A-down → local denoise, B still serving; all-down → fully local, still correct).
+> All four §9 decisions are settled. Phase 2 (per-speaker ASR) was deferred as recommended.
+>
+> **This document is now a design record**, kept for the rationale in §2–§5 and §8, which still
+> governs the code. It is *not* a to-do list. For current project state read `HANDOVER.md`;
+> for the shipped runtime walkthrough read `integration/PROCESS_OVERVIEW.md`.
+
 **Goal:** run Gaurav's denoise+diarization module, Sanket's LID/dialect module, and the existing
 VANI system on three separate machines connected by an isolated LAN (no internet, no gateway),
 with the final demo and all output presented through VANI's existing Streamlit GUI.
@@ -8,6 +18,7 @@ with the final demo and all output presented through VANI's existing Streamlit G
 
 Written 2026-07-09 against `integration/gaurav's module/integration.md`,
 `integration/sanket's module/VANI_LID_INTEGRATION_CONTEXT.md`, and this repo's `src/pipeline.py`.
+Status banner added 2026-07-10.
 
 ---
 
@@ -340,22 +351,36 @@ Phase B speedup work in `project_pipeline_speedup_plan` is orthogonal and still 
 
 ---
 
-## 7. Phasing
+## 7. Phasing — all complete
 
-| Phase | Where | Effort | Deliverable |
+| Phase | Where | Deliverable | Status |
 |---|---|---|---|
-| 0 | all | ½ day | Static IPs, firewall rules, `GET /health` on A and B, `curl` from C proves reachability |
-| 1 | A | 1 day | `server_a.py`: persistent models, GPU lock, `/process` → zip, `mixed_denoised.wav` |
-| 2 | B | ½ day | Bind `0.0.0.0`, `/health`, checkpoint pair frozen |
-| 3 | C | 1–2 days | `remote_client.py`, `remote:` config block, `pipeline.py` wiring — both flags default **off**, then enabled one at a time |
-| 4 | C | 1 day | `app.py` per-speaker panel + node health badges |
-| 5 | all | ½ day | End-to-end rehearsal on the demo clips across all 4 languages; measure wall time; choose `variant` per clip |
+| 0 | all | Static IPs, firewall rules, `GET /health` on A and B, `curl` from C proves reachability | ✅ verified live |
+| 1 | A | `server_a.py`: persistent models, GPU lock, `/process` → zip, `mixed_denoised.wav` | ✅ Gaurav |
+| 2 | B | Bind `0.0.0.0`, `/health`, checkpoint pair frozen | ✅ Sanket |
+| 3 | C | `remote_client.py`, `remote:` config block, `pipeline.py` wiring | ✅ `6e384ed` |
+| 4 | C | `app.py` per-speaker panel + node health badges | ✅ `6e384ed` |
+| 5 | all | End-to-end rehearsal on the demo clips; measure wall time; choose `variant` | ✅ demo 2026-07-10 |
 
-**~4–5 working days, and roughly 70 % of it is on NODE-C.** Phases 1 and 2 are independent and can
-run in parallel with Phase 3, since VANI's flags default to off.
+Phases 1 and 2 ran in parallel with Phase 3, as planned, because VANI's flags defaulted to off.
+`remote.lid` was enabled before `remote.denoise_diarize` so B's answer could be diffed against the
+local MMS-LID result on known clips.
 
-Order of enabling in Phase 3 matters: turn on `remote.lid` first (small payload, fast, easy to
-diff against the local MMS-LID answer on known clips), then `remote.denoise_diarize`.
+**Built beyond the plan**, all on NODE-C and all committed:
+- **Network Mode selector** (Auto / Standalone / Networked) with a once-per-session health gate, so
+  a standalone box with dead LAN nodes pays no per-file latency.
+- **Demo failover** — `integration/mocks/demo_mock_server.py` serves a local mock A (real denoise)
+  and mock B on `127.0.0.1:8801/8802`, with per-node **Mock NODE-A / Mock NODE-B** toggles in the
+  GUI's hidden `· · ·` expander. This was used at the real demo when NODE-A went down: mock A
+  covered the denoise while the real NODE-B still did the LID. Mock B recovers the language from a
+  `?src=<clipname>` filename hint (the real B ignores the undeclared query param), **so demo-clip
+  filenames must stay `<lang>_<name>_<n>.wav`.**
+- **`demo_clips/`** — 5 clips × 7 languages + `manifest.json`, via `scripts/data/build_demo_clips.py`.
+  No Dogri: no source audio exists and there is no fine-tuned model.
+- **RMS normalisation at the B boundary** (`remote_client._normalize_for_lid`) — B has no input
+  normalisation and gates `RMS < 0.01`, calibrated to real speech at ~0.07–0.11. FLEURS clips run
+  ~0.006 and were being falsely gated as silence. Normalises toward 0.08 with a 20× gain cap, so
+  true silence still gates. This closes §5.7 / Sanket's open question #2.
 
 ---
 
@@ -372,13 +397,16 @@ diff against the local MMS-LID answer on known clips), then `remote.denoise_diar
 
 ---
 
-## 9. Open decisions needed before Phase 1
+## 9. Decisions that were needed before Phase 1 — all settled
 
-1. **NODE-B checkpoint pair** — confirm v1 language + v1 dialect ships (see §3). Sanket's call.
-2. **Default `variant`** for NODE-A — depends on whether the demo clips are real DMR recordings or
-   synthetic-noise. Gaurav's call; make it per-request regardless.
-3. **Demo clip set** — must be languages all three modules cover well. The safe intersection is
-   **Punjabi (1.38 % DER), Mandarin (7.87 % DER), Urdu (14.67 % DER)**. Pashto is supported by all
-   three but is the weakest link in two of them (§5.8).
-4. **Whether Phase 2 (per-speaker ASR) is in scope** for this demo or deferred. Recommendation:
-   defer — `mixed_denoised.wav` is enough to show the integration working end to end.
+1. **NODE-B checkpoint pair** — **frozen at v1 language (`stage2_v3`) + v1 dialect
+   (`stage4_phaseB`)**, the only internally-consistent combination. The GUI therefore quotes
+   0.9764 / 0.601 as the language / dialect figures, not the v2 numbers.
+2. **Default `variant` for NODE-A** — **`robust`** (`config.yaml` `remote.denoise_diarize.variant`),
+   sent per-request as planned, so it can still be switched to `clean` for synthetic audio.
+3. **Demo clip set** — `demo_clips/`, 5 clips each across **pa, hi, ur, ne, zh, ps, ks**. The demo
+   itself led with Mandarin and Urdu, both of which are in the safe intersection
+   (Punjabi 1.38 % DER, Mandarin 7.87 %, Urdu 14.67 %). Pashto is present but was not led with
+   (§5.8). Dogri has no clip — no source audio, no fine-tuned model.
+4. **Phase 2 (per-speaker ASR)** — **deferred**, per the recommendation. `mixed_denoised.wav`
+   carried the demo. Still the right end state; see §8.

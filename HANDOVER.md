@@ -1,7 +1,7 @@
 # VANI — Session Handover
 
 **Purpose:** bring a fresh Claude session (new account, no memory, no context) fully up to speed on
-this project. Written 2026-07-09.
+this project. Written 2026-07-09, revised 2026-07-10.
 
 **If you are a new Claude session: read this whole file before touching anything.**
 
@@ -9,10 +9,9 @@ this project. Written 2026-07-09.
 
 ## ★ LATEST — 2026-07-10 (account-switch handoff; read this first)
 
-The 3-node LAN integration is **DONE and the live demo was delivered 2026-07-10.** This section
-supersedes the older §3–§6 status below where they conflict.
+The 3-node LAN integration is **DONE and the live demo was delivered 2026-07-10.**
 
-**What exists now (all committed on `master`, NOT pushed — no remote configured):**
+**What exists now (all committed on `master` and pushed to `origin` — see §3):**
 - A full **3-node speech-intelligence pipeline** across an isolated LAN:
   - **NODE-A** (Gaurav, `192.168.10.11:8801`) — DiariZen diarization + DeepFilterNet3 denoise,
     `POST /process` → zip (`diarization.json`, `summary.json`, `mixed_denoised.wav`, per-speaker
@@ -65,10 +64,11 @@ with `schtasks /Delete /TN VANI_Demo_Startup` if no longer wanted.
 
 **Commits (this work):** `6e384ed` (integration build, also swept in the previously-uncommitted
 tree) → `a9f355b` (demo-ready) → `8a87164` (mock failover) → `9a0be8c` (0700 task) → `01df4c9`
-(per-node toggles). **Working tree clean. Nothing pushed** — push if you want it off-machine.
+(per-node toggles) → `b7403cd` (this doc). **Working tree clean, pushed to `origin`.**
 
 **Open items:** (1) Dogri clip still missing. (2) Phase 2 = per-speaker ASR (deferred; see plan §8).
-(3) push to a remote if desired. (4) the detailed-parameters explainer is still owed (§8 below).
+(3) the detailed-parameters explainer is still owed (§8 below). (4) UI changes to `app.py` — next
+work item, scope to be agreed with the user.
 
 ---
 
@@ -146,28 +146,26 @@ re-downloadable.
 
 ---
 
-## 3. Git state as of 2026-07-09 — READ THIS FIRST
+## 3. Git state as of 2026-07-10
 
-> **⚠ SUPERSEDED 2026-07-10:** the tree described below is now **committed** (HEAD `01df4c9`, still
-> on `master`, not pushed). The working tree is **clean** — the "~52 uncommitted files" warning no
-> longer applies. See the ★ LATEST section at the top for the current commit chain. The history
-> below is kept for context on what those commits contain.
+Branch `master`, HEAD `b7403cd`, **working tree clean**. A remote is configured:
+`origin` → `https://github.com/captainprice316-lab/offline-ai-system-v2.git`, and `master` tracks
+`origin/master` with no divergence — **the work is pushed.**
 
-Branch `master`, HEAD `e79a863` "Add India critical-infrastructure detection + map pins".
+**Verify this yourself before acting** (`git status -sb`, `git log --oneline -5`). This file has
+gone stale between sessions before; trust the repo over the doc, and update the doc when they
+disagree.
 
-**The working tree has ~52 files of uncommitted work:**
-- **16 modified** (tracked) — includes `app.py`, `config.yaml`, `src/pipeline.py`,
-  `src/isum_module.py`, `src/seamless_asr.py`, `src/translation_module.py`
-- **14 deleted** (tracked) — old eval/download scripts moved into `scripts/`
-- **22 untracked** — `integration/`, `ui/`, `demo/`, `assets/`, `LRP/`, `scripts/data/`,
-  `scripts/eval/*`, `scratchpad/`, `run_full_pipeline_batch.py`, and more
+A fresh session must still **not** run `git checkout --`, `git reset --hard`, or `git clean`
+without asking.
 
-**This uncommitted set contains the entire Phase A pipeline speedup (§5) and is not backed up by
-git.** Before any risky operation — and ideally before the account switch — commit it or at minimum
-`git stash`/branch it. A fresh session must **not** assume the tree is clean and must **not** run
-`git checkout --`, `git reset --hard`, or `git clean` without asking.
-
-There is a pre-change backup of the speedup work at `scratchpad\speedup_backup_2026-07-08`.
+**What the recent commits contain.** Up to `e79a863` the tree was the pre-integration system. A
+single large working set (~52 files: `app.py`, `config.yaml`, `src/pipeline.py`, `src/isum_module.py`,
+`src/seamless_asr.py`, `src/translation_module.py`, plus the untracked `integration/`, `ui/`, `demo/`,
+`assets/`, `LRP/`, `scripts/data/`, `scripts/eval/*`) sat uncommitted for a while and carried the whole
+of pipeline speedup Phase A (§5); it was swept into `6e384ed` along with the integration build. The
+pre-change backup of the speedup work is still at `scratchpad\speedup_backup_2026-07-08` and can be
+deleted once you're confident in the committed version.
 
 ---
 
@@ -178,9 +176,10 @@ There is a pre-change backup of the speedup work at `scratchpad\speedup_backup_2
 | Fine-tuning (pa/hi/ur/ne/zh/ps/ks) | **Done.** All deployed as CT2 int8. |
 | Robustness eval (7 langs × 5 conditions) | **Done** 2026-07-01. Full VANI beats Whisper-only by **+14 pp** average. |
 | Reports (PDF + PPTX) | **Done**, regenerated 2026-07-01. |
-| Demo | **Delivered 2026-07-08** via the Streamlit app. Full pipeline verified end-to-end. |
-| Pipeline speedup Phase A | **Done** 2026-07-08 evening. **Uncommitted.** |
-| 3-node integration | **Planned, not started.** See `integration/INTEGRATION_PLAN.md`. |
+| Demo (single-node) | **Delivered 2026-07-08** via the Streamlit app. Full pipeline verified end-to-end. |
+| Pipeline speedup Phase A | **Done** 2026-07-08 evening. Committed. Phase B not started. |
+| 3-node integration | **Done. Live LAN demo delivered 2026-07-10.** See the ★ LATEST section and `integration/INTEGRATION_PLAN.md`. |
+| UI changes to `app.py` | **Next up.** Scope to be agreed with the user. |
 
 ### Model results (for reports / questions)
 
@@ -198,7 +197,7 @@ There is a pre-change backup of the speedup work at `scratchpad\speedup_backup_2
 
 ---
 
-## 5. Pipeline speedup Phase A (done, uncommitted)
+## 5. Pipeline speedup Phase A (done, committed)
 
 Plan file: `C:\Users\vis15\.claude\plans\enumerated-meandering-moth.md`.
 Warm run **33.1 s** (was ~42 s). Cold 57.6 s. Target was 16–19 s.
@@ -219,25 +218,32 @@ promote/park; candidate fix = CT2 int8 NLLB).
 
 ---
 
-## 6. Active work: 3-node LAN integration
+## 6. The 3-node LAN integration (delivered 2026-07-10)
 
-Full plan: **`integration/INTEGRATION_PLAN.md`** — read it, it's the current task.
+Full plan and rationale: **`integration/INTEGRATION_PLAN.md`**. End-to-end walkthrough:
+`integration/PROCESS_OVERVIEW.md` (+ `.pdf`).
 
 Three machines on an isolated LAN (no internet, no gateway):
-- **NODE-A** (Gaurav) — DiariZen diarization + DeepFilterNet3 denoising. Context:
-  `integration/gaurav's module/integration.md`
-- **NODE-B** (Sanket) — LID (8 languages) + Mandarin dialect ID. Context:
+- **NODE-A** (Gaurav, `192.168.10.11:8801`) — DiariZen diarization + DeepFilterNet3 denoising.
+  Context: `integration/gaurav's module/integration.md`
+- **NODE-B** (Sanket, `192.168.10.12:8802`) — LID (8 languages) + Mandarin dialect ID. Context:
   `integration/sanket's module/VANI_LID_INTEGRATION_CONTEXT.md`
-- **NODE-C** — this repo. Streamlit GUI, orchestrator, final output.
+- **NODE-C** (`192.168.10.13`) — this repo. Streamlit GUI, orchestrator, final output.
 
-Design in one paragraph: A and B become stateless HTTP services; C orchestrates. C's existing local
-MMS-LID probe moves earlier to supply Gaurav the language tag his clustering needs (he has no LID),
-which lets Sanket's LID run *after* denoising where it was trained to run. Gaurav adds a
-`mixed_denoised.wav` output (~10 lines) so VANI's single-timeline downstream needs no changes.
-Everything is behind config flags with `fallback_on_error: true`, so the working demo path cannot
-regress. Estimated ~4–5 days, ~70% on NODE-C, **zero cost**.
+Design in one paragraph: A and B are stateless HTTP services; C orchestrates. C's local MMS-LID
+probe moved earlier to supply Gaurav the language tag his clustering needs (he has no LID), which
+lets Sanket's LID run *after* denoising where it was trained to run. Gaurav emits a
+`mixed_denoised.wav` so VANI's single-timeline downstream needs no changes. Everything is behind
+config flags with `fallback_on_error: true`, so the working demo path cannot regress. Zero cost.
 
-**Not started.** No code written yet on any node.
+**Shipped configuration** (`config.yaml` `remote:`): `enabled: true`, NODE-A `variant: robust` /
+`mode: diarization-guided` / `use_mixed_track: true` (Phase 1), NODE-B `min_confidence: 0.60` /
+`windows: 3`, and `fallback_on_error: true` throughout. NODE-B's checkpoint pair is frozen at
+`stage2_v3` (language) + `stage4_phaseB` (dialect) — the only internally-consistent combination.
+
+Phase 2 (per-speaker ASR on `Speaker_N_Denoised.wav` instead of the mixed track) was **deliberately
+deferred** — it touches timestamp handling in the chunker, ASR loop, keyword mapper, timeline tab,
+and DB writer. See plan §8.
 
 ---
 
@@ -299,19 +305,21 @@ regress. Estimated ~4–5 days, ~70% on NODE-C, **zero cost**.
 
 ## 9. Open items
 
-1. **Commit the 52 uncommitted files** (§3). Highest priority, lowest effort.
-2. **Integration Phase 0** — static IPs, firewall rules, `/health` endpoints on A and B, prove
-   reachability with `curl` from C.
-3. **Decisions needed from the other two owners** before integration Phase 1:
-   - Sanket: confirm the shipping checkpoint pair (v1 language `stage2_v3` + v1 dialect
-     `stage4_phaseB` — the only internally-consistent combination).
-   - Gaurav: default diarizer `variant` (`clean` vs `robust` — they are **not** interchangeable).
-   - Both: demo clip set. Safe intersection across all three modules is **Punjabi, Mandarin,
-     Urdu**. Pashto is supported everywhere but is the weakest link in two of the three.
-4. **Licensing, flagged not blocking:** DiariZen's weights, Sanket's MMS-LID-4017 backbone, and
+1. **UI changes to `app.py`** — the next work item. Scope to be agreed with the user.
+2. **Dogri (`doi`) demo clip is missing.** No source audio exists anywhere on this machine and
+   there is no fine-tuned model. `demo_clips/` covers the other 7 languages, 5 clips each.
+3. **Phase 2: per-speaker ASR** (plan §8) — deferred, not cancelled. The natural next capability,
+   and the same denoised per-speaker tracks would let ECAPA embeddings finally re-enable
+   `cross_file_reid` (§7.7).
+4. **Detailed-parameters explainer** still owed (§8).
+5. **Licensing, flagged not blocking:** DiariZen's weights, Sanket's MMS-LID-4017 backbone, and
    VANI's own `mms-lid-256` are all **CC BY-NC 4.0**. The integrated system is research /
    non-commercial only. Fine for the demo; a hard blocker for productization.
-5. Pipeline speedup Phase B (§5) — optional, orthogonal to integration.
+6. Pipeline speedup Phase B (§5) — optional, orthogonal.
+
+**Closed:** the ~52 uncommitted files are committed and pushed (§3). Integration Phase 0 (static
+IPs, firewall, `/health` on A and B) is done and was verified live. The three owner decisions —
+Sanket's checkpoint pair, Gaurav's default `variant`, and the demo clip set — are all settled (§6).
 
 ---
 
@@ -332,4 +340,6 @@ self-contained in case it doesn't.
 | `project_robustness_eval.md` | §4 (robustness) |
 | `project_demo_2026-07-08.md` | §4 (demo) |
 | `project_pipeline_speedup_plan.md` | §5 |
+| `project_integration_3node.md` | ★ LATEST, §6 |
+| `project_ui_changes_2026-07-10.md` | §9.1 (next work item) |
 | `project_detailed_explainer.md` | §8 |
