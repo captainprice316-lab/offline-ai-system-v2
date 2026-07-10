@@ -23,7 +23,7 @@ VANI_ROOT  = SCRIPT_DIR.parent.parent
 CACHE_DIR  = VANI_ROOT / "robustness_cache" / "ks"
 
 ARROW_DIR = Path(
-    r"E:\hf_ks_temp\datasets\ai4bharat___indicvoices_r\Kashmiri"
+    r"E:\VANI\datasets\hf_ks_temp\datasets\ai4bharat___indicvoices_r\Kashmiri"
     r"\0.0.0\5f4495c91d500742a58d1be2ab07d77f73c0acf8"
 )
 ARROW_FILES = sorted(ARROW_DIR.glob("indicvoices_r-test-*.arrow"))

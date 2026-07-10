@@ -28,7 +28,7 @@ from peft import PeftModel
 
 ROOT      = Path(r"C:\Users\vis15\offline_ai_system_v2")
 BASE      = "openai/whisper-large-v3"
-ADAPTER   = Path(r"D:\finetune_runs\pa\adapter\checkpoint-2200")
+ADAPTER   = ROOT / "finetune_runs" / "pa" / "adapter" / "checkpoint-2200"
 MERGED    = ROOT / "finetune_runs" / "pa" / "merged_ckpt2200"
 CONVERTER = ROOT / "venv" / "Scripts" / "ct2-transformers-converter.exe"
 

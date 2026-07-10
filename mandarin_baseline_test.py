@@ -20,7 +20,7 @@ import numpy as np
 import torch
 from transformers import WhisperProcessor, WhisperForConditionalGeneration
 
-PARQUET = r"E:\hf_cache\hub\datasets--google--fleurs\snapshots\70bb2e84b976b7e960aa89f1c648e09c59f894dd\parquet-data\cmn_hans_cn\test-00000-of-00001.parquet"
+PARQUET = r"E:\VANI\datasets\hf_cache\hub\datasets--google--fleurs\snapshots\70bb2e84b976b7e960aa89f1c648e09c59f894dd\parquet-data\cmn_hans_cn\test-00000-of-00001.parquet"
 MODEL   = "openai/whisper-large-v3"
 OUT     = Path("logs/mandarin_baseline_test.txt")
 N_CLIPS = 3

@@ -38,17 +38,18 @@ New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 # source, destination-subfolder, excluded-dirs
 $jobs = @(
     @{ Src="C:\Users\vis15\offline_ai_system_v2"; Name="offline_ai_system_v2"; XD=@("venv","__pycache__",".git") },
-    @{ Src="E:\vani_models";                      Name="vani_models";            XD=@() },
-    @{ Src="E:\finetune_runs";                    Name="finetune_runs";          XD=@() },
-    @{ Src="E:\finetune_runs_seamless";           Name="finetune_runs_seamless"; XD=@() },
+    @{ Src="E:\VANI\models";                      Name="models";                 XD=@() },
+    @{ Src="E:\VANI\training\whisper";            Name="training_whisper";       XD=@() },
+    @{ Src="E:\VANI\training\seamless";           Name="training_seamless";      XD=@() },
     @{ Src="$env:USERPROFILE\Desktop";            Name="Desktop";                XD=@() },
     @{ Src="$env:USERPROFILE\Documents";          Name="Documents";              XD=@() },
     @{ Src="$env:USERPROFILE\Downloads";          Name="Downloads";              XD=@() },
     @{ Src="$env:USERPROFILE\Pictures";           Name="Pictures";               XD=@() }
 )
 if ($IncludeCaches) {
-    $jobs += @{ Src="E:\hf_cache";  Name="hf_cache";  XD=@() }
-    $jobs += @{ Src="E:\hf_ks_temp"; Name="hf_ks_temp"; XD=@() }
+    $jobs += @{ Src="E:\VANI\datasets\hf_cache";     Name="hf_cache";     XD=@() }
+    $jobs += @{ Src="E:\VANI\datasets\hf_ks_temp";   Name="hf_ks_temp";   XD=@() }
+    $jobs += @{ Src="E:\VANI\datasets\ds_map_cache"; Name="ds_map_cache"; XD=@() }
 }
 
 Write-Host "=== VANI backup -> $Dest ===`n" -ForegroundColor Cyan
@@ -70,8 +71,8 @@ Write-Host "`n=== SUMMARY ===" -ForegroundColor Cyan
 $results | Format-Table Name, ExitCode, OK -AutoSize
 
 # ── Verify model.bin count (don't trust robocopy exit code alone) ──────────────
-$srcBin = (Get-ChildItem 'E:\vani_models','E:\finetune_runs' -Recurse -Force -Filter 'model.bin' -EA SilentlyContinue).Count
-$dstBin = (Get-ChildItem (Join-Path $Dest 'vani_models'),(Join-Path $Dest 'finetune_runs') -Recurse -Force -Filter 'model.bin' -EA SilentlyContinue).Count
+$srcBin = (Get-ChildItem 'E:\VANI\models','E:\VANI\training\whisper' -Recurse -Force -Filter 'model.bin' -EA SilentlyContinue).Count
+$dstBin = (Get-ChildItem (Join-Path $Dest 'models'),(Join-Path $Dest 'training_whisper') -Recurse -Force -Filter 'model.bin' -EA SilentlyContinue).Count
 Write-Host ("model.bin verify:  source E: {0}  vs  backup {1}  -> {2}" -f `
     $srcBin, $dstBin, ($(if($srcBin -eq $dstBin -and $dstBin -gt 0){"MATCH"}else{"MISMATCH - CHECK!"}))) `
     -ForegroundColor $(if($srcBin -eq $dstBin -and $dstBin -gt 0){"Green"}else{"Red"})

@@ -148,8 +148,8 @@ LANG_CONFIG = {
         "task":                    "transcribe",
         "fleurs_config":           None,   # FLEURS has no Kashmiri config
         "cv_config":               None,
-        # Local parquet files already downloaded to E:\hf_ks_temp
-        "indicvoices_parquet_dir": r"E:\hf_ks_temp\hub\datasets--ai4bharat--indicvoices_r\snapshots\5f4495c91d500742a58d1be2ab07d77f73c0acf8\Kashmiri",
+        # Local parquet files already downloaded to E:\VANI\datasets\hf_ks_temp
+        "indicvoices_parquet_dir": r"E:\VANI\datasets\hf_ks_temp\hub\datasets--ai4bharat--indicvoices_r\snapshots\5f4495c91d500742a58d1be2ab07d77f73c0acf8\Kashmiri",
         "indicvoices_train_cap":   20000,
         "ct2_name":                "whisper-large-v3-ks-ct2",
         "lora_r":                  8,
@@ -665,9 +665,10 @@ def train(lang: str, args: argparse.Namespace) -> Path:
     # IterableDataset.map() doesn't accept num_proc or desc
     iterable_proc_kwargs = dict(function=prepare, remove_columns=["audio", "text"])
 
-    # Use C: drive for map() cache to avoid filling D: (source data is on D: junction)
-    _map_cache = Path("C:/hf_ds_map_cache")
-    _map_cache.mkdir(exist_ok=True)
+    # map() writes its Arrow feature cache next to the source unless cache_file_name is
+    # explicit; keep it on E: alongside the datasets rather than filling the OS drive.
+    _map_cache = Path("E:/VANI/datasets/ds_map_cache")
+    _map_cache.mkdir(parents=True, exist_ok=True)
 
     if is_iterable_train:
         # Lazy map — prepare() runs per-batch during training (no upfront cache)

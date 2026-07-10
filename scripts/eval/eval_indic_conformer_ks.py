@@ -33,10 +33,10 @@ from transformers import WhisperForConditionalGeneration, WhisperProcessor
 
 ROOT = Path(__file__).resolve().parents[2]
 MODEL_ID  = "muneebharoon/whisper-small-ks"
-MODEL_CACHE = "E:/hf_cache/hub"
+MODEL_CACHE = "E:/VANI/datasets/hf_cache/hub"
 
 PARQUET_DIR = Path(
-    r"E:\hf_ks_temp\hub\datasets--ai4bharat--indicvoices_r"
+    r"E:\VANI\datasets\hf_ks_temp\hub\datasets--ai4bharat--indicvoices_r"
     r"\snapshots\5f4495c91d500742a58d1be2ab07d77f73c0acf8\Kashmiri"
 )
 

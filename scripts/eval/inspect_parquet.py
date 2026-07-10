@@ -1,7 +1,7 @@
 import pyarrow.parquet as pq
 
 pf = pq.read_table(
-    r"E:\hf_ks_temp\hub\datasets--ai4bharat--indicvoices_r\snapshots"
+    r"E:\VANI\datasets\hf_ks_temp\hub\datasets--ai4bharat--indicvoices_r\snapshots"
     r"\5f4495c91d500742a58d1be2ab07d77f73c0acf8\Kashmiri\test-00000-of-00002.parquet",
     memory_map=True,
 )

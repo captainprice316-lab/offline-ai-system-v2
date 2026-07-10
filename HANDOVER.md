@@ -120,29 +120,49 @@ Kashmiri (ks), Dogri (doi).
 **Machine:** ASUS ROG Strix G16 **G614PM**, Windows 11 Home, NVIDIA RTX 5060 **8 GB VRAM**,
 **32 GB RAM** (upgraded 2026-07-06).
 
-**Disks:** `C:` (OS, ~112 GB free) · `D:` (empty, 500 GB — same physical disk as C:) ·
-**`E:` = WD Black SN7100 1 TB NVMe** (~454 GB free). All large data lives on `E:`.
+**Disks:** `C:` (OS, ~133 GB free) · `D:` (empty, 500 GB — **same physical disk as C:**, so it buys
+no capacity and no speed; it filled to 0 bytes mid-training once. Don't use it) ·
+**`E:` = WD Black SN7100 1 TB NVMe** (~422 GB free). **All large data lives on `E:\VANI\`.**
 
-**⚠ THREE NTFS JUNCTIONS under the project point to `E:`:**
+**Layout, consolidated 2026-07-10** — everything under one tree:
 
-| Junction (inside repo) | Real target | Size |
-|---|---|---|
-| `models` | `E:\vani_models` | 52.8 GB |
-| `finetune_runs` | `E:\finetune_runs` | 89 GB |
-| `finetune_runs_seamless` | `E:\finetune_runs_seamless` | 6.4 GB |
+```
+E:\VANI\
+  datasets\  hf_cache\ (251.2 GB)   hf_ks_temp\ (77.4 GB)   ds_map_cache\ (32.6 GB)
+  models\    (52.8 GB)
+  training\  whisper\ (89.4 GB)     seamless\ (6.4 GB)
+```
+
+**⚠ FOUR NTFS JUNCTIONS point into it:**
+
+| Junction | Real target |
+|---|---|
+| `<repo>\models` | `E:\VANI\models` |
+| `<repo>\finetune_runs` | `E:\VANI\training\whisper` |
+| `<repo>\finetune_runs_seamless` | `E:\VANI\training\seamless` |
+| `C:\Users\vis15\.cache\huggingface` | `E:\VANI\datasets\hf_cache` |
+
+`HF_HOME` is also set at **User** scope to `E:\VANI\datasets\hf_cache`, so the cache location is
+declared rather than implied by that junction. (Before 2026-07-10 the `.cache\huggingface` junction
+dangled at a nonexistent `D:\hf_cache` and no `HF_HOME` was set — anything downloading from HF was
+quietly broken. VANI's runtime never noticed because it forces `HF_HUB_OFFLINE=1` and reads models
+through the relative `models/` path.)
 
 **Backup gotcha (has bitten this project once):** `robocopy /XJ` and most junction-aware copies
 **silently skip junctions**. A backup of the project folder captures ~3 GB of code and misses 148 GB
-of models. **Always back up the three `E:\` targets as separate robocopy jobs**, and verify with
-`Get-ChildItem -Recurse -Filter model.bin` rather than trusting exit codes (robocopy exit code 1 =
-success, and the Claude Code harness flags any non-zero as failure — trust neither).
+of models. **Always back up the `E:\VANI\` subtrees as separate robocopy jobs** — `backup.ps1` does
+this — and verify with `Get-ChildItem -Recurse -Filter model.bin` (expect **10**) rather than
+trusting exit codes (robocopy exit code 1 = success, and the Claude Code harness flags any non-zero
+as failure — trust neither).
 
-**Good backup:** `G:\vani_backup_2026-07-06` (~148.6 GB, verified complete, 0 failed).
+**Good backup:** `G:\vani_backup_2026-07-06` (~148.6 GB, verified complete, 0 failed) — **predates
+the reorg**, so its folder names are the old ones. Re-run `backup.ps1` to refresh.
 The WD My Passport drive letter is **not stable** (`F:` one day, `G:` the next) — look it up with
 `Get-Volume | ? FileSystemLabel -eq 'My Passport'`.
 
-**Safe to exclude from backups:** `E:\hf_cache` (251 GB), `E:\hf_ks_temp` (77 GB), `venv` — all
-re-downloadable.
+**Safe to exclude from backups:** `E:\VANI\datasets\` (361 GB — HF caches and the derived
+`ds_map_cache` Arrow features; all re-derivable, though re-downloading needs internet this box
+doesn't have at runtime) and `venv`. `backup.ps1 -IncludeCaches` grabs them anyway if you want.
 
 ---
 
