@@ -471,7 +471,15 @@ def run_pipeline(
                 progress_cb(chunk_label)
             except Exception:
                 pass
-        result = asr.transcribe(str(chunk["path"]), language_hint=whisper_lang)
+        if _seamless_used:
+            # Feed Seamless the chunk's VAD utterance boundaries (made chunk-relative)
+            # so it emits one timed segment per utterance instead of one 29 s blob.
+            _cs   = chunk["start_sec"]
+            _subs = [(s - _cs, e - _cs) for (s, e) in (chunk.get("vad_subsegs") or [])] or None
+            result = asr.transcribe(str(chunk["path"]), language_hint=whisper_lang,
+                                    subsegments=_subs)
+        else:
+            result = asr.transcribe(str(chunk["path"]), language_hint=whisper_lang)
 
         if whisper_lang is None and result["language"]:
             whisper_lang      = result["language"]

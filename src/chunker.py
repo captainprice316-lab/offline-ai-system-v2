@@ -72,7 +72,8 @@ class AudioChunker:
             groups = self._fixed_groups(total_dur)
 
         chunks = []
-        for idx, (start, end) in enumerate(groups):
+        for idx, grp in enumerate(groups):
+            start, end = grp["start"], grp["end"]
             duration = end - start
             if duration < self.min_duration:
                 continue
@@ -89,6 +90,11 @@ class AudioChunker:
                 "start_sec": round(start, 3),
                 "end_sec":   round(end,   3),
                 "index":     idx,
+                # Constituent VAD segments, absolute seconds. Whisper ignores this
+                # (it does its own internal segmentation); SeamlessM4T uses it to emit
+                # one segment per utterance instead of one blob per 29 s chunk, so
+                # downstream speaker labelling and keyword→time mapping stay per-utterance.
+                "vad_subsegs": grp.get("subsegs"),
             })
 
         return chunks
@@ -102,35 +108,35 @@ class AudioChunker:
         duration stays under the limit.
         """
         groups = []
-        group_start = None
-        group_end   = None
+        cur = None          # {"start", "end", "subsegs": [(s, e), ...]}
 
         for seg in vad_segs:
             s = seg["start_sec"]
             e = seg["end_sec"]
 
-            if group_start is None:
-                group_start, group_end = s, e
+            if cur is None:
+                cur = {"start": s, "end": e, "subsegs": [(s, e)]}
                 continue
 
             # Would adding this segment exceed the limit?
-            if (e - group_start) > self.max_duration:
-                groups.append((group_start, group_end))
-                group_start, group_end = s, e
+            if (e - cur["start"]) > self.max_duration:
+                groups.append(cur)
+                cur = {"start": s, "end": e, "subsegs": [(s, e)]}
             else:
-                group_end = e   # extend current group
+                cur["end"] = e               # extend current group
+                cur["subsegs"].append((s, e))
 
-        if group_start is not None:
-            groups.append((group_start, group_end))
+        if cur is not None:
+            groups.append(cur)
 
         return groups
 
     def _fixed_groups(self, total_dur: float) -> list:
-        """Fallback: fixed-size windows."""
+        """Fallback: fixed-size windows. No VAD, so no sub-segments."""
         groups = []
         start = 0.0
         while start < total_dur:
             end = min(start + self.max_duration, total_dur)
-            groups.append((start, end))
+            groups.append({"start": start, "end": end, "subsegs": None})
             start = end
         return groups
