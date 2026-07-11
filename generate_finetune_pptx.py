@@ -197,10 +197,10 @@ def slide_02_motivation(prs):
     txbox(s, "⚠  The Problem", 0.55, 1.47, 5.5, 0.32,
           font_size=13, bold=True, color=RGBColor(0xFF,0xFF,0xFF))
     issues = [
-        "Baseline Whisper large-v3 WER on\nPunjabi (pa): ~105%",
-        "Pashto baseline WER: ~94%",
-        "Nepali baseline WER: ~95%",
-        "Mandarin turbo model translates\nto English → 100% WER vs source",
+        "Baseline Whisper large-v3 WER on\nPunjabi (pa): ~78%",
+        "Pashto baseline WER: ~90%",
+        "Nepali baseline WER: ~89%",
+        "Kashmiri: no Whisper support at all\n(baseline ~97% WER)",
         "Radio intercept audio is noisy\n& domain-specific",
         "Generic model lacks border-language\nacoustic knowledge",
     ]
@@ -618,7 +618,8 @@ def slide_10_key_findings(prs, n=22):
 
     findings = [
         ("01", C_GOLD,   "LoRA Effective at 0.25% Params",
-         "WER drops 20–84 pp. r=8/r=16 sufficient. Full fine-tune (40+ GB VRAM) unnecessary."),
+         "WER drops 1.4–51 pp where fine-tuning helps (zh regressed). r=8/r=16 sufficient. "
+         "Full fine-tune (40+ GB VRAM) unnecessary."),
         ("02", C_GREEN,  "FLEURS + IndicVoices-R Transfer to Radio Domain",
          "Clean read-speech training improves military-domain accuracy. PA v2: +9,407 IV-R samples → −4.1 pp."),
         ("03", C_TEAL,   "MMS-LID Critical for Pashto & Robustness",
@@ -897,10 +898,10 @@ def slide_chartD_lang(prs, lang, n):
         )
     else:
         caption = (
-            f"Left: Eval WER over training steps (★ = best checkpoint, WER {m['best_wer']:.2f}%). "
+            f"Left: Training-val WER over training steps (★ = best checkpoint, {m['best_wer']:.2f}%). "
             f"Right: Training loss (monotonic descent confirms healthy convergence). "
-            f"Baseline ~{m['baseline_wer']:.1f}%  →  best {m['best_wer']:.2f}%  "
-            f"(−{m['baseline_wer'] - m['best_wer']:.1f} pp)."
+            f"Held-out test: baseline {m['baseline_wer']:.2f}%  →  fine-tuned {m['eval_wer']:.2f}%  "
+            f"({m['eval_wer'] - m['baseline_wer']:+.1f} pp)."
         )
     chart_slide(
         prs, title, n, "Training Curves",
@@ -931,13 +932,13 @@ def slide_table_version_history(prs, n):
     rows = [
         ("PA",  "v1",         "large-v3",       "FLEURS pa_in",          "2,516",  "3,000", "56.67%", "56.67%", "Superseded", C_SUB),
         ("PA",  "v2",         "large-v3",       "FLEURS+IV-R",           "11,923", "3,000", "52.55%", "52.55%", "Superseded", C_SUB),
-        ("PA",  "v3 ★",      "large-v3",       "FLEURS+IV-R (20k)",     "21,923", "4,000", "49.31%", "49.31%", "Deployed",   C_TEAL),
+        ("PA",  "v3",         "large-v3",       "FLEURS+IV-R (20k)",     "21,923", "4,000", "49.31%", "57.39%", "SM4T serves", C_SUB),
         ("NE",  "v1",         "large-v3",       "FLEURS ne_np",          "3,332",  "2,000", "52.14%", "52.14%", "Superseded", C_SUB),
-        ("NE",  "v2 ★",      "large-v3",       "FLEURS+IV-R",           "13,332", "3,000", "50.82%", "50.82%", "Deployed",   C_TEAL),
-        ("ZH",  "v1 (div.)", "large-v3",       "FLEURS cmn_hans_cn",    "3,246",  "400†",  "8.97%",  "14.22%", "Not served", C_RED),
+        ("NE",  "v2",         "large-v3",       "FLEURS+IV-R",           "13,332", "3,000", "50.82%", "50.92%", "SM4T serves", C_SUB),
+        ("ZH",  "v1 (div.)", "large-v3",       "FLEURS cmn_hans_cn",    "3,246",  "400†",  "8.97%",  "14.22%", "SM4T serves", C_RED),
         ("PS",  "v1 ★",      "medium-pashto",  "FLEURS ps_af",          "2,082",  "2,000", "38.55%", "38.55%", "Deployed",   C_TEAL),
-        ("UR",  "v1 ★",      "large-v3",       "FLEURS ur_pk",          "2,109",  "1,000", "22.27%", "19.82%", "Deployed",   C_TEAL),
-        ("HI",  "v1 ★",      "large-v3",       "FLEURS hi_in",          "2,120",  "600",   "23.13%", "19.78%", "Deployed",   C_TEAL),
+        ("UR",  "v1",         "large-v3",       "FLEURS ur_pk",          "2,109",  "1,000", "22.27%", "19.82%", "SM4T serves", C_SUB),
+        ("HI",  "v1",         "large-v3",       "FLEURS hi_in",          "2,120",  "600",   "23.13%", "19.78%", "SM4T serves", C_SUB),
         ("KS",  "v1 ★",      "large-v3+<|ks|>","IndicVoices-R KS",     "20,000", "3,000", "74.02%", "74.02%", "Deployed",   C_TEAL),
     ]
 

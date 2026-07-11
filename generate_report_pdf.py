@@ -68,13 +68,14 @@ LANG_META = {
                        (1200,0.1817),(1400,0.1631),(1600,0.1680),(1800,0.1725),(2000,0.1513),
                        (2200,0.1587),(2400,0.1570),(2600,0.1411),(2800,0.1684),(3000,0.1623)],
         "best_wer": 49.31, "best_step": 4000,
-        "eval_wer": 49.31,
+        "eval_wer": 57.39,   # held-out n=100 FLEURS test (train-val best was 49.31)
         "ct2_model": "whisper-large-v3-pa-ct2",
         "translation": "NLLB-200",
         "note": "v1: FLEURS pa_in only (2,516 samples, 3,000 steps, best WER 56.67%  — superseded). "
                 "v2: FLEURS + IndicVoices-R 9,407 samples (11,923 total, 3,000 steps, best WER 52.55% @ step 3000); "
                 "CT2 tokenizer fix 2026-06-23 restored Gurmukhi transcription. Superseded by v3. "
-                "v3 (DEPLOYED 2026-07-04): LoRA r=16 α=32, IV-R 20,000 samples (21,923 total), completed 4,000 steps. "
+                "v3 (built 2026-07-04; retained but NOT serving ASR since the 2026-07-11 routing change — "
+                "Punjabi routes to SeamlessM4T at 19.77%): LoRA r=16 α=32, IV-R 20,000 samples (21,923 total), completed 4,000 steps. "
                 "Best WER 49.31% @ step 4000 (-3.24 pp vs v2's 52.55%), eval loss declining monotonically to 0.1662. "
                 "Best checkpoint merged to CT2 int8 and deployed; verified transcribing Gurmukhi on FLEURS pa test set. "
                 "Robustness note: initial run OOM-crashed at step 2400 (CUDA out-of-memory during beam-search eval on 8 GB "
@@ -133,7 +134,7 @@ LANG_META = {
                        (1200,0.3337),(1400,0.2988),(1600,0.3323),(1800,0.3221),(2000,0.3195),
                        (2200,0.2982),(2400,0.3260),(2600,0.3065),(2800,0.2553),(3000,0.2941)],
         "best_wer": 50.82, "best_step": 3000,
-        "eval_wer": 50.82,
+        "eval_wer": 50.92,   # held-out n=100 FLEURS test
         "ct2_model": "whisper-large-v3-ne-ct2",
         "translation": "NLLB-200",
         "note": "v1 trained on FLEURS ne_np (3,332 samples, 2,000 steps, best WER 52.14%). "
@@ -152,7 +153,9 @@ LANG_META = {
         "train_loss": [(40,0.7791),(80,0.7060),(120,0.5694),(160,0.3697),(200,0.3396),
                        (240,0.3327),(280,0.3081),(320,0.2637),(360,0.2280),(400,0.2307),
                        (440,0.1873),(480,0.1484),(520,0.1742),(560,0.2045),(600,0.1426)],
-        "best_wer": 14.22, "best_step": 400,
+        # best_wer = best TRAINING-VAL point (sits on the §5.3 curve, where the chart
+        # star is drawn); eval_wer = held-out n=100 test. For zh they diverge sharply.
+        "best_wer": 8.97, "best_step": 400,
         "eval_wer": 14.22,
         "ct2_model": "whisper-large-v3-zh-ct2",
         "translation": "NLLB-200",
@@ -856,8 +859,9 @@ def build():
         ], colWidths=[1.8*cm, 1.0*cm, 1.6*cm, 3.0*cm, 1.6*cm, 1.6*cm, 1.9*cm, 1.6*cm, W-14.1*cm],
         style=std_ts(left_cols=(0, 1, 3, 8)), repeatRows=1),
         sp(4),
-        note("★ PA v3: DEPLOYED 2026-07-04. Completed 4,000 steps; best WER 49.31% at step 4000 "
-             "(−3.24 pp vs v2's 52.55%); best checkpoint merged to CT2 int8 and verified transcribing Gurmukhi."),
+        note("★ PA v3: built and CT2-deployed 2026-07-04; best training-val WER 49.31% at step 4000 "
+             "(−3.24 pp vs v2's 52.55%), held-out test 57.39%. Since 2026-07-11 Punjabi ASR routes to "
+             "SeamlessM4T (19.77%); the v3 model is retained on disk but not served."),
         note("‡ Mandarin training diverged at step ~820 (fp16 gradient explosion, grad_norm=12.9). "
              "Checkpoint-400 (train WER 8.97%, held-out test WER 14.22%) was the best checkpoint, but "
              "fine-tuning regressed Mandarin vs the 10.99% large-v3 baseline — so it is NOT deployed; "
@@ -948,9 +952,13 @@ def build():
             [tcl("Base model",      bold=True), tcl(m["base_model"])],
             [tcl("Dataset",         bold=True), tcl(f"{m['dataset']}  ({m['train_samples']} train / {m['val_samples']} val)")],
             [tcl("Steps trained",   bold=True), tcl(str(m["steps"]))],
-            [tcl("Baseline WER",    bold=True), tcl(f"~{m['baseline_wer']:.0f}%")],
-            [tcl("Best eval WER",   bold=True), tcl(f"{m['best_wer']:.2f}%  (step {m['best_step']})")],
-            [tcl("WER improvement", bold=True), tcl(f"-{m['baseline_wer'] - m['best_wer']:.1f} pp")],
+            [tcl("Baseline WER (large-v3)", bold=True), tcl(f"{m['baseline_wer']:.2f}%")],
+            [tcl("Best training-val WER",   bold=True), tcl(f"{m['best_wer']:.2f}%  (step {m['best_step']})")],
+            [tcl("Held-out test WER",       bold=True), tcl(f"{m['eval_wer']:.2f}%")],
+            # signed delta: negative = improvement. f"-{a-b}" breaks when a<b ("--3.2 pp").
+            [tcl("WER change vs baseline",  bold=True),
+             tcl(f"{m['eval_wer'] - m['baseline_wer']:+.1f} pp"
+                 f"{'  (regression)' if m['eval_wer'] > m['baseline_wer'] else ''}")],
             [tcl("CT2 model",       bold=True), tcl(m["ct2_model"])],
             [tcl("Translation",     bold=True), tcl(m["translation"])],
             [tcl("Training time",   bold=True), tcl(m["training_time"])],
@@ -1085,7 +1093,7 @@ def build():
         note("§ SeamlessM4T v2 has no Kashmiri (kas absent from the model vocabulary). A Urdu-token proxy was "
              "tested and failed (109% WER), so Kashmiri necessarily stays on fine-tuned Whisper."),
         note("chrF: character F-score for end-to-end English translation (higher = better). SeamlessM4T's "
-             "S2TT wins for pa/ne/zh/hi; Whisper+NLLB wins for ps/ur. VANI keeps NLLB downstream regardless, "
+             "S2TT wins for pa/ne/zh; Whisper+NLLB wins for ps/ur/hi. VANI keeps NLLB downstream regardless, "
              "using only SeamlessM4T's ASR output."),
         sp(12),
         h3("5.5.1  ASR WER under Radio-Channel Degradation"),
@@ -1194,7 +1202,7 @@ def build():
              "Kashmiri (ks) identification requires the ks-specific CT2 model for meaningful accuracy."),
         sp(10),
         PageBreak(),
-        h2("5.7 Punjabi v3 Training Progress (LoRA r=16, Deployed)"),
+        h2("5.7 Punjabi v3 Training Progress (LoRA r=16)"),
         body(
             "A third Punjabi training run (v3) was launched on 01 July 2026 with doubled LoRA capacity "
             "(r=16, α=32) and 21,923 training samples (IV-R 20,000 + FLEURS 2,516). "
