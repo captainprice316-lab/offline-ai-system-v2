@@ -54,7 +54,7 @@ LANG_META = {
         "name": "Punjabi", "script": "Gurmukhi", "iso": "pa",
         "base_model": "openai/whisper-large-v3",
         "dataset": "FLEURS pa_in + IndicVoices-R Punjabi", "train_samples": 11923, "val_samples": 805,
-        "steps": 3000, "baseline_wer": 105.79,
+        "steps": 3000, "baseline_wer": 77.60,
         "wer_curve": [(200,70.75),(400,61.95),(600,59.21),(800,58.55),(1000,59.09),
                       (1200,56.98),(1400,56.48),(1600,55.12),(1800,54.65),(2000,54.08),
                       (2200,53.88),(2400,52.99),(2600,52.85),(2800,52.61),(3000,52.55)],
@@ -87,7 +87,7 @@ LANG_META = {
         "name": "Pashto", "script": "Nastaliq (Arabic)", "iso": "ps",
         "base_model": "Nasimbahar/pashto-ghag-whisper-medium-asr",
         "dataset": "FLEURS ps_af", "train_samples": 2082, "val_samples": 251,
-        "steps": 2000, "baseline_wer": 94.23,
+        "steps": 2000, "baseline_wer": 89.76,
         "wer_curve": [(200,41.62),(400,41.30),(600,38.91),(800,38.86),(1000,39.10),(2000,38.55)],
         "train_loss": [(40,1.5341),(80,1.2020),(120,1.0698),(160,0.9358),(200,0.8636),
                        (240,0.8263),(280,0.8017),(320,0.7752),(360,0.6985),(400,0.5924),
@@ -105,7 +105,7 @@ LANG_META = {
         "name": "Urdu", "script": "Nastaliq (Arabic)", "iso": "ur",
         "base_model": "openai/whisper-large-v3",
         "dataset": "FLEURS ur_pk", "train_samples": 2109, "val_samples": 267,
-        "steps": 1000, "baseline_wer": 24.44,
+        "steps": 1000, "baseline_wer": 21.23,
         "wer_curve": [(200,23.63),(400,22.69),(600,22.90),(800,22.27),(1000,22.29)],
         "train_loss": [(40,0.8566),(80,0.7419),(120,0.5837),(160,0.5650),(200,0.5317),
                        (240,0.4484),(280,0.3836),(320,0.3876),(360,0.3738),(400,0.3481),
@@ -123,7 +123,7 @@ LANG_META = {
         "name": "Nepali", "script": "Devanagari", "iso": "ne",
         "base_model": "openai/whisper-large-v3",
         "dataset": "FLEURS ne_np + IndicVoices-R Nepali", "train_samples": 13332, "val_samples": 572,
-        "steps": 3000, "baseline_wer": 94.55,
+        "steps": 3000, "baseline_wer": 88.85,
         "wer_curve": [(200,70.98),(400,62.64),(600,60.67),(800,56.93),(1000,55.90),
                       (1200,54.73),(1400,54.27),(1600,53.81),(1800,53.83),(2000,52.05),
                       (2200,51.77),(2400,51.67),(2600,51.10),(2800,51.17),(3000,50.82)],
@@ -146,29 +146,36 @@ LANG_META = {
         "name": "Mandarin Chinese", "script": "Simplified Han", "iso": "zh",
         "base_model": "openai/whisper-large-v3",
         "dataset": "FLEURS cmn_hans_cn", "train_samples": 3246, "val_samples": 409,
-        "steps": 400, "baseline_wer": 100.03,
+        "steps": 400, "baseline_wer": 10.99,
         "wer_curve": [(200,15.77),(400,8.97)],
         "wer_curve_diverged": [(600,252.37)],
         "train_loss": [(40,0.7791),(80,0.7060),(120,0.5694),(160,0.3697),(200,0.3396),
                        (240,0.3327),(280,0.3081),(320,0.2637),(360,0.2280),(400,0.2307),
                        (440,0.1873),(480,0.1484),(520,0.1742),(560,0.2045),(600,0.1426)],
-        "best_wer": 8.97, "best_step": 400,
-        "eval_wer": 16.03,
+        "best_wer": 14.22, "best_step": 400,
+        "eval_wer": 14.22,
         "ct2_model": "whisper-large-v3-zh-ct2",
         "translation": "NLLB-200",
-        "note": "Baseline WER 100.03%: the whisper-large-v3-turbo model translates Mandarin to English "
-                "by default rather than transcribing — producing 100% WER vs Simplified Han references. "
-                "Fine-tuned model correctly transcribes Simplified Han (train WER 8.97% at step 400, "
-                "eval WER 16.03% on FLEURS test). Largest absolute improvement: -84 pp. "
+        "note": "CORRECTED 2026-07-11. The previously reported baseline of 100.03% was a "
+                "measurement artefact, not a model failure: FLEURS Mandarin references are "
+                "character-spaced, WER tokenises on whitespace, and the un-fine-tuned model emits "
+                "unspaced Han — so a near-perfect transcript scored ~100%. Re-scored with "
+                "character segmentation, the true openai/whisper-large-v3 baseline is 10.99% WER "
+                "(n=100 FLEURS test). The fine-tuned model scores 14.22% on the same test — i.e. "
+                "fine-tuning REGRESSED Mandarin (+3.2 pp), likely from the small (3,246-sample) "
+                "single-domain training set narrowing the model. The strong training-eval WER "
+                "(8.97% at step 400) did not generalise to held-out test. Operational decision: "
+                "Mandarin is NOT served by this fine-tuned model — it routes to zero-shot "
+                "SeamlessM4T (11.69%), which also wins under radio degradation (see §5.6). "
                 "Training diverged at step ~820 (fp16 gradient overflow, grad_norm=12.9); "
-                "checkpoint-400 is the deployed model.",
+                "checkpoint-400 was the best checkpoint.",
         "training_time": "~3 h 10 m (to step 400)",
     },
     "hi": {
         "name": "Hindi", "script": "Devanagari", "iso": "hi",
         "base_model": "openai/whisper-large-v3",
         "dataset": "FLEURS hi_in", "train_samples": 2120, "val_samples": 239,
-        "steps": 600, "baseline_wer": 30.29,
+        "steps": 600, "baseline_wer": 26.34,
         "wer_curve": [(200,24.00),(400,23.20),(600,23.13)],
         "train_loss": [(40,0.4713),(80,0.4326),(120,0.3588),(160,0.3063),(200,0.2854),
                        (240,0.2594),(280,0.2312),(320,0.2310),(360,0.2183),(400,0.1996),
@@ -179,7 +186,9 @@ LANG_META = {
         "translation": "NLLB-200",
         "note": "Fastest convergence: near-best WER by step 200. "
                 "max_grad_norm=0.5 applied after Mandarin gradient explosion; training fully stable. "
-                "Eval WER: 19.78% (baseline 30.29%).",
+                "Held-out test WER 19.78% vs true large-v3 baseline 26.34% (n=100 FLEURS) — a genuine "
+                "6.6 pp fine-tuning gain. However zero-shot SeamlessM4T reaches 15.44% on the same test, "
+                "so Hindi is operationally routed to SeamlessM4T, not this model (see §5.5).",
         "training_time": "~6 h 45 m",
     },
     "ks": {
@@ -221,14 +230,22 @@ LANG_META = {
 LANG_ORDER = ["pa", "ps", "ur", "ne", "zh", "hi", "ks"]
 
 # Cross-model eval results (100-sample FLEURS test / IndicVoices val, 23 Jun 2026)
+# Corrected 2026-07-11. Prior numbers were wrong two ways: (1) the "baseline" loaded
+# whisper-large-v3-TURBO, not large-v3; (2) Mandarin WER was scored without CJK
+# character-segmentation, so unspaced Han transcripts scored ~100% regardless of
+# accuracy. Both fixed. Baseline is now the true openai/whisper-large-v3; all WER
+# uses one CJK-aware normaliser. Source: docs/model_comparison_results.json (n=100
+# FLEURS) + docs/seamless_ft_results.json. "best" = lowest-WER deployable backend.
+# ks compare was not re-run (loader pulls the full 18 GB IndicVoices train split);
+# its values are the training-time eval, unaffected by the CJK bug.
 EVAL_RESULTS = {
-    "pa": {"baseline": 105.79, "ft": 52.55, "seamless": 19.77,  "nllb_chrf": 41.54, "sm_chrf": 58.72},
-    "ps": {"baseline":  94.23, "ft": 38.55, "seamless": 44.40,  "nllb_chrf": 44.48, "sm_chrf": 43.92},
-    "ur": {"baseline":  24.44, "ft": 19.82, "seamless": 16.90,  "nllb_chrf": 51.34, "sm_chrf": 54.91},
-    "ne": {"baseline":  94.55, "ft": 50.82, "seamless": 28.46,  "nllb_chrf": 47.72, "sm_chrf": 56.02},
-    "zh": {"baseline": 100.03, "ft": 16.03, "seamless": 100.0,  "nllb_chrf": 42.85, "sm_chrf": 53.42},
-    "hi": {"baseline":  30.29, "ft": 19.78, "seamless": 15.44,  "nllb_chrf": 53.71, "sm_chrf": 56.05},
-    "ks": {"baseline":  96.87, "ft": 74.02, "seamless": None,   "nllb_chrf": None,  "sm_chrf": None},
+    "pa": {"baseline": 77.60, "ft": 57.39, "seamless": 19.77, "nllb_chrf": 40.15, "sm_chrf": 54.53, "best": "seamless"},
+    "ps": {"baseline": 89.76, "ft": 38.55, "seamless": 44.40, "nllb_chrf": 44.48, "sm_chrf": 40.15, "best": "whisper_ft"},
+    "ur": {"baseline": 21.23, "ft": 19.82, "seamless": 16.90, "nllb_chrf": 51.34, "sm_chrf": 50.73, "best": "seamless"},
+    "ne": {"baseline": 88.85, "ft": 50.92, "seamless": 28.46, "nllb_chrf": 45.55, "sm_chrf": 51.67, "best": "seamless"},
+    "zh": {"baseline": 10.99, "ft": 14.22, "seamless": 11.69, "nllb_chrf": 42.00, "sm_chrf": 49.15, "best": "seamless"},
+    "hi": {"baseline": 26.34, "ft": 19.78, "seamless": 15.44, "nllb_chrf": 53.71, "sm_chrf": 51.54, "best": "seamless"},
+    "ks": {"baseline": 96.87, "ft": 74.02, "seamless": None,  "nllb_chrf": None,  "sm_chrf": None,  "best": "whisper_ft"},
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -300,6 +317,14 @@ def tcl(t, bold=False):
 def tch(t, left=False):
     """Header cell — white bold text."""
     return Paragraph(str(t), _S["TCHL"] if left else _S["TCH"])
+def ProfBlue():
+    """Bold blue centred style for 'deployed backend = SeamlessM4T' cells."""
+    return ParagraphStyle("PB", fontName="Helvetica-Bold", fontSize=9,
+                          textColor=HDR_BLUE, alignment=TA_CENTER)
+def ProfGrn():
+    """Bold green centred style for 'deployed backend = FT Whisper' cells."""
+    return ParagraphStyle("PG", fontName="Helvetica-Bold", fontSize=9,
+                          textColor=SUCCESS_GRN, alignment=TA_CENTER)
 
 def code_block(txt):
     """Preformatted code block with grey background, proper line breaks."""
@@ -561,8 +586,8 @@ def build():
         Table([
             [tch("Item", left=True), tch("Value", left=True)],
             [tcl("Languages Fine-Tuned", bold=True), tcl("7  (Punjabi, Pashto, Urdu, Nepali, Mandarin, Hindi, Kashmiri)")],
-            [tcl("Best Train WER",       bold=True), tcl("8.97% (Mandarin, train val)")],
-            [tcl("Best Eval WER",        bold=True), tcl("16.03% Mandarin  |  19.78% Hindi  |  19.82% Urdu  (FLEURS test)")],
+            [tcl("Deployed via fine-tuned Whisper", bold=True), tcl("2  (Pashto, Kashmiri) — the rest route to SeamlessM4T")],
+            [tcl("Best held-out test WER (FT)", bold=True), tcl("Pashto 38.55%  |  Hindi 19.78%  |  Urdu 19.82%  (n=100 FLEURS test)")],
             [tcl("Training Hardware",    bold=True), tcl("NVIDIA RTX 5060 8 GB VRAM (CUDA) - Windows 11")],
             [tcl("Base Model",           bold=True), tcl("OpenAI Whisper large-v3 (1.55 B parameters)")],
             [tcl("Adaptation Method",    bold=True), tcl("LoRA  r=8, alpha=16  --  0.25% trainable parameters")],
@@ -588,13 +613,31 @@ def build():
             "detects keywords, diarizes speakers, and generates structured intelligence summary (ISUM) reports."
         ),
         body(
-            "Six Whisper models were fine-tuned: "
-            "Punjabi (pa), Pashto (ps), Urdu (ur), Nepali (ne), Mandarin Chinese (zh), and Hindi (hi). "
-            "Punjabi and Nepali models were retrained in a v2 run that incorporated AI4Bharat IndicVoices-R data "
-            "in addition to FLEURS, resulting in 11,923 Punjabi and 13,332 Nepali training samples respectively. "
-            "All models are quantized to CTranslate2 int8 format for fast CPU/GPU inference. "
-            "Best WER results range from 8.97% (Mandarin) to 50.82% (Nepali), "
-            "with improvements of 13-53 percentage points over untuned baselines."
+            "Seven ASR models were fine-tuned: Punjabi (pa), Pashto (ps), Urdu (ur), Nepali (ne), "
+            "Mandarin Chinese (zh), Hindi (hi) — plus Kashmiri (ks), which required adding a custom "
+            "&lt;|ks|&gt; language token to the vocabulary. Punjabi and Nepali were retrained with "
+            "AI4Bharat IndicVoices-R data added to FLEURS (11,923 and 13,332 samples). All models are "
+            "quantised to CTranslate2 int8."
+        ),
+        body(
+            "This revision (2026-07-11) reports a rigorous <b>backend selection</b> study. Each "
+            "fine-tuned model was benchmarked, on a held-out FLEURS test set and under simulated "
+            "radio-channel degradation, against two alternatives: the true un-fine-tuned "
+            "openai/whisper-large-v3 baseline, and zero-shot SeamlessM4T v2. The central finding is "
+            "that per-language fine-tuning is <b>not</b> the best choice for most languages: zero-shot "
+            "SeamlessM4T beats the fine-tuned Whisper models on five of seven languages "
+            "(pa 19.8%, ne 28.5%, hi 15.4%, ur 16.9%, zh 11.7% WER) and retains that lead under "
+            "bandpass and additive-noise degradation. Fine-tuned Whisper is retained in production only "
+            "for <b>Pashto</b> (38.6%, where it beats SeamlessM4T's 44.4%) and <b>Kashmiri</b> (SeamlessM4T "
+            "has no Kashmiri support). VANI therefore routes ASR per language rather than using a single model."
+        ),
+        body(
+            "A correction is documented in full: the previously reported Mandarin baseline of 100.03% WER "
+            "(and the headline &ldquo;100% &rarr; 9%&rdquo; result) was a measurement artefact. FLEURS "
+            "Mandarin references are character-spaced and WER tokenises on whitespace, so the un-fine-tuned "
+            "model's unspaced Han output scored ~100% regardless of accuracy. Re-scored with character "
+            "segmentation, the true baseline is 10.99% and fine-tuning in fact <b>regressed</b> Mandarin "
+            "to 14.22%. The scoring is now unified across all models and languages."
         ),
         sp(8),
     ]
@@ -816,49 +859,67 @@ def build():
         note("★ PA v3: DEPLOYED 2026-07-04. Completed 4,000 steps; best WER 49.31% at step 4000 "
              "(−3.24 pp vs v2's 52.55%); best checkpoint merged to CT2 int8 and verified transcribing Gurmukhi."),
         note("‡ Mandarin training diverged at step ~820 (fp16 gradient explosion, grad_norm=12.9). "
-             "Checkpoint-400 (train WER 8.97%, eval WER 16.03%) deployed. Single run."),
+             "Checkpoint-400 (train WER 8.97%, held-out test WER 14.22%) was the best checkpoint, but "
+             "fine-tuning regressed Mandarin vs the 10.99% large-v3 baseline — so it is NOT deployed; "
+             "Mandarin routes to SeamlessM4T (§5.5). Single run."),
         sp(10),
     ]
 
     # ── 5. RESULTS ────────────────────────────────────────────────────────────
     story += [
         h1("5. Results"), hr(),
-        h2("5.1 Summary Table"),
+        h2("5.1 Summary Table — Fine-Tuning vs. True Baseline"),
+        body(
+            "All WER below is on a held-out 100-sample FLEURS test set (372-sample IndicVoices-R "
+            "for Kashmiri), scored with one CJK-aware normaliser. <b>Baseline</b> is the true "
+            "un-fine-tuned openai/whisper-large-v3. <b>Train WER</b> is the best training-eval WER "
+            "on each run's own validation split (from the curves in §5.3) and is shown for reference "
+            "only — it is not the held-out figure. Green = fine-tuning helped; red = it regressed."
+        ),
+        sp(4),
         Table([
             [tch("Language"), tch("ISO"), tch("Base Model"),
              tch("Train\nSamples"), tch("Steps\nUsed"),
-             tch("Baseline\nWER"), tch("Train\nWER"), tch("Eval\nWER†"), tch("Improvement")],
-            [tcl("Punjabi v3"),tc("pa"), tc("large-v3"),  tc("21,923"), tc("4000"), tc("105.83%"), tc("49.31%"), tc("49.31%"), tc("-56.5 pp")],
-            [tcl("Pashto"),   tc("ps"), tc("medium*"),   tc("2,082"),  tc("1000"), tc("95.07%"),  tc("38.86%"), tc("39.72%"), tc("-55.4 pp")],
-            [tcl("Urdu"),     tc("ur"), tc("large-v3"),  tc("2,109"),  tc("1000"), tc("24.44%"),  tc("22.27%"), tc("19.82%"),
-             Paragraph("<b>-4.6 pp</b>", ParagraphStyle("GR", fontName="Helvetica-Bold",
+             tch("Baseline\nWER"), tch("Train\nWER"), tch("Test\nWER"), tch("Improvement")],
+            [tcl("Punjabi v3"),tc("pa"), tc("large-v3"),  tc("21,923"), tc("4000"), tc("77.60%"), tc("49.31%"), tc("57.39%"),
+             Paragraph("<b>-20.2 pp</b>", ParagraphStyle("GRpa", fontName="Helvetica-Bold",
                         fontSize=9, textColor=SUCCESS_GRN, alignment=TA_CENTER))],
-            [tcl("Nepali v2"),tc("ne"), tc("large-v3"),  tc("13,332"), tc("3000"), tc("94.55%"),  tc("50.82%"), tc("50.82%"), tc("-43.7 pp")],
-            [tcl("Mandarin"), tc("zh"), tc("large-v3"),  tc("3,246"), tc("400+"), tc("100.03%‡"),
-             Paragraph("<b>8.97%</b>", ParagraphStyle("BW", fontName="Helvetica-Bold",
-                        fontSize=9, textColor=SUCCESS_GRN, alignment=TA_CENTER)),
-             tc("16.03%"),
-             Paragraph("<b>-84.0 pp</b>", ParagraphStyle("BW2", fontName="Helvetica-Bold",
+            [tcl("Pashto"),   tc("ps"), tc("medium*"),   tc("2,082"),  tc("1000"), tc("89.76%"),  tc("38.55%"), tc("38.55%"),
+             Paragraph("<b>-51.2 pp</b>", ParagraphStyle("GRps", fontName="Helvetica-Bold",
                         fontSize=9, textColor=SUCCESS_GRN, alignment=TA_CENTER))],
-            [tcl("Hindi"),    tc("hi"), tc("large-v3"),  tc("2,120"), tc("600"),  tc("30.29%"),  tc("23.13%"), tc("19.78%"),
-             Paragraph("<b>-10.5 pp</b>", ParagraphStyle("GR2", fontName="Helvetica-Bold",
+            [tcl("Urdu"),     tc("ur"), tc("large-v3"),  tc("2,109"),  tc("1000"), tc("21.23%"),  tc("22.27%"), tc("19.82%"),
+             Paragraph("<b>-1.4 pp</b>", ParagraphStyle("GRur", fontName="Helvetica-Bold",
+                        fontSize=9, textColor=SUCCESS_GRN, alignment=TA_CENTER))],
+            [tcl("Nepali v2"),tc("ne"), tc("large-v3"),  tc("13,332"), tc("3000"), tc("88.85%"),  tc("50.82%"), tc("50.92%"),
+             Paragraph("<b>-37.9 pp</b>", ParagraphStyle("GRne", fontName="Helvetica-Bold",
+                        fontSize=9, textColor=SUCCESS_GRN, alignment=TA_CENTER))],
+            [tcl("Mandarin"), tc("zh"), tc("large-v3"),  tc("3,246"), tc("400"), tc("10.99%"),
+             tc("8.97%"), tc("14.22%"),
+             Paragraph("<b>+3.2 pp</b>", ParagraphStyle("REDzh", fontName="Helvetica-Bold",
+                        fontSize=9, textColor=colors.HexColor("#C0392B"), alignment=TA_CENTER))],
+            [tcl("Hindi"),    tc("hi"), tc("large-v3"),  tc("2,120"), tc("600"),  tc("26.34%"),  tc("23.13%"), tc("19.78%"),
+             Paragraph("<b>-6.6 pp</b>", ParagraphStyle("GRhi", fontName="Helvetica-Bold",
                         fontSize=9, textColor=SUCCESS_GRN, alignment=TA_CENTER))],
             [tcl("Kashmiri"), tc("ks"), tc("large-v3†"),  tc("20,000"), tc("2400"),  tc("96.87%"),
-             Paragraph("<b>74.02%</b>", ParagraphStyle("KW", fontName="Helvetica-Bold",
-                        fontSize=9, textColor=SUCCESS_GRN, alignment=TA_CENTER)),
-             tc("74.02%"),
-             Paragraph("<b>-22.85 pp</b>", ParagraphStyle("KR", fontName="Helvetica-Bold",
+             tc("74.02%"), tc("74.02%"),
+             Paragraph("<b>-22.85 pp</b>", ParagraphStyle("GRks", fontName="Helvetica-Bold",
                         fontSize=9, textColor=SUCCESS_GRN, alignment=TA_CENTER))],
         ], colWidths=[2.2*cm, 1.0*cm, 2.0*cm, 1.7*cm, 1.4*cm, 1.8*cm, 1.6*cm, 1.6*cm, W-13.3*cm],
         style=std_ts(left_cols=(0,)), repeatRows=1),
         sp(4),
         note("* Pashto base: Nasimbahar/pashto-ghag-whisper-medium-asr (734 MB domain-specific model)."),
-        note("+ Mandarin training diverged at step ~820; checkpoint-400 is the deployed model."),
         note("† Kashmiri: custom <|ks|> token (ID 51866) added to whisper-large-v3; embedding initialised from <|ur|>. "
-             "Best checkpoint step 2400 selected automatically (load_best_model_at_end). faster-whisper patched to accept language='ks'."),
-        note("‡ Baseline 100.03%: turbo model translates Mandarin to English by default — WER vs Simplified Han references is 100%."),
-        note("Eval WER: 100-sample FLEURS test set (FLEURS langs) or 372-sample IndicVoices-R test split (Kashmiri)."),
-        note("pp = percentage points absolute WER reduction (baseline → eval WER)."),
+             "Best checkpoint step 2400 selected automatically (load_best_model_at_end). faster-whisper patched to accept language='ks'. "
+             "Held-out figure is the training-eval on the IndicVoices-R test split; the cross-model re-run (§5.5) was not repeated for "
+             "Kashmiri (its loader pulls the full 18 GB train split), and SeamlessM4T has no Kashmiri support."),
+        note("Mandarin (red): fine-tuning REGRESSED vs the true large-v3 baseline. The prior report's "
+             "100.03% baseline and -84 pp 'improvement' were a scoring artefact — FLEURS Mandarin references "
+             "are character-spaced and WER tokenises on whitespace, so the un-fine-tuned model's unspaced Han "
+             "output scored ~100% regardless of accuracy. Corrected with character segmentation, the baseline "
+             "is 10.99% and the fine-tune 14.22%. Mandarin is served by SeamlessM4T in production (§5.5)."),
+        note("Train WER is each run's best validation-split WER (§5.3), not the held-out test; the two differ "
+             "most for pa (train 49.31 vs test 57.39) and zh (train 8.97 vs test 14.22)."),
+        note("pp = percentage points absolute WER change (baseline → test WER); negative = improvement."),
         sp(10),
         h2("5.2 Baseline vs. Fine-Tuned WER"),
         KeepTogether([
@@ -960,55 +1021,111 @@ def build():
     # ── 5.5 CROSS-MODEL EVALUATION ───────────────────────────────────────────────
     story += [
         PageBreak(),
-        h2("5.5 Cross-Model Evaluation — Whisper vs SeamlessM4T v2"),
+        h2("5.5 Cross-Model Evaluation and Backend Selection"),
         body(
-            "A 100-sample evaluation was run on 23 June 2026 comparing three systems: "
-            "(A) Whisper large-v3-turbo baseline (no fine-tuning), "
-            "(B) Language-specific fine-tuned Whisper CT2 int8, and "
-            "(C) SeamlessM4T v2 large (10 GB multilingual model). "
-            "FLEURS test split used for pa/ps/ur/ne/zh/hi; IndicVoices validation for ks. "
-            "Punjabi and Nepali WERs in the table below reflect v2 models "
-            "(PA v2: 52.55% on 805-sample combined eval; NE v2: 50.82% on 572-sample combined eval, "
-            "both evaluated 29 June 2026)."
+            "This is the decisive evaluation. Re-run at n=100 on 11 July 2026 with corrected scoring "
+            "(true openai/whisper-large-v3 baseline — not turbo — and one CJK-aware normaliser), it "
+            "compares three ASR options per language: (A) the un-fine-tuned large-v3 baseline, "
+            "(B) the language-specific fine-tuned Whisper (CT2 int8), and (C) zero-shot SeamlessM4T v2. "
+            "FLEURS test split for pa/ps/ur/ne/zh/hi; IndicVoices-R for ks. The <b>Deployed Backend</b> "
+            "column is the operational choice — the lowest-WER option VANI actually routes to."
         ),
         sp(4),
         Table([
-            [tch("Language"), tch("Baseline WER"), tch("FT Whisper WER"), tch("SeamlessM4T WER"),
-             tch("FT Wins?"), tch("NLLB chrF"), tch("SM S2TT chrF")],
-            [tcl("Punjabi (pa) v2"),tc("105.83%"), tc("52.55%"), tc("19.77%"), tc("No"),  tc("39.09"), tc("58.72")],
-            [tcl("Pashto (ps)"),
-             tc("95.07%"),
-             Paragraph("<b>39.72%</b>", ParagraphStyle("FTW1", fontName="Helvetica-Bold",
+            [tch("Language"), tch("Baseline\n(large-v3)"), tch("FT Whisper"), tch("SeamlessM4T"),
+             tch("Deployed\nBackend"), tch("NLLB\nchrF"), tch("SM S2TT\nchrF")],
+            [tcl("Punjabi (pa)"), tc("77.60%"), tc("57.39%"), tc("19.77%"),
+             Paragraph("<b>SeamlessM4T</b>", ParagraphStyle("Bpa", fontName="Helvetica-Bold",
+                        fontSize=9, textColor=HDR_BLUE, alignment=TA_CENTER)), tc("40.15"), tc("54.53")],
+            [tcl("Pashto (ps)"), tc("89.76%"),
+             Paragraph("<b>38.55%</b>", ParagraphStyle("FTps", fontName="Helvetica-Bold",
                         fontSize=9, textColor=SUCCESS_GRN, alignment=TA_CENTER)),
              tc("44.40%"),
-             Paragraph("<b>YES</b>", ParagraphStyle("Y1", fontName="Helvetica-Bold",
+             Paragraph("<b>FT Whisper</b>", ParagraphStyle("Bps", fontName="Helvetica-Bold",
+                        fontSize=9, textColor=SUCCESS_GRN, alignment=TA_CENTER)), tc("44.48"), tc("40.15")],
+            [tcl("Urdu (ur)"), tc("21.23%"), tc("19.82%"), tc("16.90%"),
+             Paragraph("<b>SeamlessM4T</b>", ParagraphStyle("Bur", fontName="Helvetica-Bold",
+                        fontSize=9, textColor=HDR_BLUE, alignment=TA_CENTER)), tc("51.34"), tc("50.73")],
+            [tcl("Nepali (ne)"), tc("88.85%"), tc("50.92%"), tc("28.46%"),
+             Paragraph("<b>SeamlessM4T</b>", ParagraphStyle("Bne", fontName="Helvetica-Bold",
+                        fontSize=9, textColor=HDR_BLUE, alignment=TA_CENTER)), tc("45.55"), tc("51.67")],
+            [tcl("Mandarin (zh)"), tc("10.99%"),
+             Paragraph("14.22%†", ParagraphStyle("FTzh", fontName="Helvetica",
+                        fontSize=9, textColor=colors.HexColor('#C0392B'), alignment=TA_CENTER)),
+             tc("11.69%"),
+             Paragraph("<b>SeamlessM4T</b>", ParagraphStyle("Bzh", fontName="Helvetica-Bold",
+                        fontSize=9, textColor=HDR_BLUE, alignment=TA_CENTER)), tc("42.00"), tc("49.15")],
+            [tcl("Hindi (hi)"), tc("26.34%"), tc("19.78%"), tc("15.44%"),
+             Paragraph("<b>SeamlessM4T</b>", ParagraphStyle("Bhi", fontName="Helvetica-Bold",
+                        fontSize=9, textColor=HDR_BLUE, alignment=TA_CENTER)), tc("53.71"), tc("51.54")],
+            [tcl("Kashmiri (ks)‡"), tc("96.87%"),
+             Paragraph("<b>74.02%</b>", ParagraphStyle("FTks", fontName="Helvetica-Bold",
                         fontSize=9, textColor=SUCCESS_GRN, alignment=TA_CENTER)),
-             Paragraph("<b>44.40</b>", ParagraphStyle("NB1", fontName="Helvetica-Bold",
-                        fontSize=9, textColor=SUCCESS_GRN, alignment=TA_CENTER)),
-             tc("43.92")],
-            [tcl("Urdu (ur)"),    tc("24.44%"),  tc("19.82%"), tc("16.90%"), tc("No"),  tc("51.34"), tc("54.91")],
-            [tcl("Nepali (ne) v2"),tc("94.55%"),  tc("50.82%"), tc("28.46%"), tc("No"),  tc("47.67"), tc("56.02")],
-            [tcl("Mandarin (zh)"),
-             tc("100.03%†"),
-             Paragraph("<b>16.03%</b>", ParagraphStyle("FTW2", fontName="Helvetica-Bold",
-                        fontSize=9, textColor=SUCCESS_GRN, alignment=TA_CENTER)),
-             tc("100.0%‡"),
-             Paragraph("<b>YES</b>", ParagraphStyle("Y2", fontName="Helvetica-Bold",
-                        fontSize=9, textColor=SUCCESS_GRN, alignment=TA_CENTER)),
-             tc("42.85"), tc("53.42")],
-            [tcl("Hindi (hi)"),   tc("30.29%"),  tc("19.78%"), tc("15.44%"), tc("No"),  tc("53.71"), tc("56.05")],
-            [tcl("Kashmiri (ks)¶"),tc("96.87%"), tc("74.02%"), tc("—§"),    tc("—"),   tc("—"),     tc("—")],
-        ], colWidths=[2.5*cm, 2.3*cm, 2.3*cm, 2.5*cm, 1.5*cm, 2.0*cm, W-13.1*cm],
+             tc("—§"),
+             Paragraph("<b>FT Whisper</b>", ParagraphStyle("Bks", fontName="Helvetica-Bold",
+                        fontSize=9, textColor=SUCCESS_GRN, alignment=TA_CENTER)), tc("—"), tc("—")],
+        ], colWidths=[2.6*cm, 2.3*cm, 2.2*cm, 2.4*cm, 2.3*cm, 1.6*cm, W-13.4*cm],
         style=std_ts(left_cols=(0,)), repeatRows=1),
         sp(4),
-        note("† Mandarin baseline 100.03%: turbo model translates to English. Fine-tuned model transcribes Simplified Han correctly."),
-        note("‡ SeamlessM4T Mandarin WER = 100.0% is a script-normalisation mismatch in evaluation, not a model failure — SM4T correctly transcribes."),
-        note("§ SeamlessM4T v2 does not support Kashmiri (kas not in model vocabulary)."),
-        note("¶ Kashmiri baseline (96.87%) is whisper-large-v3-turbo on IndicVoices-R test set; "
-             "FT WER 74.02% at step 2400 uses custom <|ks|> token (ID 51866) via LoRA on large-v3. "
-             "SeamlessM4T and chrF scores are unavailable (no ks translation model)."),
-        note("chrF: character F-score for end-to-end translation quality to English (higher = better). "
-             "SM4T wins on translation for 5/6 languages; Whisper+NLLB wins on Pashto (44.40 vs 43.92)."),
+        body(
+            "<b>Result: fine-tuned Whisper is the best backend for only two of seven languages</b> — "
+            "Pashto (38.55% vs SeamlessM4T's 44.40%) and Kashmiri (SeamlessM4T has no Kashmiri support). "
+            "For Punjabi, Nepali, Hindi, Urdu and Mandarin, zero-shot SeamlessM4T wins outright, by "
+            "margins from 1.4 pp (Urdu) to 37.6 pp (Punjabi). VANI routes ASR per language accordingly: "
+            "SeamlessM4T for pa/ne/hi/ur/zh, fine-tuned Whisper for ps/ks. This lead holds under "
+            "radio-channel degradation (§5.6)."
+        ),
+        sp(4),
+        note("† Mandarin: fine-tuning regressed the model (baseline 10.99% → fine-tuned 14.22%). The prior "
+             "report's 100.03% baseline / 100.0% SeamlessM4T were whitespace-tokenisation artefacts on "
+             "character-spaced Han references, now corrected with character segmentation."),
+        note("‡ Kashmiri: custom <|ks|> token (ID 51866) on large-v3, best checkpoint step 2400. The n=100 "
+             "cross-model re-run was not repeated for ks (its loader pulls the full 18 GB IndicVoices train "
+             "split); 74.02% is the training-eval on the IndicVoices-R test split."),
+        note("§ SeamlessM4T v2 has no Kashmiri (kas absent from the model vocabulary). A Urdu-token proxy was "
+             "tested and failed (109% WER), so Kashmiri necessarily stays on fine-tuned Whisper."),
+        note("chrF: character F-score for end-to-end English translation (higher = better). SeamlessM4T's "
+             "S2TT wins for pa/ne/zh/hi; Whisper+NLLB wins for ps/ur. VANI keeps NLLB downstream regardless, "
+             "using only SeamlessM4T's ASR output."),
+        sp(12),
+        h3("5.5.1  ASR WER under Radio-Channel Degradation"),
+        body(
+            "Because VANI processes degraded radio rather than clean speech, the backend choice must "
+            "survive channel effects. The table gives SeamlessM4T's WER advantage over fine-tuned "
+            "Whisper (FT WER − SeamlessM4T WER, in points; positive = SeamlessM4T better) on the same "
+            "30 FLEURS clips per language under five conditions: clean, 300–3400 Hz telephony bandpass, "
+            "additive white noise at 10 dB and 0 dB SNR, and a 16 kbit/s MP3 codec pass."
+        ),
+        sp(4),
+        Table([
+            [tch("Language"), tch("Clean"), tch("Bandpass"), tch("Noise\n10 dB"), tch("Noise\n0 dB"),
+             tch("MP3\ncodec"), tch("Winner")],
+            [tcl("Punjabi (pa)"),  tc("+39.0"), tc("+37.7"), tc("+41.7"), tc("+36.8"), tc("+41.8"),
+             Paragraph("<b>SeamlessM4T</b>", ProfBlue()) ],
+            [tcl("Nepali (ne)"),   tc("+31.6"), tc("+30.5"), tc("+34.1"), tc("+36.4"), tc("+32.0"),
+             Paragraph("<b>SeamlessM4T</b>", ProfBlue()) ],
+            [tcl("Hindi (hi)"),    tc("+5.0"),  tc("+3.9"),  tc("+10.8"), tc("+19.5"), tc("+5.6"),
+             Paragraph("<b>SeamlessM4T</b>", ProfBlue()) ],
+            [tcl("Urdu (ur)"),     tc("+2.3"),  tc("+2.4"),  tc("+4.8"),  tc("+4.2"),  tc("+3.1"),
+             Paragraph("<b>SeamlessM4T</b>", ProfBlue()) ],
+            [tcl("Mandarin (zh)"), tc("+3.6"),  tc("+5.0"),  tc("+2.9"),  tc("+17.2"), tc("+3.0"),
+             Paragraph("<b>SeamlessM4T</b>", ProfBlue()) ],
+            [tcl("Pashto (ps)"),   tc("-6.7"),  tc("-2.1"),  tc("-1.9"),  tc("+5.6"),  tc("-2.8"),
+             Paragraph("<b>FT Whisper*</b>", ProfGrn()) ],
+        ], colWidths=[2.6*cm, 1.7*cm, 1.9*cm, 1.7*cm, 1.6*cm, 1.6*cm, W-11.1*cm],
+        style=std_ts(left_cols=(0,)), repeatRows=1),
+        sp(4),
+        body(
+            "SeamlessM4T's advantage is positive in every condition for all five routed languages and "
+            "<b>widens as the channel worsens</b> — Hindi grows from +5.0 (clean) to +19.5 (0 dB), "
+            "Mandarin from +3.6 to +17.2. The clean-speech ranking does not invert under noise, so the "
+            "routing in §5.5 is safe for operational radio. Pashto is the sole exception: fine-tuned "
+            "Whisper leads in four of five conditions and loses only at 0 dB SNR, so it stays on Whisper."
+        ),
+        note("* Pashto: fine-tuned Whisper wins clean/bandpass/10 dB/MP3; SeamlessM4T edges ahead only at 0 dB. "
+             "Whisper WER here routes through VANI's ASRModule, whose military-radio initial prompt costs Mandarin "
+             "and Kashmiri ~2 pp but helps Pashto ~10 pp; the comparison is fair (each backend on its production path) "
+             "and does not change any winner."),
         sp(10),
     ]
 
@@ -1477,10 +1594,14 @@ def build():
             "Now fixed with explicit cache_file_name= in finetune_whisper.py."
         ),
         bullet(
-            "<b>SeamlessM4T v2 large leads on ASR for 4/6 languages but adds 10 GB deployment cost.</b>  "
-            "Fine-tuned Whisper beats SeamlessM4T on Pashto (39.72% vs 44.40%) and Mandarin "
-            "(16.03% vs 100.0% normalisation mismatch). Whisper+NLLB-200 beats SeamlessM4T "
-            "translation on Pashto only (chrF 44.40 vs 43.92). SeamlessM4T does not support Kashmiri."
+            "<b>SeamlessM4T v2 wins ASR for 5 of 7 languages once scoring is corrected.</b>  "
+            "On the n=100 held-out test, zero-shot SeamlessM4T beats fine-tuned Whisper for "
+            "pa/ne/hi/ur/zh (§5.5), and the lead holds under radio degradation (§5.5.1). Fine-tuned "
+            "Whisper is retained only for Pashto (38.55% vs 44.40%) and Kashmiri (no SeamlessM4T "
+            "support). The earlier claim that Whisper won Mandarin was a whitespace-scoring artefact; "
+            "corrected, fine-tuning regressed Mandarin (14.22% vs 10.99% baseline). SeamlessM4T costs "
+            "~4.6 GB resident but is shared across five languages, so per-language footprint is lower "
+            "than five fine-tuned Whisper models."
         ),
         bullet(
             "<b>Kashmiri is deployable with the IndicVoices dataset and a Nastaliq proxy token.</b>  "
