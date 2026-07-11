@@ -775,6 +775,7 @@ def run_pipeline(
         "total_speech_sec":        vad_result["total_speech_sec"],
         "preprocessing":           pre_info,
         "chunks_created":          len(chunks),
+        "asr_backend":             "seamless" if _seamless_used else "whisper",
         "whisper_language":        whisper_lang,
         "whisper_language_probability": whisper_lang_prob,
         "fasttext_language":       ft_result["language"],

@@ -27,8 +27,12 @@ asr:
   beam_size: 5   # raised from 2 (2026-07-06) — beam 2 was a CPU-era speed compromise;
                  # published eval WERs were measured at beam 5, ASR now runs on GPU
   best_of: 1
-  seamless_langs: [pa, ne]   # route these to zero-shot SeamlessM4T ASR instead of
-                             # fine-tuned Whisper (pa 56%->20%, ne 49%->28% WER).
+  seamless_langs: [pa, ne, hi, ur, zh]   # route these to zero-shot SeamlessM4T ASR.
+                             # Corrected n=100 eval (2026-07-11): zero-shot Seamless beats
+                             # fine-tuned Whisper on WER for all five, and holds under
+                             # bandpass/noise (robustness sweep). Numbers (whisper_ft -> seamless):
+                             #   pa 57.4->19.8  ne 50.9->28.5  hi 19.8->15.4  ur 19.8->16.9  zh 14.2->11.7
+                             # Whisper KEEPS ps (38.6, beats Seamless 44.4) and ks (no Seamless support).
                              # Empty the list to fall back to Whisper for all langs.
   temperature: 0.0
   condition_on_previous_text: false
