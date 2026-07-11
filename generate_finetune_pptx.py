@@ -309,15 +309,16 @@ def slide_04_results_overview(prs):
         _multiline(s, h, x, y+0.04, 1.65, 0.40,
                    font_size=9.5, bold=True, color=RGBColor(0xFF,0xFF,0xFF), align=PP_ALIGN.LEFT)
 
+    # Baseline = true openai/whisper-large-v3 (not turbo); Best WER = held-out n=100
+    # FLEURS test (corrected 2026-07-11). Mandarin regressed vs baseline (red).
     rows = [
-        ("Punjabi  (pa) v3*", "Gurmukhi",   "large-v3",       "FLEURS+IV-R (21,923)", "4000",  "105.8%", "49.31%", "−56 pp", C_GREEN),
-        ("Punjabi  (pa) v2",  "Gurmukhi",   "large-v3",       "FLEURS+IV-R (11,923)", "3000",  "105.8%", "52.55%", "−53 pp", C_SUB),
-        ("Pashto   (ps)",     "Nastaliq",   "medium-pashto",  "FLEURS ps_af (2,082)", "2000",  "94.2%",  "38.55%", "−56 pp", C_GREEN),
-        ("Urdu     (ur)",     "Nastaliq",   "large-v3",       "FLEURS ur_pk (2,109)", "1000",  "24.4%",  "19.82%", "−4.6pp", C_GREEN),
-        ("Nepali   (ne) v2",  "Devanagari", "large-v3",       "FLEURS+IV-R (13,332)", "3000",  "94.6%",  "50.82%", "−44 pp", C_GOLD),
-        ("Mandarin (zh)",     "Simplified", "large-v3",       "FLEURS cmn (3,246)",   "400†",  "100.0%", "16.03%‡","−84 pp", C_GREEN),
-        ("Hindi    (hi)",     "Devanagari", "large-v3",       "FLEURS hi_in (2,120)", "600",   "30.3%",  "19.78%", "−11 pp", C_GREEN),
-        ("Kashmiri (ks)",     "Nastaliq",   "large-v3+<|ks|>","IndicVoices-R (20k)",  "2400‡", "96.9%",  "74.02%", "−23 pp", C_GOLD),
+        ("Punjabi  (pa) v3", "Gurmukhi",   "large-v3",       "FLEURS+IV-R (21,923)", "4000",  "77.6%",  "57.39%", "−20 pp", C_GREEN),
+        ("Pashto   (ps)",    "Nastaliq",   "medium-pashto",  "FLEURS ps_af (2,082)", "2000",  "89.8%",  "38.55%", "−51 pp", C_GREEN),
+        ("Urdu     (ur)",    "Nastaliq",   "large-v3",       "FLEURS ur_pk (2,109)", "1000",  "21.2%",  "19.82%", "−1.4pp", C_GREEN),
+        ("Nepali   (ne) v2", "Devanagari", "large-v3",       "FLEURS+IV-R (13,332)", "3000",  "88.9%",  "50.92%", "−38 pp", C_GOLD),
+        ("Mandarin (zh)",    "Simplified", "large-v3",       "FLEURS cmn (3,246)",   "400†",  "11.0%",  "14.22%‡","+3.2 pp",C_RED),
+        ("Hindi    (hi)",    "Devanagari", "large-v3",       "FLEURS hi_in (2,120)", "600",   "26.3%",  "19.78%", "−6.6 pp",C_GREEN),
+        ("Kashmiri (ks)",    "Nastaliq",   "large-v3+<|ks|>","IndicVoices-R (20k)",  "2400§", "96.9%",  "74.02%", "−23 pp", C_GOLD),
     ]
     y += 0.52
     for i, row in enumerate(rows):
@@ -331,10 +332,10 @@ def slide_04_results_overview(prs):
                   font_size=9.5, bold=(j in (0, 6, 7)), color=c)
         y += 0.37
 
-    txbox(s, "* PA v3 DEPLOYED — completed 4000 steps, best 49.31% @ step 4000 (−3.24 pp vs v2)  "
-             "† Mandarin diverged at step ~820; ckpt-400 deployed  "
-             "‡ ZH 16.03% = FLEURS test-set WER (training-val WER was 8.97% — different eval set)  "
-             "§ KS best ckpt-2400; custom <|ks|> token ID 51866",
+    txbox(s, "Baseline = true openai/whisper-large-v3 · Best WER = held-out n=100 FLEURS test  "
+             "† ZH diverged at step ~820; ckpt-400 best.  ‡ ZH fine-tuning REGRESSED vs baseline "
+             "(prior 100%→16% was a whitespace-scoring artefact); ZH is served by SeamlessM4T.  "
+             "§ KS custom <|ks|> token ID 51866; SeamlessM4T has no Kashmiri.",
           0.35, 7.05, 12.5, 0.32, font_size=8.5, italic=True, color=C_SUB)
 
 # ── Slide 5 — WER Comparison ──────────────────────────────────────────────────
@@ -342,58 +343,60 @@ def slide_04_results_overview(prs):
 def slide_05_wer_chart(prs, n=8):
     s = blank_slide(prs)
     bg(s)
-    slide_header(s, "Baseline vs Fine-Tuned WER", n, "WER Comparison")
+    slide_header(s, "Fine-Tuned Whisper vs SeamlessM4T — ASR WER", n, "Backend Selection")
 
-    langs  = ["Mandarin (zh)", "Hindi (hi)",   "Urdu (ur)",   "Pashto (ps)",  "Punjabi PA v3", "Nepali (ne)"]
-    ftwer  = [16.03,           19.78,           19.82,          38.55,           49.31,           50.82]
-    bswer  = [100.03,          30.29,           24.44,          94.23,           105.79,          94.55]
+    # Held-out n=100 FLEURS test WER. The operational question is FT Whisper vs zero-shot
+    # SeamlessM4T; the lower bar (green) is the deployed backend.
+    langs  = ["Mandarin (zh)", "Urdu (ur)",   "Hindi (hi)",   "Nepali (ne)",  "Punjabi (pa)", "Pashto (ps)"]
+    ftwer  = [14.22,           19.82,          19.78,          50.92,           57.39,           38.55]
+    smwer  = [11.69,           16.90,          15.44,          28.46,           19.77,           44.40]
 
-    scale  = 4.8 / 110.0
+    scale  = 4.8 / 60.0
     bar_left = 2.65
-    y = 1.55
 
-    txbox(s, "■ Baseline WER", bar_left + 0.05, 1.43, 2.0, 0.28,
+    txbox(s, "■ FT Whisper", bar_left + 0.05, 1.43, 2.0, 0.28,
           font_size=10, color=RGBColor(0x78, 0x90, 0xA0), italic=True)
-    txbox(s, "■ Fine-Tuned WER", bar_left + 2.2, 1.43, 2.0, 0.28,
-          font_size=10, color=C_TEAL_L, italic=True)
+    txbox(s, "■ SeamlessM4T (zero-shot)", bar_left + 2.2, 1.43, 2.6, 0.28,
+          font_size=10, color=C_TEAL, italic=True)
 
     y = 1.82
-    for lang, ft, bs in zip(langs, ftwer, bswer):
+    for lang, ft, sm in zip(langs, ftwer, smwer):
         txbox(s, lang, 0.3, y+0.02, 2.3, 0.28,
               font_size=12, color=C_TEXT, align=PP_ALIGN.RIGHT)
-        # baseline bar
-        bw = bs * scale
-        box(s, bar_left, y, bw, 0.145, fill_color=RGBColor(0x37, 0x52, 0x65))
-        # ft bar
+        # FT Whisper bar (green only if FT is the winner, i.e. ps)
         fw = ft * scale
-        col = C_GREEN if ft < 30 else (C_GOLD if ft < 55 else C_RED)
-        box(s, bar_left, y+0.155, fw, 0.145, fill_color=col)
-        txbox(s, f"{bs:.0f}%", bar_left+bw+0.06, y, 0.75, 0.16,
-              font_size=9, color=RGBColor(0x78, 0x90, 0xA0))
-        txbox(s, f"{ft:.2f}%", bar_left+fw+0.06, y+0.155, 0.85, 0.16,
-              font_size=9.5, bold=True, color=col)
+        col_ft = C_GREEN if ft < sm else RGBColor(0x37, 0x52, 0x65)
+        box(s, bar_left, y, fw, 0.145, fill_color=col_ft)
+        # SeamlessM4T bar (green if SM is the winner)
+        sw = sm * scale
+        col_sm = C_GREEN if sm < ft else RGBColor(0x37, 0x52, 0x65)
+        box(s, bar_left, y+0.155, sw, 0.145, fill_color=col_sm)
+        txbox(s, f"{ft:.2f}%", bar_left+fw+0.06, y, 0.85, 0.16,
+              font_size=9, bold=(ft < sm), color=col_ft)
+        txbox(s, f"{sm:.2f}%", bar_left+sw+0.06, y+0.155, 0.85, 0.16,
+              font_size=9.5, bold=(sm < ft), color=col_sm)
         y += 0.81
 
-    # Summary panel
+    # Summary panel — deployed backend per language
     card(s, 8.15, 1.55, 4.8, 5.55, accent_color=C_GOLD)
-    txbox(s, "Improvement Summary", 8.35, 1.65, 4.4, 0.36,
+    txbox(s, "Deployed ASR Backend", 8.35, 1.65, 4.4, 0.36,
           font_size=13, bold=True, color=C_NAVY)
-    improvements = [
-        ("Mandarin", "100.0% → 16.03%", "−84.0 pp"),
-        ("Pashto",   " 94.2% → 38.55%", "−55.7 pp"),
-        ("Punjabi",  "105.8% → 49.31%", "−56.5 pp"),
-        ("Nepali",   " 94.6% → 50.82%", "−43.7 pp"),
-        ("Hindi",    " 30.3% → 19.78%", "−10.5 pp"),
-        ("Urdu",     " 24.4% → 19.82%", " −4.6 pp"),
-        ("Kashmiri", " 96.9% → 74.02%", "−22.9 pp"),
+    selection = [
+        ("Punjabi",  "57.4 → 19.8%", "SeamlessM4T"),
+        ("Nepali",   "50.9 → 28.5%", "SeamlessM4T"),
+        ("Hindi",    "19.8 → 15.4%", "SeamlessM4T"),
+        ("Urdu",     "19.8 → 16.9%", "SeamlessM4T"),
+        ("Mandarin", "14.2 → 11.7%", "SeamlessM4T"),
+        ("Pashto",   "38.6 < 44.4%", "FT Whisper"),
+        ("Kashmiri", "74.0% (only)", "FT Whisper"),
     ]
     y2 = 2.12
-    for lang, prog, delta in improvements:
-        box(s, 8.25, y2, 4.6, 0.56, fill_color=C_CARD if improvements.index((lang,prog,delta))%2==0 else C_CARD2)
-        txbox(s, lang,  8.35, y2+0.05, 1.3, 0.26, font_size=11, bold=True, color=C_TEXT)
-        txbox(s, prog,  9.65, y2+0.05, 1.7, 0.26, font_size=10, color=C_SUB)
-        txbox(s, delta, 11.3, y2+0.05, 1.5, 0.26, font_size=12, bold=True,
-              color=C_GREEN, align=PP_ALIGN.RIGHT)
+    for lang, prog, backend in selection:
+        box(s, 8.25, y2, 4.6, 0.56, fill_color=C_CARD if selection.index((lang,prog,backend))%2==0 else C_CARD2)
+        txbox(s, lang,  8.35, y2+0.05, 1.2, 0.26, font_size=11, bold=True, color=C_TEXT)
+        txbox(s, prog,  9.55, y2+0.05, 1.6, 0.26, font_size=9.5, color=C_SUB)
+        txbox(s, backend, 11.15, y2+0.05, 1.65, 0.26, font_size=10, bold=True,
+              color=(C_TEAL if backend=="SeamlessM4T" else C_GREEN), align=PP_ALIGN.RIGHT)
         y2 += 0.61
 
 # ── Slide 6 — PA v3 Training Progress ────────────────────────────────────────
@@ -471,41 +474,41 @@ def slide_07_language_deep(prs, n=12):
     slide_header(s, "Per-Language Training Details", n, "Language Deep-Dive")
 
     cards = [
-        ("Punjabi (pa) v3", "49.31%", C_GREEN,
+        ("Punjabi (pa) v3", "→ SM4T", C_TEAL,
          ["Base: whisper-large-v3  |  LoRA r=16, α=32",
           "Train: FLEURS pa_in + IV-R 20k = 21,923 samples",
-          "Baseline 105.8%  →  best 49.31% (step 4000)",
-          "v2 best: 52.55% (r=8)  →  v3 −3.24 pp",
-          "DEPLOYED; OOM at 2400 fixed via greedy eval"]),
-        ("Urdu (ur)", "19.82%", C_GREEN,
+          "Baseline 77.6%  →  FT test 57.39%  (−20 pp)",
+          "SeamlessM4T 19.77% wins → DEPLOYED backend",
+          "FT model retained but not served"]),
+        ("Urdu (ur)", "→ SM4T", C_TEAL,
          ["Base: whisper-large-v3  |  LoRA r=8",
           "Train: FLEURS ur_pk  (2,109 samples)",
-          "Baseline 24.44%  →  eval 19.82%  (−4.6 pp)",
-          "SeamlessM4T: 16.9%  |  FT Whisper loses",
-          "CT2 tokenizer fix: 100.66% → 19.52%"]),
-        ("Hindi (hi)", "19.78%", C_GREEN,
+          "Baseline 21.23%  →  FT test 19.82%  (−1.4 pp)",
+          "SeamlessM4T 16.9% wins → DEPLOYED backend",
+          "CT2 tokenizer fix earlier: 100.66% → 19.52%"]),
+        ("Hindi (hi)", "→ SM4T", C_TEAL,
          ["Base: whisper-large-v3  |  LoRA r=8",
           "Train: FLEURS hi_in  (2,120 samples)",
-          "Baseline 30.29%  →  eval 19.78%  (−10.5 pp)",
-          "Fast convergence: near-best by step 200",
+          "Baseline 26.34%  →  FT test 19.78%  (−6.6 pp)",
+          "SeamlessM4T 15.44% wins → DEPLOYED backend",
           "max_grad_norm=0.5 (post-Mandarin fix)"]),
-        ("Pashto (ps)", "38.55%", C_GOLD,
+        ("Pashto (ps)", "38.55%", C_GREEN,
          ["Base: pashto-ghag-whisper-medium-asr",
           "Train: FLEURS ps_af  (2,082 samples)",
-          "Baseline 94.2%  →  eval 38.55%  (−55.7 pp)",
-          "Beats SeamlessM4T (44.40%) ✓",
-          "MMS-LID essential: Whisper-only = 0% LangID"]),
-        ("Mandarin (zh)", "16.03%", C_GREEN,
+          "Baseline 89.76%  →  FT test 38.55%  (−51 pp)",
+          "Beats SeamlessM4T (44.40%) ✓ → FT DEPLOYED",
+          "The one language where fine-tuning wins ASR"]),
+        ("Mandarin (zh)", "→ SM4T", C_RED,
          ["Base: whisper-large-v3  |  LoRA r=8",
-          "Train: FLEURS cmn_hans_cn  (3,246 samples)",
-          "Baseline 100%  →  eval 16.03%  (−84 pp) ★",
-          "Diverged step ~820 (fp16 overflow, grad_norm=12.9)",
-          "Checkpoint-400 deployed; best train WER 8.97%"]),
-        ("Nepali (ne) v2", "50.82%", C_GOLD,
+          "Baseline 10.99%  →  FT test 14.22%  (+3.2 pp ✗)",
+          "Fine-tuning REGRESSED — prior 100→16% was a",
+          "whitespace-scoring artefact (see correction slide)",
+          "SeamlessM4T 11.69% wins → DEPLOYED backend"]),
+        ("Nepali (ne) v2", "→ SM4T", C_TEAL,
          ["Base: whisper-large-v3  |  LoRA r=8",
           "Train: FLEURS ne_np + IV-R = 13,332 samples",
-          "Baseline 94.6%  →  eval 50.82%  (−43.7 pp)",
-          "v1 (FLEURS only): 52.14%  →  v2: 50.82%",
+          "Baseline 88.85%  →  FT test 50.92%  (−38 pp)",
+          "SeamlessM4T 28.46% wins → DEPLOYED backend",
           "Loss still declining at step 3000"]),
     ]
 
@@ -769,12 +772,12 @@ def slide_12_conclusion(prs, n=24):
 
     # Summary boxes
     summ = [
-        (C_TEAL,   "7 Models Deployed\npa · ps · ur · ne · zh · hi · ks",
+        (C_TEAL,   "7 Models Fine-Tuned\npa · ps · ur · ne · zh · hi · ks",
                    "All CT2 int8, fully offline"),
-        (C_GOLD,   "Best Eval WER: 16.03%\n(Mandarin, FLEURS test)",
-                   "Urdu 19.82%  ·  Hindi 19.78%"),
-        (C_GREEN,  "Beat SeamlessM4T\non Pashto & Mandarin",
-                   "FT Whisper wins on 2/6 langs for ASR"),
+        (C_GOLD,   "Backend Selected\nper Language",
+                   "SeamlessM4T ×5  ·  FT Whisper ×2"),
+        (C_GREEN,  "FT Whisper wins ASR\non Pashto only",
+                   "+ Kashmiri (no SM4T support)"),
         (C_PURPLE, "0.25–0.51% Params\nLoRA r=8 / r=16",
                    "No full fine-tune needed"),
     ]
@@ -786,17 +789,17 @@ def slide_12_conclusion(prs, n=24):
         txbox(s, detail, x+0.15, 1.62, 2.8, 0.36, font_size=10, color=C_SUB)
         x += 3.18
 
-    # Deployed models table
-    txbox(s, "Deployed CT2 Models", 0.4, 2.65, 7.0, 0.35,
+    # Production ASR backend per language (held-out n=100 test WER)
+    txbox(s, "Production ASR Backend per Language", 0.4, 2.65, 7.0, 0.35,
           font_size=13, bold=True, color=C_NAVY)
     models = [
-        ("whisper-large-v3-pa-ct2",   "Punjabi",  "49.31%", C_GOLD),
+        ("SeamlessM4T (zero-shot)",   "Punjabi",  "19.77%", C_TEAL),
         ("whisper-medium-pashto-ct2", "Pashto",   "38.55%", C_GREEN),
-        ("whisper-large-v3-ur-ct2",   "Urdu",     "19.82%", C_GREEN),
-        ("whisper-large-v3-ne-ct2",   "Nepali",   "50.82%", C_GOLD),
-        ("whisper-large-v3-zh-ct2",   "Mandarin", "16.03%", C_GREEN),
-        ("whisper-large-v3-hi-ct2",   "Hindi",    "19.78%", C_GREEN),
-        ("whisper-large-v3-ks-ct2",   "Kashmiri", "74.02%", C_GOLD),
+        ("SeamlessM4T (zero-shot)",   "Urdu",     "16.90%", C_TEAL),
+        ("SeamlessM4T (zero-shot)",   "Nepali",   "28.46%", C_TEAL),
+        ("SeamlessM4T (zero-shot)",   "Mandarin", "11.69%", C_TEAL),
+        ("SeamlessM4T (zero-shot)",   "Hindi",    "15.44%", C_TEAL),
+        ("whisper-large-v3-ks-ct2",   "Kashmiri", "74.02%", C_GREEN),
     ]
     y = 3.04
     for i, (mname, lang, wer, col) in enumerate(models):
@@ -812,10 +815,10 @@ def slide_12_conclusion(prs, n=24):
     txbox(s, "Next Steps", 7.8, 2.65, 5.4, 0.35,
           font_size=13, bold=True, color=C_NAVY)
     nexts = [
-        (C_GREEN,  "PA v3",         "DEPLOYED @ 49.31% (step 4000, r=16) — best Punjabi result to date"),
-        (C_GREEN,  "Robustness",    "COMPLETE — 5 cond × 7 langs; Full VANI +14 pp"),
-        (C_GOLD,   "Reduce WER",    "All 6 main languages target sub-25% WER"),
-        (C_PURPLE, "SM4T Compare",  "Fine-tune SeamlessM4T on FLEURS — head-to-head"),
+        (C_GREEN,  "Backend routing", "DEPLOYED — SeamlessM4T for pa/ne/hi/ur/zh, FT Whisper for ps/ks"),
+        (C_GREEN,  "Robustness",    "COMPLETE — 5 cond × 7 langs; SM4T lead holds under noise"),
+        (C_GOLD,   "Seamless timing", "Per-utterance segments added; per-VAD-segment ASR live"),
+        (C_PURPLE, "Reports",       "Regenerated from corrected n=100 scoring (this deck)"),
         (C_TEAL,   "Paper",         "VANI → IJAINN / SLT 2026 submission"),
     ]
     y2 = 3.04
@@ -862,8 +865,9 @@ def slide_chartB_summary_bar(prs, n):
     chart_slide(
         prs, "Baseline vs. Fine-Tuned WER — All Languages", n, "Results",
         chart_summary_bar(),
-        caption="Figure 2: Baseline WER (no fine-tuning) vs best fine-tuned WER. Labels show absolute pp reduction. "
-                "Mandarin baseline = 100% because turbo model translates to English by default.",
+        caption="Figure 2: True large-v3 baseline WER (no fine-tuning) vs best fine-tuned WER, held-out n=100 test. "
+                "Mandarin shows a small regression (baseline 10.99% < fine-tuned 14.22%); the prior 100% baseline "
+                "was a whitespace-scoring artefact, now corrected.",
         img_width=11.0, aspect=2.0,
     )
 
@@ -883,13 +887,13 @@ def slide_chartD_lang(prs, lang, n):
     m = LANG_META[lang]
     title = f"{m['name']} ({lang.upper()}) — WER & Training Loss Curves"
     if lang == "zh":
-        # ZH special case: best_wer=8.97% is the training-time val WER (409-sample val set);
-        # the reported deployed WER on the FLEURS test set is 16.03%.
+        # ZH: training-val WER 8.97% at step 400 did NOT generalise; held-out test 14.22%,
+        # which is WORSE than the 10.99% large-v3 baseline. Not deployed; routes to Seamless.
         caption = (
-            "Left: Eval WER on 409-sample training-validation set — best 8.97% at step 400 (★). "
-            "★ Note: reported FLEURS test-set WER is 16.03% (see results table). "
-            "Training diverged at step ~820 (grad_norm=12.9); checkpoint-400 deployed. "
-            "Right: Training loss (healthy until divergence)."
+            "Left: Eval WER on the 409-sample training-validation set — best 8.97% at step 400 (★). "
+            "★ This did not generalise: held-out FLEURS test WER is 14.22%, above the 10.99% large-v3 "
+            "baseline, so fine-tuning regressed Mandarin. Not deployed — routes to SeamlessM4T (11.69%). "
+            "Training diverged at step ~820 (grad_norm=12.9). Right: Training loss (healthy until divergence)."
         )
     else:
         caption = (
@@ -930,7 +934,7 @@ def slide_table_version_history(prs, n):
         ("PA",  "v3 ★",      "large-v3",       "FLEURS+IV-R (20k)",     "21,923", "4,000", "49.31%", "49.31%", "Deployed",   C_TEAL),
         ("NE",  "v1",         "large-v3",       "FLEURS ne_np",          "3,332",  "2,000", "52.14%", "52.14%", "Superseded", C_SUB),
         ("NE",  "v2 ★",      "large-v3",       "FLEURS+IV-R",           "13,332", "3,000", "50.82%", "50.82%", "Deployed",   C_TEAL),
-        ("ZH",  "v1 (div.)★","large-v3",       "FLEURS cmn_hans_cn",    "3,246",  "400†",  "8.97%",  "16.03%", "Deployed",   C_GREEN),
+        ("ZH",  "v1 (div.)", "large-v3",       "FLEURS cmn_hans_cn",    "3,246",  "400†",  "8.97%",  "14.22%", "Not served", C_RED),
         ("PS",  "v1 ★",      "medium-pashto",  "FLEURS ps_af",          "2,082",  "2,000", "38.55%", "38.55%", "Deployed",   C_TEAL),
         ("UR",  "v1 ★",      "large-v3",       "FLEURS ur_pk",          "2,109",  "1,000", "22.27%", "19.82%", "Deployed",   C_TEAL),
         ("HI",  "v1 ★",      "large-v3",       "FLEURS hi_in",          "2,120",  "600",   "23.13%", "19.78%", "Deployed",   C_TEAL),
@@ -960,14 +964,14 @@ def slide_table_sm4t(prs, n):
     bg(s)
     slide_header(s, "Cross-Model Benchmark — FT Whisper · NLLB · SeamlessM4T", n, "Comparison")
 
-    txbox(s, "100-sample FLEURS test / IndicVoices-R val  ·  23 Jun 2026  ·  "
+    txbox(s, "n=100 FLEURS test / IndicVoices-R  ·  re-run 11 Jul 2026, corrected scoring  ·  "
              "ASR: WER ↓ better  ·  Translation: chrF ↑ better  ·  "
-             "SM4T = SeamlessM4T-large-v2  ·  NLLB = NLLB-200 distilled 600M",
+             "Baseline = true large-v3 (not turbo)  ·  SM4T = SeamlessM4T-large-v2",
           0.4, 1.37, 12.5, 0.28, font_size=9.5, italic=True, color=C_SUB)
 
     cols_x  = [0.30, 1.55, 2.80, 4.05, 5.40, 6.75, 8.20, 9.60, 11.05]
     headers = ["Language", "Script", "Baseline\nWER (%)", "FT Whisper\nWER (%)", "SeamlessM4T\nWER (%)",
-               "Best ASR\nModel", "NLLB-200\nchrF ↑", "SeamlessM4T\nchrF ↑", "Best Transl.\nModel"]
+               "Deployed\nBackend", "NLLB-200\nchrF ↑", "SeamlessM4T\nchrF ↑", "Best Transl.\nModel"]
     y = 1.72
     box(s, 0.28, y, 12.77, 0.52, fill_color=C_NAVY)
     for x, h in zip(cols_x, headers):
@@ -975,13 +979,13 @@ def slide_table_sm4t(prs, n):
                    font_size=8, bold=True, color=RGBColor(0xFF,0xFF,0xFF), align=PP_ALIGN.LEFT)
 
     sm4t_data = [
-        ("Punjabi (pa)",  "Gurmukhi",  "105.79", "52.55", "19.77", "SM4T",     "41.54", "58.72", "SM4T"),
-        ("Pashto (ps)",   "Nastaliq",  " 94.23", "38.55", "44.40", "FT Whsp ✓","44.48", "43.92", "SM4T"),
-        ("Urdu (ur)",     "Nastaliq",  " 24.44", "19.82", "16.90", "SM4T",     "51.34", "54.91", "SM4T"),
-        ("Nepali (ne)",   "Devanagari"," 94.55", "50.82", "28.46", "SM4T",     "47.72", "56.02", "SM4T"),
-        ("Mandarin (zh)", "Han Simpl.","100.03", "16.03","100.0",  "FT Whsp ✓","42.85", "53.42", "SM4T"),
-        ("Hindi (hi)",    "Devanagari"," 30.29", "19.78", "15.44", "SM4T",     "53.71", "56.05", "SM4T"),
-        ("Kashmiri (ks)", "Nastaliq",  " 96.87", "74.02", "—  (no support)", "FT Whsp ✓","—", "—", "N/A"),
+        ("Punjabi (pa)",  "Gurmukhi",  " 77.60", "57.39", "19.77", "SM4T",     "40.15", "54.53", "SM4T"),
+        ("Pashto (ps)",   "Nastaliq",  " 89.76", "38.55", "44.40", "FT Whsp ✓","44.48", "40.15", "NLLB"),
+        ("Urdu (ur)",     "Nastaliq",  " 21.23", "19.82", "16.90", "SM4T",     "51.34", "50.73", "NLLB"),
+        ("Nepali (ne)",   "Devanagari"," 88.85", "50.92", "28.46", "SM4T",     "45.55", "51.67", "SM4T"),
+        ("Mandarin (zh)", "Han Simpl.", " 10.99", "14.22", "11.69", "SM4T",    "42.00", "49.15", "SM4T"),
+        ("Hindi (hi)",    "Devanagari"," 26.34", "19.78", "15.44", "SM4T",     "53.71", "51.54", "NLLB"),
+        ("Kashmiri (ks)", "Nastaliq",  " 96.87", "74.02", "— (no supp.)", "FT Whsp ✓","—", "—", "N/A"),
     ]
 
     y += 0.54
@@ -1003,8 +1007,9 @@ def slide_table_sm4t(prs, n):
                   font_size=8.5, bold=(c in (C_TEXT, C_BLUE, C_TEAL)), color=c)
         y += 0.45
 
-    txbox(s, "FT Whisper beats SM4T on ASR for Pashto (−5.9 pp) and Mandarin (−84 pp).  "
-             "SM4T wins on Hindi, Urdu, Nepali.  FT Whisper is only solution for Kashmiri (no SM4T support).",
+    txbox(s, "Zero-shot SeamlessM4T wins ASR for pa / ne / hi / ur / zh.  FT Whisper wins only "
+             "Pashto (38.55% vs 44.40%) and is the sole option for Kashmiri (no SM4T support).  "
+             "→ VANI routes ASR per language: SeamlessM4T for 5, FT Whisper for 2.",
           0.35, y+0.06, 12.5, 0.32, font_size=10, italic=True, color=C_SUB)
 
 # ── Main ───────────────────────────────────────────────────────────────────────
