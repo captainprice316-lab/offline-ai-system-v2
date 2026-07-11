@@ -4,53 +4,47 @@
     "name": "Punjabi",
     "n": 100,
     "sm_ft_asr_wer": 19.77,
-    "sm_ft_asr_cer": 9.73,
     "sm_ft_s2tt_chrf": 0.31,
-    "time": 245.9
+    "time": 224.1
   },
   {
     "lang": "ps",
     "name": "Pashto",
     "n": 100,
     "sm_ft_asr_wer": 41.22,
-    "sm_ft_asr_cer": 21.79,
-    "sm_ft_s2tt_chrf": 2.12,
-    "time": 218.7
+    "sm_ft_s2tt_chrf": 2.41,
+    "time": 215.7
   },
   {
     "lang": "ur",
     "name": "Urdu",
     "n": 100,
     "sm_ft_asr_wer": 17.26,
-    "sm_ft_asr_cer": 7.1,
-    "sm_ft_s2tt_chrf": 0.55,
-    "time": 220.0
+    "sm_ft_s2tt_chrf": 0.62,
+    "time": 201.3
   },
   {
     "lang": "ne",
     "name": "Nepali",
     "n": 100,
     "sm_ft_asr_wer": 28.92,
-    "sm_ft_asr_cer": 11.78,
-    "sm_ft_s2tt_chrf": 0.1,
-    "time": 202.6
+    "sm_ft_s2tt_chrf": 0.13,
+    "time": 189.2
   },
   {
     "lang": "zh",
     "name": "Mandarin",
     "n": 100,
-    "sm_ft_asr_wer": 18.68,
-    "sm_ft_asr_cer": 18.68,
-    "sm_ft_s2tt_chrf": 0.62,
-    "time": 254.5
+    "sm_ft_asr_wer": 60.53,
+    "sm_ft_s2tt_chrf": 0.78,
+    "time": 230.9
   },
   {
     "lang": "hi",
     "name": "Hindi",
     "n": 100,
     "sm_ft_asr_wer": 13.43,
-    "sm_ft_asr_cer": 7.17,
-    "sm_ft_s2tt_chrf": 0.06,
-    "time": 211.2
+    "sm_ft_s2tt_chrf": 0.11,
+    "time": 175.0
   }
 ]

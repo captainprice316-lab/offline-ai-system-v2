@@ -61,6 +61,10 @@ demo_audio/*.wav
 finetune_runs_seamless/
 scripts/data/fleurs/
 
+# HuggingFace datasets download cache written by scripts/eval/* (FLEURS, IndicVoices).
+# Downloaded data, not source; ~17 GB. Re-downloadable. Belongs on E: ideally.
+data/
+
 # Scratch / session temp (test wavs, logs, extracted node output)
 scratchpad/
 
