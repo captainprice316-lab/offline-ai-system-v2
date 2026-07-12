@@ -265,6 +265,19 @@ for s in ["94.55","94.23","98.64","30.29","24.44","55.67","49.24","58.72","54.91
         j = pdf_all.index(s)
         issues.append(f"PDF stale {s}: ...{pdf_all[max(0,j-60):j+40]}...")
 
+# ── 11b. ks robustness-set WER/CER quoted in footnotes must match the sweep CSV ──
+ks_wer = sweep.get(("whisper_ft", "ks", "clean"))
+ks_cer_row = None
+for r in csv.DictReader(open(REPO/"eval_data/wer_robustness_results.csv", encoding="utf-8")):
+    if (r["system"], r["lang"], r["condition"]) == ("whisper_ft", "ks", "clean"):
+        ks_cer_row = float(r["cer"])
+for artifact, text in (("md", md), ("PDF", pdf_all)):
+    for label, v in (("ks clean WER", ks_wer), ("ks clean CER", ks_cer_row)):
+        s = f"{v:.2f}"
+        (ok if s in text else issues).append(
+            f"{artifact} quotes {label}" if s in text
+            else f"{artifact} missing {label} {s} from sweep CSV")
+
 # ── 12. Diagram data: LANG_META eval/baseline vs JSON (charts derive from these) ──
 for l in ["pa","ps","ur","ne","zh","hi"]:
     check(f"chart-src {l}.baseline", LANG_META[l]["baseline_wer"], comp[l]["whisper_baseline_wer"])

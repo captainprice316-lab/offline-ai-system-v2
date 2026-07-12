@@ -75,7 +75,7 @@ Cells give **WER% (CER%)**. CER is reported alongside WER because two of the sev
 | Hindi (hi) | 26.34 (10.55) | 19.78 (7.46) | **15.44 (9.12)** | −6.6 pp | SeamlessM4T |
 | Kashmiri (ks) | 96.87 (—) | **74.02 (—)**† | —‡ | −22.85 pp | FT Whisper |
 
-† Kashmiri values are the training-time eval on the IndicVoices-R test split (custom `<|ks|>` token model, best checkpoint step 2400); the cross-model re-run was skipped for ks (18 GB loader issue), and that eval did not record CER. On the 30-clip robustness set the deployed ks model scores ~41–45% CER vs ~75–77% WER — the gap reflects Perso-Arabic orthographic variation that WER over-penalises.
+† Kashmiri values are the training-time eval on the IndicVoices-R test split (custom `<|ks|>` token model, best checkpoint step 2400); the cross-model re-run was skipped for ks (18 GB loader issue), and that eval did not record CER (hence the dash). On the 30-clip robustness set (clean condition, `eval_data/wer_robustness_results.csv`) the deployed ks model scores **81.46% WER / 47.95% CER** — the wide gap reflects Perso-Arabic orthographic variation that WER over-penalises. That is a different sample set than the 74.02% column, so the two must not be read as one WER (CER) pair.
 ‡ SeamlessM4T v2 has no Kashmiri (`kas` absent from the model vocabulary). A Urdu-token proxy was tested and failed (109% WER — fluent but unrelated Urdu), so Kashmiri necessarily stays on fine-tuned Whisper.
 
 ### Translation Quality — chrF → English (higher is better)

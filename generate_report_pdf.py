@@ -1098,9 +1098,11 @@ def build():
              "construction — CER is the meaningful metric for Han script. Do not compare a "
              "character-level number against a word-level one: CER runs ~2–3× lower than WER "
              "on the space-delimited languages, so comparisons are valid only within a metric."),
-        note("Kashmiri CER was not recorded by the training-time eval; on the 30-clip robustness "
-             "set the deployed ks model scores ~41–45% CER vs ~75–77% WER, the gap reflecting "
-             "Perso-Arabic orthographic variation that WER over-penalises."),
+        note("Kashmiri CER was not recorded by the training-time eval (hence the dash). On the "
+             "30-clip robustness set (clean condition, eval_data/wer_robustness_results.csv) the "
+             "deployed ks model scores 81.46% WER / 47.95% CER — the wide gap reflects Perso-Arabic "
+             "orthographic variation that WER over-penalises. Different sample set than the 74.02% "
+             "column, so the two must not be read as one WER (CER) pair."),
         body(
             "<b>Result: fine-tuned Whisper is the best backend for only two of seven languages</b> — "
             "Pashto (38.55% vs SeamlessM4T's 44.40%) and Kashmiri (SeamlessM4T has no Kashmiri support). "
