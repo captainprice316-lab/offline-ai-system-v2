@@ -436,13 +436,17 @@ def chart_wer_per_lang(lang):
     if has_v1 or has_v3 or "wer_curve_diverged" in m:
         ax1.legend(fontsize=8, loc="upper right")
     ax1.axhline(m["baseline_wer"], color="gray", linestyle="--", linewidth=1.2, alpha=0.8)
-    ax1.text(steps[0], m["baseline_wer"] + 1.5, f"Baseline ~{m['baseline_wer']:.0f}%",
-             fontsize=8, color="gray")
+    # offset-points placement: data-unit offsets blow up the canvas on charts
+    # with a small WER range (ur spans ~2.4 pp, so "+5 WER" was two axes-heights up)
+    ax1.annotate(f"Baseline ~{m['baseline_wer']:.0f}%",
+                 xy=(steps[0], m["baseline_wer"]), xytext=(2, 4),
+                 textcoords="offset points", fontsize=8, color="gray")
     bstep, bwer = m["best_step"], m["best_wer"]
     ax1.plot(bstep, bwer, "*", color="gold", markersize=14, zorder=5,
              markeredgecolor=PALETTE[lang], markeredgewidth=1)
     ax1.annotate(f"Best: {bwer:.2f}%",
-                 xy=(bstep, bwer), xytext=(bstep - 80, bwer + 5),
+                 xy=(bstep, bwer), xytext=(-48, 14),
+                 textcoords="offset points",
                  fontsize=8, arrowprops=dict(arrowstyle="->", color="black", lw=0.8))
     ax1.set_xlabel("Training Step")
     ax1.set_ylabel("WER (%)")
@@ -461,27 +465,30 @@ def chart_wer_per_lang(lang):
     return _save(fig)
 
 def chart_summary_bar():
+    # Held-out test WER (eval_wer) on both sides — the baseline is a held-out
+    # figure, so plotting train-val best_wer against it mixed rulers and showed
+    # Mandarin as a gain when it is a regression.
     fig, ax = plt.subplots(figsize=(10, 5))
     names      = [LANG_META[l]["name"]       for l in LANG_ORDER]
     baselines  = [LANG_META[l]["baseline_wer"] for l in LANG_ORDER]
-    bests      = [LANG_META[l]["best_wer"]     for l in LANG_ORDER]
-    improvements = [b - f for b, f in zip(baselines, bests)]
+    tests      = [LANG_META[l]["eval_wer"]     for l in LANG_ORDER]
+    deltas     = [f - b for b, f in zip(baselines, tests)]
     x = np.arange(len(LANG_ORDER))
     w = 0.32
     ax.bar(x - w/2, baselines, w, label="Baseline WER (no fine-tuning)",
            color="#BDBDBD", edgecolor="white")
-    bars2 = ax.bar(x + w/2, bests, w, label="Fine-tuned WER (best checkpoint)",
+    bars2 = ax.bar(x + w/2, tests, w, label="Fine-tuned WER (held-out test)",
                    color=[PALETTE[l] for l in LANG_ORDER], edgecolor="white")
-    for bar, imp in zip(bars2, improvements):
+    for bar, d in zip(bars2, deltas):
         ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.8,
-                f"-{imp:.1f}pp", ha="center", va="bottom", fontsize=8,
-                fontweight="bold", color="#1B5E20")
+                f"{d:+.1f}pp", ha="center", va="bottom", fontsize=8,
+                fontweight="bold", color="#1B5E20" if d < 0 else "#B71C1C")
     ax.set_xticks(x)
     ax.set_xticklabels(names, fontsize=10)
     ax.set_ylabel("Word Error Rate (%)", fontsize=11)
-    ax.set_title("Baseline vs. Fine-Tuned WER", fontsize=13, fontweight="bold")
+    ax.set_title("Baseline vs. Fine-Tuned WER (held-out test)", fontsize=13, fontweight="bold")
     ax.legend(fontsize=9)
-    ax.set_ylim(0, 95)
+    ax.set_ylim(0, 105)
     ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f"{v:.0f}%"))
     ax.grid(True, axis="y", alpha=0.3, linestyle="--")
     fig.tight_layout()
@@ -928,8 +935,9 @@ def build():
         h2("5.2 Baseline vs. Fine-Tuned WER"),
         KeepTogether([
             img_from_buf(chart_summary_bar(), width=W),
-            caption("Figure 2: Baseline (no fine-tuning) vs. best fine-tuned WER. "
-                    "Numbers above bars show absolute WER reduction in percentage points."),
+            caption("Figure 2: True large-v3 baseline vs. fine-tuned WER, both on the held-out "
+                    "n=100 test set. Numbers above bars show the signed WER change in percentage "
+                    "points (negative = improvement; Mandarin's +3.2 is a regression)."),
         ]),
         sp(10),
         h2("5.3 WER Progression During Training"),
