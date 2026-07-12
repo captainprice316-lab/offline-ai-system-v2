@@ -37,8 +37,11 @@ function Wait-Gone($procId) {
 }
 
 function Saved-Ok($logPath) {
-    $tail = Get-Content $logPath -Tail 60 -Raw -ErrorAction SilentlyContinue
-    return ($tail -match '\[OK\] Adapter saved')
+    # Read the WHOLE log: a -Tail window missed the marker on 2026-07-13 03:49
+    # (CT2 converter output pushed "[OK] Adapter saved" past the last 60 lines)
+    # and falsely stopped the chain after a fully successful ps_lv3 run.
+    $all = Get-Content $logPath -Raw -ErrorAction SilentlyContinue
+    return ($all -match '\[OK\] Adapter saved')
 }
 
 # ── Stage 1: ps_lv3 Whisper ───────────────────────────────────────────────────
