@@ -468,7 +468,7 @@ def generate_report(all_results: list):
         base = r.get("whisper_baseline_wer")
         ft   = r.get("whisper_ft_wer")
         sm   = r.get("seamless_asr_wer")
-        imp  = f"+{round(base-ft,1)}pp" if base and ft else "—"
+        imp  = f"{base-ft:+.1f}pp" if base and ft else "—"
         lines.append(
             f"| {r['name']} ({r['lang'].upper()}) | {LANG_CFG[r['lang']]['script']} "
             f"| {fmt(base,'%')} | {fmt(ft,'%')} | {fmt(sm,'%')} | {imp} |"

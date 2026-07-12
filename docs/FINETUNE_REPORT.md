@@ -1,13 +1,22 @@
-# VANI — Whisper Fine-Tuning Report
+# VANI — ASR Backend Selection & Whisper Fine-Tuning Report
 **Voice Analysis & Neural Intelligence System**
-**Date:** 22 June 2026
+**Date:** 22 June 2026 · **Corrected:** 11–12 July 2026 (see Corrections)
 **Hardware:** Windows 11 · NVIDIA RTX 5060 8 GB VRAM · CUDA
 
 ---
 
 ## Overview
 
-Six language-specific Whisper ASR models were fine-tuned using LoRA (Low-Rank Adaptation) to improve transcription accuracy for border-region radio intercept languages. All models are deployed in int8 quantized CTranslate2 (CT2) format for low-latency CPU/GPU inference via faster-whisper.
+Seven language-specific Whisper ASR models were fine-tuned using LoRA (Low-Rank Adaptation) for border-region radio intercept languages, then evaluated head-to-head against zero-shot SeamlessM4T v2 on held-out test sets, both clean and under radio-channel degradation. **The corrected evaluation shows that per-language fine-tuning is justified only for Pashto and Kashmiri; for the other five languages, zero-shot SeamlessM4T wins outright and is now the deployed backend** (`asr.seamless_langs: [pa, ne, hi, ur, zh]`). All Whisper models are deployed in int8 quantized CTranslate2 (CT2) format via faster-whisper.
+
+---
+
+## Corrections (2026-07-11)
+
+The originally published numbers contained two independent scoring defects; both are fixed and all figures below are from the corrected re-run (n=100 per language, `docs/model_comparison_results.json` + `docs/seamless_ft_results.json`; pre-fix values archived at `docs/*_PRE_FIX_2026-07-10.json`).
+
+1. **The "Whisper large-v3 baseline" was actually large-v3-turbo.** The comparison script loaded `whisper-large-v3-turbo-ct2` while labelling it large-v3. Every baseline was inflated, so the report systematically overstated fine-tuning gains (e.g. Punjabi's gain shrinks from −50 pp to −20 pp; Urdu's nearly vanishes at −1.4 pp). The corrected baseline is the true `openai/whisper-large-v3`.
+2. **Mandarin WER was a whitespace-tokenisation artefact.** FLEURS Mandarin references are character-spaced; WER tokenises on whitespace; un-fine-tuned models emit unspaced Han — so a near-perfect transcript scored ~100%. The previously reported "baseline 100.03% → fine-tuned 16.03% (−84 pp)" was entirely this artefact. Re-scored with CJK character segmentation: **baseline 10.99%, fine-tuned 14.22% — fine-tuning REGRESSED Mandarin by +3.2 pp.** The earlier claim that the baseline "translates Chinese to English by default" was wrong (the task token was forced to transcribe throughout) and is withdrawn. The same artefact affected zero-shot SeamlessM4T Mandarin (published 100.0%, true 11.69%) and fine-tuned SeamlessM4T (published 60.53%, true 18.68%).
 
 ---
 
@@ -16,7 +25,7 @@ Six language-specific Whisper ASR models were fine-tuned using LoRA (Low-Rank Ad
 | Parameter | Value |
 |-----------|-------|
 | Method | LoRA (PEFT) |
-| LoRA rank (r) | 8 |
+| LoRA rank (r) | 8 (Punjabi v3: r=16, α=32) |
 | LoRA alpha | 16 |
 | LoRA dropout | 0.05 |
 | Target modules | `q_proj`, `v_proj` |
@@ -31,179 +40,173 @@ Six language-specific Whisper ASR models were fine-tuned using LoRA (Low-Rank Ad
 
 ## Results Summary
 
-| # | Language | Script | Base Model | Dataset | Train Samples | Steps | Train WER | Eval WER† | Model Size |
-|---|----------|--------|------------|---------|--------------|-------|-----------|-----------|------------|
-| 1 | Punjabi (pa) | Gurmukhi | whisper-large-v3 | FLEURS pa_in | ~2,500 | 3000 | 56.67%‡ | **55.67%** | 1479 MB |
-| 2 | Pashto (ps) | Arabic/Nastaliq | pashto-ghag-whisper-medium | FLEURS ps_af | ~2,000 | 2000 | 38.55% | **38.55%** | 734 MB |
-| 3 | Urdu (ur) | Nastaliq | whisper-large-v3 | FLEURS ur_pk | 2,109 | 1000 | **22.3%** | **19.82%** | 1479 MB |
-| 4 | Nepali (ne) | Devanagari | whisper-large-v3 | FLEURS ne_np | 3,332 | 2000 | 52.14% | **49.24%** | 1479 MB |
-| 5 | Mandarin (zh) | Simplified Han | whisper-large-v3 | FLEURS cmn_hans_cn | 3,246 | 400§ | **8.97%** | 16.03%¶ | 1479 MB |
-| 6 | Hindi (hi) | Devanagari | whisper-large-v3 | FLEURS hi_in | 2,120 | 600 | **23.1%** | **19.78%** | 1479 MB |
-| 7 | Kashmiri (ks) | Nastaliq | whisper-large-v3 | IndicVoices | 20,000 | 1500** | ~84.5%†† | 103.58%‡‡ | 1479 MB |
+| # | Language | Script | Base Model | Dataset | Train Samples | Best Train-Val WER | Held-Out Eval WER† | Deployed ASR Backend |
+|---|----------|--------|------------|---------|--------------|--------------------|--------------------|----------------------|
+| 1 | Punjabi (pa) | Gurmukhi | whisper-large-v3 | FLEURS pa_in + IndicVoices-R | 21,923 (v3) | 49.31% @ step 4000 | 57.39% | **SeamlessM4T (19.77%)** |
+| 2 | Pashto (ps) | Nastaliq | pashto-ghag-whisper-medium | FLEURS ps_af | 2,082 | 38.55% @ step 2000 | 38.55% | **FT Whisper** |
+| 3 | Urdu (ur) | Nastaliq | whisper-large-v3 | FLEURS ur_pk | 2,109 | 22.27% @ step 800 | 19.82% | **SeamlessM4T (16.90%)** |
+| 4 | Nepali (ne) | Devanagari | whisper-large-v3 | FLEURS ne_np + IndicVoices-R | 13,332 | 50.82% @ step 3000 | 50.92% | **SeamlessM4T (28.46%)** |
+| 5 | Mandarin (zh) | Simplified Han | whisper-large-v3 | FLEURS cmn_hans_cn | 3,246 | 8.97% @ step 400‡ | 14.22%§ | **SeamlessM4T (11.69%)** |
+| 6 | Hindi (hi) | Devanagari | whisper-large-v3 | FLEURS hi_in | 2,120 | 23.13% @ step 600 | 19.78% | **SeamlessM4T (15.44%)** |
+| 7 | Kashmiri (ks) | Nastaliq | whisper-large-v3 + `<\|ks\|>` token | IndicVoices-R Kashmiri | 20,000 | 74.02% @ step 2400 | 74.02%¶ | **FT Whisper** |
 
-† Eval WER from 100-sample cross-model evaluation on FLEURS test set (pa/ps/ur/ne/zh/hi) or IndicVoices validation (ks). See Cross-Model Evaluation section below.
-‡ Punjabi WER (61.3%) measured during training against Gurmukhi references. Post-training tokenizer fix (2026-06-23) restores correct transcription output; model is now routed through NLLB-200 like other languages.
-§ Training diverged at step ~820 (grad_norm spike in fp16); best checkpoint at step 400 used. Subsequent runs use `max_grad_norm=0.5`.
-¶ Training WER (8.97%) was on the validation split; eval WER (16.03%) is on the held-out test split — different samples, minor normalization differences. Both represent major improvement over the 100.03% baseline.
-** Kashmiri: Whisper has no `ks` token — trained with `whisper_lang="ur"` (Nastaliq proxy). Eval loss 1.568→1.148→1.018→0.956→**0.936**; CT2 from checkpoint-1500 (best). 20k samples vs 8k in previous run; eval_loss improved from 1.015 → 0.936.
-†† Training proxy WER (with `ur` token, vs Kashmiri refs during training).
-‡‡ Eval WER vs Kashmiri references; high value is expected — model outputs Urdu-proxy text that doesn't lexically match Kashmiri. Not a true accuracy figure; eval loss trend is the meaningful metric for this language.
+† Held-out eval: 100-sample cross-model evaluation on the FLEURS test split (pa/ps/ur/ne/zh/hi), one CJK-aware normaliser, true large-v3 baseline. See Cross-Model Evaluation.
+‡ Training diverged at step ~820 (grad_norm spike in fp16); best checkpoint at step 400 used. Subsequent runs use `max_grad_norm=0.5`.
+§ Mandarin's strong training-val WER (8.97%) did not generalise: held-out test WER (14.22%) is *worse* than the un-fine-tuned large-v3 baseline (10.99%) — a +3.2 pp regression, likely from the small single-domain training set narrowing the model. The fine-tuned Mandarin model is not deployed.
+¶ Kashmiri: the n=100 cross-model re-run was not repeated for ks (its loader pulls the full 18 GB IndicVoices train split); 74.02% is the training-eval on the IndicVoices-R test split. Baseline 96.87% (−22.85 pp gain).
 
 ---
 
 ## Cross-Model Evaluation
 
-100 samples per language · FLEURS test set (pa/ps/ur/ne/zh/hi) · IndicVoices validation (ks) · 23 June 2026
+100 samples per language · FLEURS test set (pa/ps/ur/ne/zh/hi) · corrected re-run 2026-07-10 · true `openai/whisper-large-v3` baseline · CJK-aware normaliser
 
 ### ASR Word Error Rate (source-language transcription, lower is better)
 
-| Language | Whisper Baseline | Whisper Fine-Tuned | SeamlessM4T v2 | FT Improvement |
-|----------|-----------------|-------------------|----------------|----------------|
-| Punjabi (pa) | 105.79% | **55.67%** | 19.77% | −50.1 pp |
-| Pashto (ps) | 94.23% | **38.55%** | 44.4% | −55.7 pp |
-| Urdu (ur) | 24.44% | 19.82% | **16.9%** | −4.6 pp |
-| Nepali (ne) | 94.55% | **49.24%** | 28.46% | −45.3 pp |
-| Mandarin (zh) | 100.03% | **16.03%** | 100.0% | −84.0 pp |
-| Hindi (hi) | 30.29% | 19.78% | **15.44%** | −10.5 pp |
-| Kashmiri (ks) | 98.64% | 103.58%† | — | — |
+| Language | Whisper Baseline (large-v3) | Whisper Fine-Tuned | SeamlessM4T v2 (zero-shot) | FT Gain vs Baseline | Deployed Backend |
+|----------|------------------------------|--------------------|----------------------------|---------------------|------------------|
+| Punjabi (pa) | 77.60% | 57.39% | **19.77%** | −20.2 pp | SeamlessM4T |
+| Pashto (ps) | 89.76% | **38.55%** | 44.40% | −51.2 pp | FT Whisper |
+| Urdu (ur) | 21.23% | 19.82% | **16.90%** | −1.4 pp | SeamlessM4T |
+| Nepali (ne) | 88.85% | 50.92% | **28.46%** | −37.9 pp | SeamlessM4T |
+| Mandarin (zh) | **10.99%** | 14.22% | 11.69% | **+3.2 pp (regression)** | SeamlessM4T |
+| Hindi (hi) | 26.34% | 19.78% | **15.44%** | −6.6 pp | SeamlessM4T |
+| Kashmiri (ks) | 96.87% | **74.02%**† | —‡ | −22.85 pp | FT Whisper |
 
-† Kashmiri FT WER is measured against Kashmiri text references but the model outputs Urdu-proxy script — figure is not a true accuracy measure.
+† Kashmiri values are the training-time eval on the IndicVoices-R test split (custom `<|ks|>` token model, best checkpoint step 2400); the cross-model re-run was skipped for ks (18 GB loader issue).
+‡ SeamlessM4T v2 has no Kashmiri (`kas` absent from the model vocabulary). A Urdu-token proxy was tested and failed (109% WER — fluent but unrelated Urdu), so Kashmiri necessarily stays on fine-tuned Whisper.
 
 ### Translation Quality — chrF → English (higher is better)
 
 | Language | Whisper+NLLB-200 | SeamlessM4T S2TT | Winner |
 |----------|-----------------|-----------------|--------|
-| Punjabi (pa) | 41.54 | **58.72** | SeamlessM4T |
-| Pashto (ps) | **44.48** | 43.92 | Whisper+NLLB |
-| Urdu (ur) | 51.34 | **54.91** | SeamlessM4T |
-| Nepali (ne) | 47.72 | **56.02** | SeamlessM4T |
-| Mandarin (zh) | 42.85 | **53.42** | SeamlessM4T |
-| Hindi (hi) | 53.71 | **56.05** | SeamlessM4T |
+| Punjabi (pa) | 40.15 | **54.53** | SeamlessM4T |
+| Pashto (ps) | **44.48** | 40.15 | Whisper+NLLB |
+| Urdu (ur) | **51.34** | 50.73 | Whisper+NLLB |
+| Nepali (ne) | 45.55 | **51.67** | SeamlessM4T |
+| Mandarin (zh) | 42.00 | **49.15** | SeamlessM4T |
+| Hindi (hi) | **53.71** | 51.54 | Whisper+NLLB |
 | Kashmiri (ks) | — | — | — (no English refs; SM4T lacks `kas`) |
 
 **Key observations:**
-- Fine-tuned Whisper beats SeamlessM4T on ASR for **Pashto** and **Mandarin**
-- SeamlessM4T leads on ASR for Punjabi, Urdu, Nepali, Hindi — but adds 10 GB to deployment footprint
-- Whisper+NLLB-200 beats SeamlessM4T translation only for **Pashto** (44.40 vs 43.92)
-- Mandarin baseline WER = 100.03%: turbo model translates Chinese to English by default; fine-tuned model (16.03%) correctly transcribes Simplified Han; SeamlessM4T WER = 100.0% is a normalization mismatch (script-level, not a model failure)
+- Zero-shot SeamlessM4T beats fine-tuned Whisper on clean-speech ASR for **five of six** comparable languages (pa, ne, hi, ur, zh); fine-tuned Whisper wins only **Pashto**.
+- For **Mandarin**, even the *un-fine-tuned* large-v3 baseline (10.99%) beats the fine-tuned model (14.22%); SeamlessM4T (11.69%) is deployed because it also wins every degradation condition (see next section).
+- chrF winners split 3–3: SeamlessM4T S2TT for pa/ne/zh, Whisper+NLLB for ps/ur/hi. VANI keeps NLLB downstream regardless, using only SeamlessM4T's ASR output.
+- SeamlessM4T adds ~10 GB to the deployment footprint but was already resident for pa/ne, so routing hi/ur/zh to it costs no additional VRAM.
+
+### ASR WER under Radio-Channel Degradation
+
+Because VANI processes degraded radio rather than clean speech, the backend choice must survive channel effects. The table gives SeamlessM4T's WER advantage over fine-tuned Whisper (FT WER − SeamlessM4T WER, in points; positive = SeamlessM4T better) on the same 30 FLEURS clips per language under five conditions (source: `eval_data/wer_robustness_results.csv`):
+
+| Language | Clean | Bandpass 300–3400 Hz | Noise 10 dB | Noise 0 dB | MP3 codec | Winner |
+|----------|-------|----------------------|-------------|------------|-----------|--------|
+| Punjabi (pa) | +39.0 | +37.7 | +41.7 | +36.8 | +41.8 | **SeamlessM4T** |
+| Nepali (ne) | +31.6 | +30.5 | +34.1 | +36.4 | +32.0 | **SeamlessM4T** |
+| Hindi (hi) | +5.0 | +3.9 | +10.8 | +19.5 | +5.6 | **SeamlessM4T** |
+| Urdu (ur) | +2.3 | +2.4 | +4.8 | +4.2 | +3.1 | **SeamlessM4T** |
+| Mandarin (zh) | +3.6 | +5.0 | +2.9 | +17.2 | +3.0 | **SeamlessM4T** |
+| Pashto (ps) | −6.7 | −2.1 | −1.9 | +5.6 | −2.8 | **FT Whisper**\* |
+
+SeamlessM4T's advantage is positive in every condition for all five routed languages and **widens as the channel worsens** — Hindi grows from +5.0 (clean) to +19.5 (0 dB), Mandarin from +3.6 to +17.2. The clean-speech ranking does not invert under noise, so the routing is safe for operational radio.
+
+\* Pashto: fine-tuned Whisper wins clean/bandpass/10 dB/MP3; SeamlessM4T edges ahead only at 0 dB SNR, so Pashto stays on Whisper.
 
 ---
 
 ## Per-Language Detail
 
-### 1. Punjabi (pa) — `whisper-large-v3-pa-ct2`
+### 1. Punjabi (pa) — `whisper-large-v3-pa-ct2` *(retained, not serving ASR)*
 - **Base:** `openai/whisper-large-v3`
-- **Dataset:** FLEURS `pa_in` (Punjabi, India)
-- **Training:** 3000 steps, ~5.5 GB VRAM
-- **WER progression:** — → 71.6% (step 200) → 61.3% (step 1000) → 58.1% (step 2000) → 56.67% (step 3000)
-- **Eval WER:** 55.67% fine-tuned vs 105.79% baseline (−50.1 pp) · SeamlessM4T: 19.77%
-- **Translation:** Whisper+NLLB chrF 41.54 · SeamlessM4T S2TT chrF 58.72
-- **Pipeline role:** MMS-LID routes `pa` → Gurmukhi transcription → NLLB-200 → English
-- **Note:** Previously observed as "outputs English directly" — this was due to the `tokenizer.json` bug (see Finding 7) where faster-whisper was injecting the translate token instead of transcribe. Fixed 2026-06-23; model now correctly transcribes in Gurmukhi and is routed through NLLB-200.
+- **Dataset:** FLEURS `pa_in` + IndicVoices-R Punjabi — v3: 21,923 train samples
+- **Training:** v1 FLEURS-only (best 56.67%); v2 +IndicVoices-R (best 52.55% @ step 3000); v3 LoRA r=16 α=32, completed 4,000 steps, best train-val WER **49.31% @ step 4000**
+- **Held-out eval WER:** 57.39% fine-tuned vs 77.60% true large-v3 baseline (−20.2 pp) · **SeamlessM4T: 19.77%**
+- **Translation:** Whisper+NLLB chrF 40.15 · SeamlessM4T S2TT chrF 54.53
+- **Pipeline role:** since 2026-07-11 routing change, `pa` → **SeamlessM4T** ASR → NLLB-200 → English. The fine-tuned model is retained but not serving.
+- **Note:** CT2 tokenizer fix (2026-06-23, Finding 7) restored Gurmukhi transcription after the model initially appeared to "output English directly."
 
----
-
-### 2. Pashto (ps) — `whisper-medium-pashto-ct2`
+### 2. Pashto (ps) — `whisper-medium-pashto-ct2` *(DEPLOYED)*
 - **Base:** `Nasimbahar/pashto-ghag-whisper-medium-asr` (domain-specific Pashto model)
-- **Dataset:** FLEURS `ps_af` (Pashto, Afghanistan)
-- **Training:** 2000 steps, ~3.5 GB VRAM
-- **Best WER:** 38.55%
-- **Eval WER:** 38.55% fine-tuned vs 94.23% baseline (−55.7 pp) · SeamlessM4T: 44.4%
-- **Translation:** Whisper+NLLB chrF 44.48 · SeamlessM4T S2TT chrF 43.92 — only language where Whisper+NLLB wins on translation
-- **Pipeline role:** MMS-LID routes `ps` → Nastaliq transcription → NLLB-200 → English
-- **Note:** Started from a specialized Pashto base model rather than generic large-v3. Fine-tuned model beats SeamlessM4T on both ASR and translation.
+- **Dataset:** FLEURS `ps_af` — 2,082 train / 251 val
+- **Training:** 2000 steps, ~3.5 h
+- **Held-out eval WER:** **38.55%** fine-tuned vs 89.76% baseline (−51.2 pp) · SeamlessM4T: 44.40%
+- **Translation:** Whisper+NLLB chrF 44.48 · SeamlessM4T S2TT chrF 40.15 — Whisper+NLLB wins
+- **Pipeline role:** MMS-LID routes `ps` → FT Whisper (Nastaliq) → NLLB-200 → English
+- **Note:** The one clear per-language fine-tuning win among SeamlessM4T-supported languages — beats SeamlessM4T on both ASR (4 of 5 degradation conditions) and translation.
 
----
-
-### 3. Urdu (ur) — `whisper-large-v3-ur-ct2`
+### 3. Urdu (ur) — `whisper-large-v3-ur-ct2` *(retained, not serving ASR)*
 - **Base:** `openai/whisper-large-v3`
-- **Dataset:** FLEURS `ur_pk` (Urdu, Pakistan) — 2,109 train / 267 val
-- **Training:** 1000 steps, ~6h, ~5.5 GB VRAM
-- **WER progression:** ~74% (baseline) → 63.6% (step 200) → 56.9% (step 400) → **22.3% (step 1000)**
-- **Eval WER:** 19.82% fine-tuned vs 24.44% baseline (−4.6 pp) · SeamlessM4T: 16.9%
-- **Translation:** Whisper+NLLB chrF 51.34 · SeamlessM4T S2TT chrF 54.91
-- **Pipeline role:** MMS-LID routes `ur` → Nastaliq transcription → NLLB-200 → English
-- **Script detection:** Arabic-script cascade (>20% Nastaliq chars) catches low-confidence MMS detections
+- **Dataset:** FLEURS `ur_pk` — 2,109 train / 267 val
+- **Training:** 1000 steps, ~6 h; best train-val WER 22.27% @ step 800
+- **Held-out eval WER:** 19.82% fine-tuned vs 21.23% baseline (**−1.4 pp** — the smallest real gain; the previously published −4.6 pp was inflated by the turbo mislabel) · **SeamlessM4T: 16.90%**
+- **Translation:** Whisper+NLLB chrF 51.34 · SeamlessM4T S2TT chrF 50.73 — Whisper+NLLB wins narrowly
+- **Pipeline role:** since 2026-07-11, `ur` → **SeamlessM4T** ASR → NLLB-200 → English
+- **Script detection:** Arabic-script cascade (>20% Nastaliq chars) catches low-confidence MMS-LID detections
 
----
-
-### 4. Nepali (ne) — `whisper-large-v3-ne-ct2`
+### 4. Nepali (ne) — `whisper-large-v3-ne-ct2` *(retained, not serving ASR)*
 - **Base:** `openai/whisper-large-v3`
-- **Dataset:** FLEURS `ne_np` (Nepali, Nepal) — 3,332 train / 305 val
-- **Training:** 2000 steps, ~6h 44m, ~5.5 GB VRAM
-- **WER progression:** ~74% (baseline) → 63.6% (step 200) → 56.9% (step 400) → 54.3% (step 1000) → **49.24% (step 2000)**
-- **Eval WER:** 49.24% fine-tuned vs 94.55% baseline (−45.3 pp) · SeamlessM4T: 28.46%
-- **Translation:** Whisper+NLLB chrF 47.72 · SeamlessM4T S2TT chrF 56.02
-- **Pipeline role:** MMS-LID routes `ne` → Devanagari transcription → NLLB-200 → English
-- **Note:** Nepali is a relatively lower-resource language; WER remains higher than Urdu/Hindi. SeamlessM4T has a larger lead here than for other languages.
+- **Dataset:** FLEURS `ne_np` + IndicVoices-R Nepali — 13,332 train / 572 val
+- **Training:** v1 FLEURS-only (best 52.14%); v2 +IndicVoices-R, 3000 steps, best train-val WER 50.82% @ step 3000
+- **Held-out eval WER:** 50.92% fine-tuned vs 88.85% baseline (−37.9 pp) · **SeamlessM4T: 28.46%**
+- **Translation:** Whisper+NLLB chrF 45.55 · SeamlessM4T S2TT chrF 51.67
+- **Pipeline role:** since 2026-07-11, `ne` → **SeamlessM4T** ASR → NLLB-200 → English
+- **Note:** Large fine-tuning gain, but SeamlessM4T's zero-shot lead (22.5 pp) is larger still.
 
----
-
-### 5. Mandarin Chinese (zh) — `whisper-large-v3-zh-ct2`
+### 5. Mandarin Chinese (zh) — `whisper-large-v3-zh-ct2` *(retained, not serving ASR — fine-tuning regressed)*
 - **Base:** `openai/whisper-large-v3`
-- **Dataset:** FLEURS `cmn_hans_cn` (Mandarin, Simplified, China) — 3,246 train / 409 val
-- **Training:** 400 steps used (best checkpoint), ~3h 10m
-- **WER progression:** ~20% (baseline — large-v3 already strong on Chinese) → 15.8% (step 200) → **8.97% (step 400)**
-- **Eval WER:** 16.03% fine-tuned vs 100.03% baseline (−84.0 pp) · SeamlessM4T: 100.0%
-- **Translation:** Whisper+NLLB chrF 42.85 · SeamlessM4T S2TT chrF 53.42
-- **Pipeline role:** MMS-LID routes `zh` → Simplified Chinese transcription → NLLB-200 → English
-- **Note:** Training diverged after step 400 (fp16 gradient spike, grad_norm=12.9); best checkpoint at step 400 extracted and converted. Subsequent training uses `max_grad_norm=0.5` to prevent recurrence. Baseline WER of 100.03% is due to the turbo model translating Chinese to English by default; fine-tuned model (16.03%) correctly transcribes in Simplified Han. Train WER (8.97%) vs eval WER (16.03%) difference reflects validation vs test split. SeamlessM4T WER = 100.0% is a script-normalization mismatch in the evaluation, not a model failure.
+- **Dataset:** FLEURS `cmn_hans_cn` — 3,246 train / 409 val
+- **Training:** 400 steps used (best checkpoint), ~3 h 10 m; diverged at step ~820 (fp16 gradient spike, grad_norm=12.9); subsequent training uses `max_grad_norm=0.5`
+- **Held-out eval WER:** 14.22% fine-tuned vs **10.99% baseline — fine-tuning REGRESSED Mandarin (+3.2 pp)** · SeamlessM4T: 11.69%
+- **Translation:** Whisper+NLLB chrF 42.00 · SeamlessM4T S2TT chrF 49.15
+- **Pipeline role:** since 2026-07-11, `zh` → **SeamlessM4T** ASR → NLLB-200 → English
+- **Note (CORRECTED):** The previously reported "baseline 100.03% → fine-tuned 16.03% (−84 pp)" was a whitespace-tokenisation artefact on character-spaced Han references, and the "turbo translates Chinese by default" explanation was wrong (the transcribe task was always forced). With character segmentation, the un-fine-tuned baseline is 10.99% and the fine-tune is a regression — likely the small single-domain training set narrowing the model. The strong training-val WER (8.97% @ step 400) did not generalise. SeamlessM4T is deployed because it also wins all five degradation conditions.
 
----
-
-### 7. Kashmiri (ks) — `whisper-large-v3-ks-ct2`
+### 6. Hindi (hi) — `whisper-large-v3-hi-ct2` *(retained, not serving ASR)*
 - **Base:** `openai/whisper-large-v3`
-- **Dataset:** `humair025/KashmiriSpeech-IndicVoices` — 20,000 train / 300 val (duration-filtered from 160k samples)
-- **Training:** 1500 steps, ~2.2h, batch=1 grad_accum=2, ~5.5 GB VRAM
-- **Language token:** `whisper_lang="ur"` (Nastaliq proxy — Kashmiri shares Arabic/Nastaliq script with Urdu; gives computable WER and consistent decoder prefix)
-- **Eval loss progression:** 1.568 (step 300) → 1.148 (step 600) → 1.018 (step 900) → 0.956 (step 1200) → **0.936 (step 1500)**
-- **WER (proxy, train):** 99.1% → 92.9% → 87.4% → 91.4% → **84.5%** (WER vs Kashmiri refs during training)
-- **Eval WER:** Baseline 98.64%, Fine-tuned 103.58% — figure is not meaningful; model outputs Urdu-script text measured against Kashmiri text references. Eval loss improvement is the reliable metric. SeamlessM4T v2 does not support Kashmiri (`kas` not in model vocab).
-- **CT2 source:** checkpoint-1500 (trainer's best checkpoint by WER metric)
-- **Pipeline role:** MMS-LID routes `ks` → Nastaliq transcription (via `ur` proxy) → NLLB-200 (`kas_Arab`) → English
+- **Dataset:** FLEURS `hi_in` — 2,120 train / 239 val
+- **Training:** 600 steps, ~6 h 45 m; `max_grad_norm=0.5` applied (lesson from Mandarin); fully stable; near-best WER by step 200
+- **Held-out eval WER:** 19.78% fine-tuned vs 26.34% baseline (−6.6 pp, a genuine gain) · **SeamlessM4T: 15.44%** (fine-tuned SeamlessM4T LoRA: 13.43%, not deployed)
+- **Translation:** Whisper+NLLB chrF 53.71 · SeamlessM4T S2TT chrF 51.54 — Whisper+NLLB wins
+- **Pipeline role:** since 2026-07-11, `hi` → **SeamlessM4T** ASR → NLLB-200 → English
+
+### 7. Kashmiri (ks) — `whisper-large-v3-ks-ct2` *(DEPLOYED)*
+- **Base:** `openai/whisper-large-v3` + custom `<|ks|>` token (ID 51866)
+- **Dataset:** IndicVoices-R Kashmiri — 20,000 train / 372 val
+- **Training:** 3000 steps, ~18 h (incl. 2 power outages, PD-charger recovery)
+- **Language token:** Whisper has no native `ks` token. A custom `<|ks|>` token was added to the vocab, with its embedding initialised from `<|ur|>` (Urdu — same Nastaliq script); forced prefix `[<|startoftranscript|>, <|ks|>, <|transcribe|>, <|notimestamps|>]` injected via TemplateProcessing. faster-whisper patched at import time to accept the `ks` language code.
+- **Eval WER:** **74.02% @ step 2400** vs 96.87% baseline (−22.85 pp), on the IndicVoices-R test split
+- **CT2 source:** checkpoint-2400 (trainer's best by WER)
+- **Pipeline role:** MMS-LID routes `ks` → FT Whisper (Nastaliq) → NLLB-200 (`kas_Arab`) → English
 - **Notes:**
-  - Previous run: 8k samples, `whisper_lang=None`, best eval_loss=1.015 — replaced by this run
-  - 20k samples improved eval_loss from 1.015 → **0.936** at comparable steps
-  - FLEURS has no Kashmiri config; Common Voice has no Kashmiri data → IndicVoices used
-  - Qualitative eval with native Kashmiri audio required to assess real-world accuracy
-
----
-
-### 6. Hindi (hi) — `whisper-large-v3-hi-ct2`
-- **Base:** `openai/whisper-large-v3`
-- **Dataset:** FLEURS `hi_in` (Hindi, India) — 2,120 train / 239 val
-- **Training:** 600 steps, ~6h 45m total (incl. evals), ~5.5 GB VRAM
-- **WER progression:** ~75% (baseline) → 24.0% (step 200) → 23.2% (step 400) → **23.1% (step 600)**
-- **Eval WER:** 19.78% fine-tuned vs 30.29% baseline (−10.5 pp) · SeamlessM4T: 15.44%
-- **Translation:** Whisper+NLLB chrF 53.71 · SeamlessM4T S2TT chrF 56.05
-- **Pipeline role:** MMS-LID routes `hi` → Devanagari transcription → NLLB-200 → English
-- **Gradient clipping:** `max_grad_norm=0.5` applied (lesson from Mandarin); training remained stable throughout
+  - An earlier Urdu-proxy run (`whisper_lang="ur"`, ckpt-1500, eval 103.58% — not a true accuracy figure) is superseded by the custom-token model.
+  - SeamlessM4T v2 does not support Kashmiri (`kas` absent); the Urdu-proxy trick fails on SeamlessM4T too (109% WER). Whisper owns Kashmiri; the hybrid architecture is forced.
+  - FLEURS has no Kashmiri config; Common Voice has no Kashmiri data → IndicVoices-R used.
+  - The 96.87% baseline is itself inflated by a Unicode-normalisation mismatch in the reference text; CER should be reported alongside WER before further ks training decisions.
 
 ---
 
 ## VANI Pipeline Integration
 
-All models integrate into the existing 10-stage VANI pipeline:
+All models integrate into the existing 10-stage VANI pipeline. **Since the 2026-07-11 routing change, Stage 3.5 selects the ASR backend per language:**
 
 ```
 Audio Input
   → Stage 1: VAD (voice activity detection)
   → Stage 2: Preprocessing (bandpass 300–3400 Hz, noise reduction)
   → Stage 3: MMS-LID language detection (256-language model)
-  → Stage 3.5: Language-specific Whisper model selection
-       MMS lang=pa  → whisper-large-v3-pa-ct2   → NLLB-200
-       MMS lang=ps  → whisper-medium-pashto-ct2  → NLLB-200
-       MMS lang=ur  → whisper-large-v3-ur-ct2    → NLLB-200
-       MMS lang=ne  → whisper-large-v3-ne-ct2    → NLLB-200
-       MMS lang=zh  → whisper-large-v3-zh-ct2    → NLLB-200
-       MMS lang=hi  → whisper-large-v3-hi-ct2    → NLLB-200
-       MMS lang=ks  → whisper-large-v3-ks-ct2    → NLLB-200
-  → Stage 4: ASR transcription
+  → Stage 3.5: Per-language ASR backend selection
+       MMS lang=pa  → SeamlessM4T v2 (zero-shot)      → NLLB-200
+       MMS lang=ne  → SeamlessM4T v2 (zero-shot)      → NLLB-200
+       MMS lang=hi  → SeamlessM4T v2 (zero-shot)      → NLLB-200
+       MMS lang=ur  → SeamlessM4T v2 (zero-shot)      → NLLB-200
+       MMS lang=zh  → SeamlessM4T v2 (zero-shot)      → NLLB-200
+       MMS lang=ps  → whisper-medium-pashto-ct2 (FT)  → NLLB-200
+       MMS lang=ks  → whisper-large-v3-ks-ct2 (FT)    → NLLB-200
+  → Stage 4: ASR transcription (SeamlessM4T runs per VAD utterance → timed segments)
   → Stage 5: Script-cascade override (Arabic-script detection for Urdu/Kashmiri)
   → Stage 6: Translation (NLLB-200 → English)
   → Stage 7: Speaker diarization
   → Stage 8: Keyword/entity detection
-  → Stage 9: ISUM summary (Gemma 3:12B via Ollama)
+  → Stage 9: ISUM summary (Gemma 3 via Ollama)
   → Stage 10: Database + report export
 ```
 
@@ -214,21 +217,24 @@ Audio Input
 ```
 offline_ai_system_v2/
 ├── models/
-│   ├── whisper-large-v3-pa-ct2/     (1479 MB) — Punjabi
-│   ├── whisper-medium-pashto-ct2/   ( 734 MB) — Pashto
-│   ├── whisper-large-v3-ur-ct2/     (1479 MB) — Urdu
-│   ├── whisper-large-v3-ne-ct2/     (1479 MB) — Nepali
-│   ├── whisper-large-v3-zh-ct2/     (1479 MB) — Mandarin
-│   ├── whisper-large-v3-hi-ct2/     (1479 MB) — Hindi
-│   └── whisper-large-v3-ks-ct2/     (1479 MB) — Kashmiri (IndicVoices, ckpt-1500)
+│   ├── whisper-large-v3-pa-ct2/     (1479 MB) — Punjabi   (retained; SM4T serves pa)
+│   ├── whisper-medium-pashto-ct2/   ( 734 MB) — Pashto    (DEPLOYED)
+│   ├── whisper-large-v3-ur-ct2/     (1479 MB) — Urdu      (retained; SM4T serves ur)
+│   ├── whisper-large-v3-ne-ct2/     (1479 MB) — Nepali    (retained; SM4T serves ne)
+│   ├── whisper-large-v3-zh-ct2/     (1479 MB) — Mandarin  (retained; SM4T serves zh)
+│   ├── whisper-large-v3-hi-ct2/     (1479 MB) — Hindi     (retained; SM4T serves hi)
+│   ├── whisper-large-v3-ks-ct2/     (1479 MB) — Kashmiri  (DEPLOYED, ckpt-2400)
+│   ├── whisper-large-v3-ct2/                  — true large-v3 baseline (evaluation)
+│   └── seamless-m4t-v2-large/       (~10 GB)  — SeamlessM4T v2 (DEPLOYED: pa/ne/hi/ur/zh)
 ├── finetune_runs/
-│   ├── pa/adapter/   — LoRA checkpoints (Punjabi)
+│   ├── pa/adapter/   — LoRA checkpoints (Punjabi, v3 best=ckpt-4000)
 │   ├── ps/adapter/   — LoRA checkpoints (Pashto)
 │   ├── ur/adapter/   — LoRA checkpoints (Urdu)
 │   ├── ne/adapter/   — LoRA checkpoints (Nepali)
 │   ├── zh/adapter/   — LoRA checkpoints (Mandarin, best=ckpt-400)
 │   ├── hi/adapter/   — LoRA checkpoints (Hindi)
-│   └── ks/adapter/   — LoRA checkpoints (Kashmiri, best=ckpt-1200)
+│   └── ks/adapter/   — LoRA checkpoints (Kashmiri, best=ckpt-2400)
+├── finetune_runs_seamless/{hi,ne,pa,ps,ur,zh}/adapter/ — SM4T LoRA (none deployed)
 └── finetune_whisper.py              — Training script
 ```
 
@@ -236,48 +242,51 @@ offline_ai_system_v2/
 
 ## SeamlessM4T v2 Fine-Tuning
 
-SeamlessM4T v2 large was fine-tuned with LoRA (r=8, α=16, target=q_proj+v_proj, 0.10% trainable params) on the same FLEURS data as Whisper, **for ASR only** (tgt_lang = src_lang). 1000 steps per language, ~3–4 min/language on RTX 5060.
+SeamlessM4T v2 large was fine-tuned with LoRA (r=8, α=16, target=q_proj+v_proj, 0.10% trainable params) on the same FLEURS data as Whisper, **for ASR only** (tgt_lang = src_lang). 1000 steps per language on RTX 5060.
 
-### ASR WER — Fine-tuned SM4T vs Zero-shot SM4T vs Fine-tuned Whisper
+### ASR WER — Fine-tuned SM4T vs Zero-shot SM4T vs Fine-tuned Whisper (corrected, n=100 held-out)
 
 | Language | ZS SM4T WER | FT SM4T WER | Δ vs ZS | FT Whisper WER |
 |----------|------------|------------|---------|---------------|
-| Punjabi (pa) | 19.77% | 19.77% | 0.0 pp | 55.67% |
-| Pashto (ps) | 44.4% | **41.22%** | −3.2 pp | **38.55%** |
-| Urdu (ur) | **16.9%** | 17.26% | +0.4 pp | 19.82% |
-| Nepali (ne) | **28.46%** | 28.92% | +0.5 pp | 49.24% |
-| Mandarin (zh) | 100.0%† | 60.53% | −39.5 pp | **16.03%** |
+| Punjabi (pa) | 19.77% | 19.77% | 0.0 pp | 57.39% |
+| Pashto (ps) | 44.40% | **41.22%** | −3.2 pp | **38.55%** |
+| Urdu (ur) | **16.90%** | 17.26% | +0.4 pp | 19.82% |
+| Nepali (ne) | **28.46%** | 28.92% | +0.5 pp | 50.92% |
+| Mandarin (zh) | **11.69%** | 18.68%† | +7.0 pp | 14.22% |
 | Hindi (hi) | 15.44% | **13.43%** | −2.0 pp | 19.78% |
 
-† Zero-shot SM4T Mandarin WER = 100.0% is a script-normalisation mismatch in evaluation, not a model failure.
+† The previously published FT SM4T Mandarin figure (60.53%) carried the same whitespace artefact as the other Mandarin numbers; the corrected value is 18.68% — still a large regression vs zero-shot, so the zh adapter is not deployed.
+
+**Fine-tuning SeamlessM4T is a wash:** only Hindi improves meaningfully (−2.0 pp), Pashto improves but still loses to fine-tuned Whisper, and Mandarin regresses badly. Six adapters exist in `finetune_runs_seamless/`; **none are deployed** — the production SeamlessM4T path is zero-shot.
 
 ### Translation (S2TT chrF) — Fine-tuned SM4T (broken)
 
 | Language | ZS SM4T chrF | FT SM4T chrF | FT Whisper+NLLB chrF |
 |----------|-------------|-------------|----------------------|
-| Punjabi (pa) | 58.72 | 0.31 | 41.54 |
-| Pashto (ps) | 43.92 | 2.41 | 44.48 |
-| Urdu (ur) | 54.91 | 0.62 | 51.34 |
-| Nepali (ne) | 56.02 | 0.13 | 47.72 |
-| Mandarin (zh) | 53.42 | 0.78 | 42.85 |
-| Hindi (hi) | 56.05 | 0.11 | 53.71 |
+| Punjabi (pa) | 54.53 | 0.31 | 40.15 |
+| Pashto (ps) | 40.15 | 2.12 | 44.48 |
+| Urdu (ur) | 50.73 | 0.55 | 51.34 |
+| Nepali (ne) | 51.67 | 0.10 | 45.55 |
+| Mandarin (zh) | 49.15 | 0.62 | 42.00 |
+| Hindi (hi) | 51.54 | 0.06 | 53.71 |
 
-**Finding:** ASR-only LoRA fine-tuning breaks SM4T's translation capability. Near-zero chrF indicates the model generates source-language text even when `tgt_lang="eng"` is requested. The LoRA adaptation overrides multi-task language conditioning. To preserve translation, fine-tuning must include S2TT examples or apply a task-balanced training objective.
+**Finding:** ASR-only LoRA fine-tuning breaks SM4T's translation capability. Near-zero chrF indicates the model generates source-language text even when `tgt_lang="eng"` is requested. The LoRA adaptation overrides multi-task language conditioning. To preserve translation, fine-tuning must include S2TT examples or apply a task-balanced training objective. (Moot in production: VANI uses NLLB-200 for translation regardless.)
 
 ---
 
 ## Key Findings
 
-1. **LoRA with r=8 is sufficient** — Only 0.25% of parameters are trainable yet WER drops 4–84 pp across languages on the held-out test set.
-2. **FLEURS is adequate for domain adaptation** — Even without military-domain audio, fine-tuning on FLEURS speech improves VANI accuracy significantly.
-3. **Mandarin benefits most from large-v3 base** — Baseline turbo model translates Chinese to English (WER 100.03%); fine-tuned large-v3 transcribes correctly at 16.03% eval WER, an 84 pp improvement.
-4. **fp16 instability at low learning rates** — Mandarin training showed gradient spike at step ~820 when LR decayed to ~1.5×10⁻⁵. Using `max_grad_norm=0.5` resolved this in subsequent Hindi training.
-5. **Script-based cascade prevents misidentification** — The Arabic-script detection fallback correctly catches Urdu even when MMS-LID confidence is below threshold.
-6. **Kashmiri requires workaround for missing vocab token** — Whisper has no `ks` language token. Training with `whisper_lang="ur"` (Nastaliq proxy) gives a consistent decoder prefix; eval_loss (0.936 at ckpt-1500) is the only reliable metric. SeamlessM4T v2 does not support Kashmiri (`kas` absent from its language list). Qualitative testing with native Kashmiri audio is the next step.
-7. **CT2 models need `tokenizer.json` from the source model** — `ct2-transformers-converter` does not copy `tokenizer.json` to the output directory. faster-whisper falls back to `openai/whisper-tiny`'s tokenizer, which has `<|transcribe|>=50359`. But `whisper-large-v3` uses an expanded vocabulary where `<|transcribe|>=50360` and `<|translate|>=50359`. The off-by-one caused all fine-tuned large-v3 CT2 models to *translate* instead of transcribe, producing English output and ~100% WER against source-language references. **Fix:** copy `tokenizer.json` from the HuggingFace adapter/merged model into each CT2 directory. The `finetune_whisper.py` `merge_and_convert()` function now does this automatically.
-9. **ASR-only LoRA fine-tuning of SeamlessM4T breaks its translation capability** — Fine-tuning SM4T v2 for ASR with LoRA improved Pashto (−3.2 pp) and Hindi (−2.0 pp) WER but reduced S2TT chrF to near zero across all languages. The LoRA adaptation overrides multi-task language conditioning. Joint ASR+S2TT training is required to maintain translation quality.
-8. **SeamlessM4T v2 leads on ASR for 4/6 languages but adds significant deployment cost** — For Punjabi, Urdu, Nepali, and Hindi, SeamlessM4T achieves lower ASR WER than fine-tuned Whisper. Fine-tuned Whisper wins on Pashto and Mandarin. SeamlessM4T also leads on end-to-end translation (S2TT chrF) for 5/6 languages; Whisper+NLLB-200 is competitive only on Pashto (44.40 vs 43.92). Deployment trade-off: SeamlessM4T requires ~10 GB vs ~1.5 GB per Whisper model, and does not support Kashmiri.
+1. **Backend selection beats blanket fine-tuning.** Against the corrected true large-v3 baseline, zero-shot SeamlessM4T wins clean-speech ASR for 5 of 6 supported languages and every degradation condition for those five. Per-language Whisper fine-tuning is justified only for **Pashto** (beats SM4T in 4/5 conditions) and **Kashmiri** (SM4T has no `kas`).
+2. **Fine-tuning helps in proportion to how poorly the base model covers the language.** Real gains vs the true baseline: ps −51.2 pp, ne −37.9, ks −22.85, pa −20.2, hi −6.6, ur −1.4, zh **+3.2 (regression)**. The turbo-mislabelled baseline had inflated every one of these.
+3. **A strong training-val WER can fail to generalise.** Mandarin's 8.97% train-val became 14.22% held-out — worse than the 10.99% un-fine-tuned baseline. Small single-domain training sets can narrow a strong base model.
+4. **Scoring methodology is a result in itself.** Two silent defects (wrong baseline model; whitespace WER on character-spaced Han) produced an −84 pp headline gain that was entirely artefactual. All WER now goes through one CJK-aware normaliser, raw hypotheses are persisted to JSONL so re-scoring never needs a GPU re-run, and pre-fix results are archived for the erratum trail.
+5. **The SeamlessM4T lead survives — and widens under — radio degradation.** Its advantage grows at 0 dB SNR (hi +19.5, zh +17.2), killing the "Whisper is more robust to noise" hypothesis.
+6. **fp16 instability at low learning rates** — Mandarin training showed a gradient spike at step ~820 when LR decayed to ~1.5×10⁻⁵. `max_grad_norm=0.5` resolved this in subsequent training.
+7. **CT2 models need `tokenizer.json` from the source model** — `ct2-transformers-converter` does not copy it; faster-whisper falls back to `whisper-tiny`'s tokenizer where `<|transcribe|>=50359`, but large-v3 uses `<|transcribe|>=50360` / `<|translate|>=50359`. The off-by-one made fine-tuned large-v3 CT2 models *translate* instead of transcribe. **Fix:** `finetune_whisper.py merge_and_convert()` now copies `tokenizer.json` into each CT2 directory.
+8. **Kashmiri required a custom vocab token** — `<|ks|>` (ID 51866) added to large-v3 with embedding initialised from `<|ur|>`; 74.02% WER at step 2400 (−22.85 pp). The earlier Urdu-proxy approach (eval 103.58%, not a true accuracy figure) is superseded. SeamlessM4T cannot cover Kashmiri, so the hybrid Whisper+SeamlessM4T architecture is forced.
+9. **ASR-only LoRA fine-tuning of SeamlessM4T breaks its translation** and buys almost nothing on ASR (only hi −2.0 pp); the deployed SeamlessM4T path is zero-shot.
+10. **Script-based cascade prevents misidentification** — the Arabic-script detection fallback correctly catches Urdu even when MMS-LID confidence is below threshold.
 
 ---
 
-*Generated: 23 June 2026 · Cross-model eval: 23 June 2026 · Extended training + re-eval: 25 June 2026 · SeamlessM4T FT: 26 June 2026 · VANI v2 · RTX 5060 8 GB*
+*Generated: 23 June 2026 · Cross-model eval: 23 June 2026 · Extended training + re-eval: 25 June 2026 · SeamlessM4T FT: 26 June 2026 · **Corrected eval (true large-v3 baseline, CJK-aware scoring) + backend routing change: 10–11 July 2026** · VANI v2 · RTX 5060 8 GB*

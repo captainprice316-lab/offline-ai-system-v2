@@ -1,6 +1,6 @@
 # VANI — Cross-Model Evaluation Report
 **Whisper baseline vs Fine-tuned Whisper vs SeamlessM4T v2**
-**Date:** 10 July 2026  ·  **Hardware:** RTX 5060 8 GB CUDA
+**Date:** 12 July 2026  ·  **Hardware:** RTX 5060 8 GB CUDA
 
 ---
 
@@ -21,7 +21,7 @@
 | Pashto (PS) | Nastaliq | 89.76% | 38.55% | 44.4% | +51.2pp |
 | Urdu (UR) | Nastaliq | 21.23% | 19.82% | 16.9% | +1.4pp |
 | Nepali (NE) | Devanagari | 88.85% | 50.92% | 28.46% | +37.9pp |
-| Mandarin (ZH) | Simplified Han | 10.99% | 14.22% | 11.69% | +-3.2pp |
+| Mandarin (ZH) | Simplified Han | 10.99% | 14.22% | 11.69% | -3.2pp |
 | Hindi (HI) | Devanagari | 26.34% | 19.78% | 15.44% | +6.6pp |
 
 ---
@@ -48,4 +48,4 @@
 
 ---
 
-*Generated: 10 July 2026 21:24  ·  VANI v2  ·  RTX 5060 8 GB*
+*Generated: 12 July 2026 14:37  ·  VANI v2  ·  RTX 5060 8 GB*
