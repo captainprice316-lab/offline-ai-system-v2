@@ -1,0 +1,76 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[top=1.8cm,bottom=1.8cm,left=2.2cm,right=2.2cm]{geometry}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{parskip}
+\pagestyle{empty}
+
+\newcommand{\good}[1]{\textcolor{OliveGreen}{#1}}
+\newcommand{\bad}[1]{\textcolor{BrickRed}{#1}}
+
+\begin{document}
+
+\begin{center}
+{\Large\bfseries Correction Memo --- VANI ASR Fine-Tuning Results}\\[2pt]
+{\small 12 July 2026 \quad$\cdot$\quad supersedes the fine-tuning figures reported prior to 10 July 2026}
+\end{center}
+
+\vspace{2pt}
+\textbf{Summary.} During the construction of a WER-under-degradation evaluation harness, I found two independent
+defects in the scoring pipeline behind the previously reported fine-tuning results. Both are fixed, all
+evaluations were re-run ($n{=}100$ held-out FLEURS test samples per language), and the corrected numbers change
+the study's conclusion: per-language Whisper fine-tuning is justified only for Pashto and Kashmiri; for the
+other five languages zero-shot SeamlessM4T is superior and is now the deployed backend.
+
+\textbf{Defect 1 --- wrong baseline model.} The comparison script loaded \texttt{whisper-large-v3-turbo} while
+labelling it \texttt{large-v3}. Every published baseline was therefore inflated, overstating fine-tuning gains
+across all languages (worst: Urdu's gain was $-4.6$~pp, truly $-1.4$~pp; Punjabi's $-50$~pp, truly $-20$~pp).
+
+\textbf{Defect 2 --- whitespace WER on Mandarin.} FLEURS Mandarin references are character-spaced; WER tokenises
+on whitespace; un-fine-tuned models emit unspaced Han. A near-perfect transcript therefore scored ${\sim}100\%$
+WER. The headline ``Mandarin $100.03\% \rightarrow 16.03\%$ ($-84$~pp)'' was entirely this artefact. Re-scored
+with character segmentation, fine-tuning \emph{regressed} Mandarin: baseline $10.99\%$, fine-tuned $14.22\%$.
+The earlier explanation that the baseline ``translates Chinese by default'' was wrong and is withdrawn.
+
+\begin{center}
+\small
+\begin{tabular}{@{}l r r r r l@{}}
+\toprule
+ & \multicolumn{1}{c}{Published} & \multicolumn{3}{c}{Corrected (held-out $n{=}100$)} & \\
+\cmidrule(lr){2-2}\cmidrule(lr){3-5}
+Language & base $\rightarrow$ FT & baseline & FT Whisper & SM4T (0-shot) & Deployed backend \\
+\midrule
+Punjabi  & $105.79 \rightarrow 55.67$ & 77.60 & 57.39 & \textbf{19.77} & SeamlessM4T \\
+Nepali   & $94.55 \rightarrow 49.24$  & 88.85 & 50.92 & \textbf{28.46} & SeamlessM4T \\
+Hindi    & $30.29 \rightarrow 19.78$  & 26.34 & 19.78 & \textbf{15.44} & SeamlessM4T \\
+Urdu     & $24.44 \rightarrow 19.82$  & 21.23 & 19.82 & \textbf{16.90} & SeamlessM4T \\
+Mandarin & $100.03 \rightarrow 16.03$ & \textbf{10.99} & \bad{14.22} & 11.69 & SeamlessM4T \\
+Pashto   & $94.23 \rightarrow 38.55$  & 89.76 & \textbf{38.55} & 44.40 & \good{FT Whisper} \\
+Kashmiri & $98.64 \rightarrow 103.58$ & 96.87 & \textbf{74.02} & n/a (no \texttt{kas}) & \good{FT Whisper} \\
+\bottomrule
+\end{tabular}\\[2pt]
+{\footnotesize Kashmiri: corrected figures are the training-eval on the IndicVoices-R test split (custom
+\texttt{<|ks|>} token, step 2400); the $n{=}100$ cross-model re-run was not repeated for Kashmiri.
+SeamlessM4T has no Kashmiri, so the hybrid architecture is forced.}
+\end{center}
+
+\textbf{The corrected result is a stronger paper, not a weaker one.} The pattern is now interpretable:
+fine-tuning helps in proportion to how poorly the base model covers the language (Pashto $-51$~pp, Kashmiri
+$-23$~pp with a custom \texttt{<|ks|>} token) and can hurt when the base is already strong (Mandarin $+3.2$~pp
+regression from a small single-domain training set). A 30-clip $\times$ 5-condition robustness sweep (clean,
+300--3400~Hz bandpass, 10/0~dB SNR noise, MP3 codec) shows SeamlessM4T's advantage holds and \emph{widens} under
+degradation (Hindi $+5.0 \rightarrow +19.5$~pp at 0~dB), so the backend-selection conclusion is safe for
+operational radio --- a more defensible contribution than the original per-language fine-tuning claim.
+
+\textbf{Audit trail.} The correction is fully reproducible: pre-fix results are archived (the
+\texttt{PRE\_FIX} JSONs in \texttt{docs/}), all re-runs persist raw per-utterance hypotheses to JSONL so
+re-scoring never requires re-inference, one CJK-aware normaliser is used everywhere, and two automated proofread
+scripts (298 checks total) verify every figure in the regenerated report, presentation, and paper sources
+against the source data. The corrected routing (\texttt{seamless\_langs: pa, ne, hi, ur, zh}) is deployed and
+verified end-to-end in the live pipeline.
+
+\vspace{4pt}
+--- VANI project, 12 July 2026
+
+\end{document}
