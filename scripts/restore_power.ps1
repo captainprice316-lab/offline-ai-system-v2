@@ -30,6 +30,14 @@ Write-Host "  sleep      AC=$($s.standby.AC)s   DC=$($s.standby.DC)s"
 Write-Host "  hibernate  AC=$($s.hibernate.AC)s   DC=$($s.hibernate.DC)s"
 Write-Host "  monitor    AC=$($s.monitor.AC)s   DC=$($s.monitor.DC)s"
 
+# Lid-close action was set to "Do nothing" (0) on AC+DC for the 2026-07-12 ps_lv3
+# training run. The pre-change value was not snapshotted; Sleep (1) is the Windows
+# default and what this machine used.
+powercfg /setacvalueindex SCHEME_CURRENT SUB_BUTTONS LIDACTION 1
+powercfg /setdcvalueindex SCHEME_CURRENT SUB_BUTTONS LIDACTION 1
+powercfg /setactive SCHEME_CURRENT
+Write-Host "  lid-close action restored to Sleep (AC+DC)"
+
 # The screensaver lives in HKCU, not in the power scheme, so powercfg cannot restore it.
 # It was enabled (ScreenSaveActive=1) before the long runs.
 Set-ItemProperty 'HKCU:\Control Panel\Desktop' -Name ScreenSaveActive -Value '1'
