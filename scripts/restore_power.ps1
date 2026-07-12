@@ -16,16 +16,19 @@ if (-not (Test-Path $Snapshot)) {
 $s = Get-Content $Snapshot -Raw | ConvertFrom-Json
 
 Write-Host "Restoring power settings captured $($s.saved_utc)" -ForegroundColor Cyan
-powercfg /change standby-timeout-ac   $s.standby.AC
-powercfg /change standby-timeout-dc   $s.standby.DC
-powercfg /change hibernate-timeout-ac $s.hibernate.AC
-powercfg /change hibernate-timeout-dc $s.hibernate.DC
-powercfg /change monitor-timeout-ac   $s.monitor.AC
-powercfg /change monitor-timeout-dc   $s.monitor.DC
+# Snapshot values are SECONDS (powercfg /query setting indexes), but
+# `powercfg /change` takes MINUTES — use /set*valueindex, which takes seconds.
+powercfg /setacvalueindex SCHEME_CURRENT SUB_SLEEP STANDBYIDLE      $s.standby.AC
+powercfg /setdcvalueindex SCHEME_CURRENT SUB_SLEEP STANDBYIDLE      $s.standby.DC
+powercfg /setacvalueindex SCHEME_CURRENT SUB_SLEEP HIBERNATEIDLE    $s.hibernate.AC
+powercfg /setdcvalueindex SCHEME_CURRENT SUB_SLEEP HIBERNATEIDLE    $s.hibernate.DC
+powercfg /setacvalueindex SCHEME_CURRENT SUB_VIDEO VIDEOIDLE        $s.monitor.AC
+powercfg /setdcvalueindex SCHEME_CURRENT SUB_VIDEO VIDEOIDLE        $s.monitor.DC
+powercfg /setactive SCHEME_CURRENT
 
-Write-Host "  sleep      AC=$($s.standby.AC)   DC=$($s.standby.DC)"
-Write-Host "  hibernate  AC=$($s.hibernate.AC)   DC=$($s.hibernate.DC)"
-Write-Host "  monitor    AC=$($s.monitor.AC)   DC=$($s.monitor.DC)"
+Write-Host "  sleep      AC=$($s.standby.AC)s   DC=$($s.standby.DC)s"
+Write-Host "  hibernate  AC=$($s.hibernate.AC)s   DC=$($s.hibernate.DC)s"
+Write-Host "  monitor    AC=$($s.monitor.AC)s   DC=$($s.monitor.DC)s"
 
 # The screensaver lives in HKCU, not in the power scheme, so powercfg cannot restore it.
 # It was enabled (ScreenSaveActive=1) before the long runs.
