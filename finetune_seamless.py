@@ -34,6 +34,17 @@ LANG_CFG = {
     "ne": {"fleurs": "ne_np",       "sm_lang": "npi", "name": "Nepali"},
     "zh": {"fleurs": "cmn_hans_cn", "sm_lang": "cmn", "name": "Mandarin"},
     "hi": {"fleurs": "hi_in",       "sm_lang": "hin", "name": "Hindi"},
+    "ks": {
+        # SeamlessM4T has no Kashmiri: __kas__ is ADDED to the tokenizer at train
+        # time, embedding initialised from __urd__ (same Nastaliq script) — the
+        # same surgery that took Whisper ks from ~97% to 74.02% WER. Zero-shot
+        # urd-proxy was tested and failed (109% WER), but that says nothing about
+        # a fine-tune: Seamless's encoder is very strong on Indic audio (zero-shot
+        # pa 19.77 vs Whisper-FT 57.39) and ks is the one language with headroom.
+        "sm_lang": "kas", "name": "Kashmiri",
+        "indicvoices_parquet_dir": r"E:\VANI\datasets\hf_ks_temp\hub\datasets--ai4bharat--indicvoices_r\snapshots\5f4495c91d500742a58d1be2ab07d77f73c0acf8\Kashmiri",
+        "train_cap": 20000,
+    },
 }
 
 
@@ -55,6 +66,110 @@ def load_fleurs(lang: str):
     val_ds   = val_ds.cast_column("audio",   Audio(decode=False))
     print(f"         Train: {len(train_ds)}  Val: {len(val_ds)}")
     return train_ds, val_ds
+
+
+def load_indicvoices_ks(cfg: dict):
+    """Kashmiri from local IndicVoices-R parquet (same source that trained the
+    Whisper ks model). Train is an IterableDataset (streaming — avoids the
+    Windows Arrow-temp-file locking that binary-audio .map() caching hits);
+    val (372 rows) is a regular in-memory Dataset. Yields 'transcription' from
+    the `normalized` column so the FLEURS preprocess path applies unchanged."""
+    import pyarrow.parquet as pq
+    from datasets import Dataset, IterableDataset as HFIterableDataset, Features, Value
+
+    parquet_dir = pathlib.Path(cfg["indicvoices_parquet_dir"])
+    train_files = sorted(parquet_dir.glob("train-*.parquet"))
+    test_files  = sorted(parquet_dir.glob("test-*.parquet"))
+    if not train_files or not test_files:
+        raise FileNotFoundError(f"No IndicVoices parquet at {parquet_dir}")
+    min_dur, max_dur = 2.0, 20.0
+    train_cap = cfg.get("train_cap", 20000)
+
+    feats = Features({
+        "audio":         {"bytes": Value("binary"), "path": Value("string")},
+        "transcription": Value("string"),
+    })
+
+    def _gen(pq_files, max_samples):
+        count = 0
+        for pq_file in pq_files:
+            if count >= max_samples:
+                break
+            t   = pq.read_table(pq_file, columns=["audio", "normalized", "duration"])
+            raw = t.to_pydict()
+            del t
+            for audio, text, dur in zip(raw["audio"], raw["normalized"], raw["duration"]):
+                if count >= max_samples:
+                    break
+                if dur is None or not (min_dur <= dur <= max_dur) or not text:
+                    continue
+                yield {"audio": audio, "transcription": text}
+                count += 1
+            del raw
+
+    train_ds = HFIterableDataset.from_generator(
+        _gen, gen_kwargs={"pq_files": train_files, "max_samples": train_cap},
+        features=feats,
+    ).shuffle(seed=42, buffer_size=3000)
+
+    val_audio, val_text = [], []
+    for pq_file in test_files:
+        if len(val_text) >= 400:
+            break
+        t   = pq.read_table(pq_file, columns=["audio", "normalized", "duration"])
+        raw = t.to_pydict()
+        del t
+        for audio, text, dur in zip(raw["audio"], raw["normalized"], raw["duration"]):
+            if len(val_text) >= 400:
+                break
+            if dur is None or not (min_dur <= dur <= max_dur) or not text:
+                continue
+            val_audio.append(audio)
+            val_text.append(text)
+        del raw
+    val_ds = Dataset.from_dict(
+        {"audio": val_audio, "transcription": val_text}, features=feats,
+    )
+    print(f"\n  [data] IndicVoices-R KS train: {train_cap} samples (streaming)  Val: {len(val_ds)}")
+    return train_ds, val_ds
+
+
+def add_kas_token(processor, model):
+    """Add __kas__ to the tokenizer and model embeddings, initialised from
+    __urd__. Embeddings stay FROZEN under LoRA — the urd-initialised prefix is
+    a fixed conditioning vector, exactly as Whisper's <|ks|> was (74.02% WER).
+    Also registers kas in the generation config so post-training generate()
+    with tgt_lang='kas' works."""
+    import torch as _torch
+    tok = processor.tokenizer
+    if tok.convert_tokens_to_ids("__kas__") != tok.unk_token_id and "__kas__" in tok.get_vocab():
+        print("  [kas] __kas__ already in tokenizer")
+    else:
+        tok.add_tokens(["__kas__"], special_tokens=True)
+        print(f"  [kas] __kas__ added to tokenizer (vocab {len(tok)})")
+
+    kas_id = tok.convert_tokens_to_ids("__kas__")
+    urd_id = tok.convert_tokens_to_ids("__urd__")
+    assert kas_id != tok.unk_token_id and urd_id != tok.unk_token_id
+
+    if model.get_input_embeddings().weight.shape[0] < len(tok):
+        model.resize_token_embeddings(len(tok))
+    with _torch.no_grad():
+        in_emb = model.get_input_embeddings().weight
+        in_emb[kas_id] = in_emb[urd_id].clone()
+        out_emb = model.get_output_embeddings()
+        if out_emb is not None and out_emb.weight.data_ptr() != in_emb.data_ptr():
+            out_emb.weight[kas_id] = out_emb.weight[urd_id].clone()
+    print(f"  [kas] embedding row {kas_id} initialised from __urd__ ({urd_id})")
+
+    gc = model.generation_config
+    lang_map = getattr(gc, "text_decoder_lang_to_code_id", None)
+    if lang_map is not None:
+        try:
+            lang_map["kas"] = kas_id
+        except TypeError:
+            pass  # non-dict mapping; eval must pass the bos id explicitly
+    return kas_id
 
 
 # ── Audio decoding ─────────────────────────────────────────────────────────────
@@ -100,9 +215,15 @@ def make_preprocess_fn(processor, sm_lang: str):
             arr, sampling_rate=16000, return_tensors="np"
         )
 
-        # Text labels — tokenise with tgt_lang = source language (ASR task)
+        # Text labels — MUST use text_target so the tokenizer emits target-mode
+        # special tokens: prefix [eos, __lang__], suffix [eos], matching what
+        # generate(tgt_lang=...) forces at inference. Passing the text as plain
+        # `text` (as this script originally did) encodes SOURCE mode instead —
+        # prefix [__eng__] — so the six 2026-07 FLEURS adapters were trained
+        # against __eng__-prefixed labels. That mismatch likely contributed to
+        # fine-tuning being a wash and to the S2TT chrF collapse.
         tok = processor.tokenizer(
-            batch["transcription"],
+            text_target=batch["transcription"],
             tgt_lang=sm_lang,
             return_tensors="np",
         )
@@ -189,6 +310,11 @@ def train(lang: str, args):
     )
     model.enable_input_require_grads()   # required for gradient checkpointing + PEFT
 
+    # Kashmiri: SeamlessM4T has no __kas__ — add it (embedding init from __urd__)
+    # BEFORE the PEFT wrap so the resized embedding is part of the base model.
+    if sm_lang == "kas":
+        add_kas_token(processor, model)
+
     # ── LoRA ──────────────────────────────────────────────────────────────────
     lora_cfg = LoraConfig(
         r=8,
@@ -202,21 +328,30 @@ def train(lang: str, args):
     model.print_trainable_parameters()
 
     # ── Data ──────────────────────────────────────────────────────────────────
-    train_raw, val_raw = load_fleurs(lang)
+    if cfg.get("indicvoices_parquet_dir"):
+        train_raw, val_raw = load_indicvoices_ks(cfg)
+    else:
+        train_raw, val_raw = load_fleurs(lang)
 
     preprocess = make_preprocess_fn(processor, sm_lang)
 
     cache_base = RUNS_DIR / lang / "data"
     cache_base.mkdir(parents=True, exist_ok=True)
 
-    print("\n  [data] Preprocessing train split ...")
-    train_ds = train_raw.map(
-        preprocess,
-        remove_columns=train_raw.column_names,
-        desc="train-preproc",
-        num_proc=1,
-        cache_file_name=str(cache_base / f"train_{sm_lang}.arrow"),
-    )
+    from datasets import IterableDataset as HFIterableDataset
+    if isinstance(train_raw, HFIterableDataset):
+        # streaming: features computed lazily per step; no Arrow cache, no len()
+        train_ds = train_raw.map(preprocess, remove_columns=["audio", "transcription"])
+        print("\n  [data] Train: streaming (features on-the-fly)")
+    else:
+        print("\n  [data] Preprocessing train split ...")
+        train_ds = train_raw.map(
+            preprocess,
+            remove_columns=train_raw.column_names,
+            desc="train-preproc",
+            num_proc=1,
+            cache_file_name=str(cache_base / f"train_{sm_lang}.arrow"),
+        )
 
     print("  [data] Preprocessing val split ...")
     val_ds = val_raw.map(
@@ -227,7 +362,8 @@ def train(lang: str, args):
         cache_file_name=str(cache_base / f"val_{sm_lang}.arrow"),
     )
 
-    print(f"         Train: {len(train_ds)}  Val: {len(val_ds)}")
+    if not isinstance(train_ds, HFIterableDataset):
+        print(f"         Train: {len(train_ds)}  Val: {len(val_ds)}")
 
     collator = SeamlessDataCollator()
 
@@ -302,7 +438,7 @@ def main():
     parser.add_argument(
         "lang",
         choices=list(LANG_CFG.keys()) + ["all"],
-        help="Language code (pa/ps/ur/ne/zh/hi) or 'all' for all six",
+        help="Language code (pa/ps/ur/ne/zh/hi/ks) or 'all' for the six FLEURS langs",
     )
     parser.add_argument("--steps",  type=int, default=1000, help="Max training steps")
     parser.add_argument("--resume", action="store_true",    help="Resume from checkpoint")
@@ -313,7 +449,8 @@ def main():
         print("        It should already be at models/seamless-m4t-v2-large")
         sys.exit(1)
 
-    langs = list(LANG_CFG.keys()) if args.lang == "all" else [args.lang]
+    # "all" = the six FLEURS languages; ks is its own experiment (custom token)
+    langs = [l for l in LANG_CFG if l != "ks"] if args.lang == "all" else [args.lang]
     for lang in langs:
         train(lang, args)
 
