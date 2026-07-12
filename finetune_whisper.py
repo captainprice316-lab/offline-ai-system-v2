@@ -78,6 +78,26 @@ LANG_CONFIG = {
         "learning_rate": 5e-5,
         "warmup_steps":  25,
     },
+    "ps_lv3": {
+        # Experimental: Pashto on large-v3 (deployed ps model is medium-based, 38.55%
+        # held-out). Only language with untried fine-tune headroom. pa-v3 recipe.
+        # CT2 output is a NEW dir; config.yaml keeps routing ps to the medium model
+        # until this beats it on the held-out compare.
+        "hf_model":      "openai/whisper-large-v3",
+        "whisper_lang":  "ps",
+        "task":          "transcribe",
+        "fleurs_config": "ps_af",
+        "cv_config":     "ps",
+        "ct2_name":      "whisper-large-v3-ps-ct2",
+        "lora_r":        16,
+        "lora_alpha":    32,
+        "lora_dropout":  0.05,
+        "batch_size":    2,
+        "grad_accum":    1,
+        "learning_rate": 5e-5,
+        "warmup_steps":  100,
+        "max_grad_norm": 0.5,
+    },
     "ur": {
         "hf_model":      "openai/whisper-large-v3",
         "whisper_lang":  "ur",
@@ -873,7 +893,7 @@ def main():
     )
     parser.add_argument("lang",
         choices=list(LANG_CONFIG),
-        help="Language code: pa, ps, ur, ne, zh, hi, ks")
+        help="Language code: pa, ps, ps_lv3, ur, ne, zh, hi, ks")
     parser.add_argument("--steps",      type=int, default=1000,
         help="Training steps (default: 1000)")
     parser.add_argument("--save-steps", type=int, default=200,
