@@ -345,11 +345,13 @@ def slide_05_wer_chart(prs, n=8):
     bg(s)
     slide_header(s, "Fine-Tuned Whisper vs SeamlessM4T — ASR WER", n, "Backend Selection")
 
-    # Held-out n=100 FLEURS test WER. The operational question is FT Whisper vs zero-shot
-    # SeamlessM4T; the lower bar (green) is the deployed backend.
+    # Held-out n=100 FLEURS test WER (CER in parentheses on the labels). The operational
+    # question is FT Whisper vs zero-shot SeamlessM4T; the lower bar (green) is deployed.
     langs  = ["Mandarin (zh)", "Urdu (ur)",   "Hindi (hi)",   "Nepali (ne)",  "Punjabi (pa)", "Pashto (ps)"]
     ftwer  = [14.22,           19.82,          19.78,          50.92,           57.39,           38.55]
     smwer  = [11.69,           16.90,          15.44,          28.46,           19.77,           44.40]
+    ftcer  = [14.22,           7.29,           7.46,           18.83,           32.52,           17.65]
+    smcer  = [11.69,           7.00,           9.12,           11.22,           9.97,            22.92]
 
     scale  = 4.8 / 60.0
     bar_left = 2.65
@@ -360,7 +362,7 @@ def slide_05_wer_chart(prs, n=8):
           font_size=10, color=C_TEAL, italic=True)
 
     y = 1.82
-    for lang, ft, sm in zip(langs, ftwer, smwer):
+    for lang, ft, sm, fc, sc in zip(langs, ftwer, smwer, ftcer, smcer):
         txbox(s, lang, 0.3, y+0.02, 2.3, 0.28,
               font_size=12, color=C_TEXT, align=PP_ALIGN.RIGHT)
         # FT Whisper bar (green only if FT is the winner, i.e. ps)
@@ -371,11 +373,15 @@ def slide_05_wer_chart(prs, n=8):
         sw = sm * scale
         col_sm = C_GREEN if sm < ft else RGBColor(0x37, 0x52, 0x65)
         box(s, bar_left, y+0.155, sw, 0.145, fill_color=col_sm)
-        txbox(s, f"{ft:.2f}%", bar_left+fw+0.06, y, 0.85, 0.16,
+        txbox(s, f"{ft:.2f}% ({fc:.1f})", bar_left+fw+0.06, y, 1.45, 0.16,
               font_size=9, bold=(ft < sm), color=col_ft)
-        txbox(s, f"{sm:.2f}%", bar_left+sw+0.06, y+0.155, 0.85, 0.16,
+        txbox(s, f"{sm:.2f}% ({sc:.1f})", bar_left+sw+0.06, y+0.155, 1.45, 0.16,
               font_size=9.5, bold=(sm < ft), color=col_sm)
         y += 0.81
+
+    txbox(s, "Labels: WER% (CER%). CER shown because Han and Perso-Arabic orthographies make "
+             "whitespace WER misleading; zh is char-segmented so WER = CER.",
+          bar_left, y + 0.05, 5.3, 0.5, font_size=8.5, italic=True, color=C_SUB)
 
     # Summary panel — deployed backend per language
     card(s, 8.15, 1.55, 4.8, 5.55, accent_color=C_GOLD)

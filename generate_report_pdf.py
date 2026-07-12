@@ -242,13 +242,20 @@ LANG_ORDER = ["pa", "ps", "ur", "ne", "zh", "hi", "ks"]
 # ks compare was not re-run (loader pulls the full 18 GB IndicVoices train split);
 # its values are the training-time eval, unaffected by the CJK bug.
 EVAL_RESULTS = {
-    "pa": {"baseline": 77.60, "ft": 57.39, "seamless": 19.77, "nllb_chrf": 40.15, "sm_chrf": 54.53, "best": "seamless"},
-    "ps": {"baseline": 89.76, "ft": 38.55, "seamless": 44.40, "nllb_chrf": 44.48, "sm_chrf": 40.15, "best": "whisper_ft"},
-    "ur": {"baseline": 21.23, "ft": 19.82, "seamless": 16.90, "nllb_chrf": 51.34, "sm_chrf": 50.73, "best": "seamless"},
-    "ne": {"baseline": 88.85, "ft": 50.92, "seamless": 28.46, "nllb_chrf": 45.55, "sm_chrf": 51.67, "best": "seamless"},
-    "zh": {"baseline": 10.99, "ft": 14.22, "seamless": 11.69, "nllb_chrf": 42.00, "sm_chrf": 49.15, "best": "seamless"},
-    "hi": {"baseline": 26.34, "ft": 19.78, "seamless": 15.44, "nllb_chrf": 53.71, "sm_chrf": 51.54, "best": "seamless"},
-    "ks": {"baseline": 96.87, "ft": 74.02, "seamless": None,  "nllb_chrf": None,  "sm_chrf": None,  "best": "whisper_ft"},
+    "pa": {"baseline": 77.60, "ft": 57.39, "seamless": 19.77, "baseline_cer": 39.73, "ft_cer": 32.52, "sm_cer": 9.97,
+           "nllb_chrf": 40.15, "sm_chrf": 54.53, "best": "seamless"},
+    "ps": {"baseline": 89.76, "ft": 38.55, "seamless": 44.40, "baseline_cer": 37.60, "ft_cer": 17.65, "sm_cer": 22.92,
+           "nllb_chrf": 44.48, "sm_chrf": 40.15, "best": "whisper_ft"},
+    "ur": {"baseline": 21.23, "ft": 19.82, "seamless": 16.90, "baseline_cer": 8.12,  "ft_cer": 7.29,  "sm_cer": 7.00,
+           "nllb_chrf": 51.34, "sm_chrf": 50.73, "best": "seamless"},
+    "ne": {"baseline": 88.85, "ft": 50.92, "seamless": 28.46, "baseline_cer": 29.26, "ft_cer": 18.83, "sm_cer": 11.22,
+           "nllb_chrf": 45.55, "sm_chrf": 51.67, "best": "seamless"},
+    "zh": {"baseline": 10.99, "ft": 14.22, "seamless": 11.69, "baseline_cer": 10.99, "ft_cer": 14.22, "sm_cer": 11.69,
+           "nllb_chrf": 42.00, "sm_chrf": 49.15, "best": "seamless"},
+    "hi": {"baseline": 26.34, "ft": 19.78, "seamless": 15.44, "baseline_cer": 10.55, "ft_cer": 7.46,  "sm_cer": 9.12,
+           "nllb_chrf": 53.71, "sm_chrf": 51.54, "best": "seamless"},
+    "ks": {"baseline": 96.87, "ft": 74.02, "seamless": None,  "baseline_cer": None,  "ft_cer": None,  "sm_cer": None,
+           "nllb_chrf": None,  "sm_chrf": None,  "best": "whisper_ft"},
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1043,46 +1050,57 @@ def build():
             "(true openai/whisper-large-v3 baseline — not turbo — and one CJK-aware normaliser), it "
             "compares three ASR options per language: (A) the un-fine-tuned large-v3 baseline, "
             "(B) the language-specific fine-tuned Whisper (CT2 int8), and (C) zero-shot SeamlessM4T v2. "
-            "FLEURS test split for pa/ps/ur/ne/zh/hi; IndicVoices-R for ks. The <b>Deployed Backend</b> "
-            "column is the operational choice — the lowest-WER option VANI actually routes to."
+            "FLEURS test split for pa/ps/ur/ne/zh/hi; IndicVoices-R for ks. ASR cells give "
+            "<b>WER% (CER%)</b> — CER is reported alongside WER because two of the seven scripts "
+            "(Han, Perso-Arabic Kashmiri) have orthographies where whitespace tokenisation misleads. "
+            "The <b>Deployed Backend</b> column is the operational choice — the lowest-WER option "
+            "VANI actually routes to."
         ),
         sp(4),
         Table([
-            [tch("Language"), tch("Baseline\n(large-v3)"), tch("FT Whisper"), tch("SeamlessM4T"),
+            [tch("Language"), tch("Baseline (large-v3)\nWER (CER)"), tch("FT Whisper\nWER (CER)"),
+             tch("SeamlessM4T\nWER (CER)"),
              tch("Deployed\nBackend"), tch("NLLB\nchrF"), tch("SM S2TT\nchrF")],
-            [tcl("Punjabi (pa)"), tc("77.60%"), tc("57.39%"), tc("19.77%"),
+            [tcl("Punjabi (pa)"), tc("77.60 (39.73)"), tc("57.39 (32.52)"), tc("19.77 (9.97)"),
              Paragraph("<b>SeamlessM4T</b>", ParagraphStyle("Bpa", fontName="Helvetica-Bold",
                         fontSize=9, textColor=HDR_BLUE, alignment=TA_CENTER)), tc("40.15"), tc("54.53")],
-            [tcl("Pashto (ps)"), tc("89.76%"),
-             Paragraph("<b>38.55%</b>", ParagraphStyle("FTps", fontName="Helvetica-Bold",
+            [tcl("Pashto (ps)"), tc("89.76 (37.60)"),
+             Paragraph("<b>38.55 (17.65)</b>", ParagraphStyle("FTps", fontName="Helvetica-Bold",
                         fontSize=9, textColor=SUCCESS_GRN, alignment=TA_CENTER)),
-             tc("44.40%"),
+             tc("44.40 (22.92)"),
              Paragraph("<b>FT Whisper</b>", ParagraphStyle("Bps", fontName="Helvetica-Bold",
                         fontSize=9, textColor=SUCCESS_GRN, alignment=TA_CENTER)), tc("44.48"), tc("40.15")],
-            [tcl("Urdu (ur)"), tc("21.23%"), tc("19.82%"), tc("16.90%"),
+            [tcl("Urdu (ur)"), tc("21.23 (8.12)"), tc("19.82 (7.29)"), tc("16.90 (7.00)"),
              Paragraph("<b>SeamlessM4T</b>", ParagraphStyle("Bur", fontName="Helvetica-Bold",
                         fontSize=9, textColor=HDR_BLUE, alignment=TA_CENTER)), tc("51.34"), tc("50.73")],
-            [tcl("Nepali (ne)"), tc("88.85%"), tc("50.92%"), tc("28.46%"),
+            [tcl("Nepali (ne)"), tc("88.85 (29.26)"), tc("50.92 (18.83)"), tc("28.46 (11.22)"),
              Paragraph("<b>SeamlessM4T</b>", ParagraphStyle("Bne", fontName="Helvetica-Bold",
                         fontSize=9, textColor=HDR_BLUE, alignment=TA_CENTER)), tc("45.55"), tc("51.67")],
-            [tcl("Mandarin (zh)"), tc("10.99%"),
-             Paragraph("14.22%†", ParagraphStyle("FTzh", fontName="Helvetica",
+            [tcl("Mandarin (zh)¶"), tc("10.99 (10.99)"),
+             Paragraph("14.22 (14.22)†", ParagraphStyle("FTzh", fontName="Helvetica",
                         fontSize=9, textColor=colors.HexColor('#C0392B'), alignment=TA_CENTER)),
-             tc("11.69%"),
+             tc("11.69 (11.69)"),
              Paragraph("<b>SeamlessM4T</b>", ParagraphStyle("Bzh", fontName="Helvetica-Bold",
                         fontSize=9, textColor=HDR_BLUE, alignment=TA_CENTER)), tc("42.00"), tc("49.15")],
-            [tcl("Hindi (hi)"), tc("26.34%"), tc("19.78%"), tc("15.44%"),
+            [tcl("Hindi (hi)"), tc("26.34 (10.55)"), tc("19.78 (7.46)"), tc("15.44 (9.12)"),
              Paragraph("<b>SeamlessM4T</b>", ParagraphStyle("Bhi", fontName="Helvetica-Bold",
                         fontSize=9, textColor=HDR_BLUE, alignment=TA_CENTER)), tc("53.71"), tc("51.54")],
-            [tcl("Kashmiri (ks)‡"), tc("96.87%"),
-             Paragraph("<b>74.02%</b>", ParagraphStyle("FTks", fontName="Helvetica-Bold",
+            [tcl("Kashmiri (ks)‡"), tc("96.87 (—)"),
+             Paragraph("<b>74.02 (—)</b>", ParagraphStyle("FTks", fontName="Helvetica-Bold",
                         fontSize=9, textColor=SUCCESS_GRN, alignment=TA_CENTER)),
              tc("—§"),
              Paragraph("<b>FT Whisper</b>", ParagraphStyle("Bks", fontName="Helvetica-Bold",
                         fontSize=9, textColor=SUCCESS_GRN, alignment=TA_CENTER)), tc("—"), tc("—")],
-        ], colWidths=[2.6*cm, 2.3*cm, 2.2*cm, 2.4*cm, 2.3*cm, 1.6*cm, W-13.4*cm],
+        ], colWidths=[2.5*cm, 2.9*cm, 2.7*cm, 2.7*cm, 2.2*cm, 1.4*cm, W-14.4*cm],
         style=std_ts(left_cols=(0,)), repeatRows=1),
         sp(4),
+        note("¶ Mandarin is scored with character segmentation, so WER and CER coincide by "
+             "construction — CER is the meaningful metric for Han script. Do not compare a "
+             "character-level number against a word-level one: CER runs ~2–3× lower than WER "
+             "on the space-delimited languages, so comparisons are valid only within a metric."),
+        note("Kashmiri CER was not recorded by the training-time eval; on the 30-clip robustness "
+             "set the deployed ks model scores ~41–45% CER vs ~75–77% WER, the gap reflecting "
+             "Perso-Arabic orthographic variation that WER over-penalises."),
         body(
             "<b>Result: fine-tuned Whisper is the best backend for only two of seven languages</b> — "
             "Pashto (38.55% vs SeamlessM4T's 44.40%) and Kashmiri (SeamlessM4T has no Kashmiri support). "

@@ -42,6 +42,9 @@ for l, d in EVAL_RESULTS.items():
     check(f"EVAL_RESULTS[{l}].baseline", d["baseline"], c.get("whisper_baseline_wer"))
     check(f"EVAL_RESULTS[{l}].ft",       d["ft"],       c.get("whisper_ft_wer"))
     check(f"EVAL_RESULTS[{l}].seamless", d["seamless"], c.get("seamless_asr_wer"))
+    check(f"EVAL_RESULTS[{l}].baseline_cer", d["baseline_cer"], c.get("whisper_baseline_cer"))
+    check(f"EVAL_RESULTS[{l}].ft_cer",       d["ft_cer"],       c.get("whisper_ft_cer"))
+    check(f"EVAL_RESULTS[{l}].sm_cer",       d["sm_cer"],       c.get("seamless_asr_cer"))
     check(f"EVAL_RESULTS[{l}].nllb_chrf",d["nllb_chrf"],c.get("whisper_nllb_chrf"))
     check(f"EVAL_RESULTS[{l}].sm_chrf",  d["sm_chrf"],  c.get("seamless_s2tt_chrf"))
 
@@ -87,13 +90,16 @@ for l in ["pa", "ps", "ur", "ne", "zh", "hi"]:
 
 # ── E: PPTX slide-5 arrays and benchmark table vs JSON ───────────────────────
 pptx_src = open(REPO/"generate_finetune_pptx.py", encoding="utf-8").read()
-pptx_slide5 = {
-    "zh": (14.22, 11.69), "ur": (19.82, 16.90), "hi": (19.78, 15.44),
-    "ne": (50.92, 28.46), "pa": (57.39, 19.77), "ps": (38.55, 44.40),
+pptx_slide5 = {  # lang: (ftwer, smwer, ftcer, smcer) — keep in sync with slide_05_wer_chart
+    "zh": (14.22, 11.69, 14.22, 11.69), "ur": (19.82, 16.90, 7.29, 7.00),
+    "hi": (19.78, 15.44, 7.46, 9.12),   "ne": (50.92, 28.46, 18.83, 11.22),
+    "pa": (57.39, 19.77, 32.52, 9.97),  "ps": (38.55, 44.40, 17.65, 22.92),
 }
-for l, (ft, sm) in pptx_slide5.items():
-    check(f"PPTX slide5 {l}.ft", ft, comp[l].get("whisper_ft_wer"))
-    check(f"PPTX slide5 {l}.sm", sm, comp[l].get("seamless_asr_wer"))
+for l, (ft, sm, ftc, smc) in pptx_slide5.items():
+    check(f"PPTX slide5 {l}.ft",    ft,  comp[l].get("whisper_ft_wer"))
+    check(f"PPTX slide5 {l}.sm",    sm,  comp[l].get("seamless_asr_wer"))
+    check(f"PPTX slide5 {l}.ftcer", ftc, comp[l].get("whisper_ft_cer"))
+    check(f"PPTX slide5 {l}.smcer", smc, comp[l].get("seamless_asr_cer"))
 
 # ── F: LANG_META star consistency: best_wer should appear in the wer curve ───
 for l, m in LANG_META.items():

@@ -63,17 +63,19 @@ The originally published numbers contained two independent scoring defects; both
 
 ### ASR Word Error Rate (source-language transcription, lower is better)
 
-| Language | Whisper Baseline (large-v3) | Whisper Fine-Tuned | SeamlessM4T v2 (zero-shot) | FT Gain vs Baseline | Deployed Backend |
-|----------|------------------------------|--------------------|----------------------------|---------------------|------------------|
-| Punjabi (pa) | 77.60% | 57.39% | **19.77%** | −20.2 pp | SeamlessM4T |
-| Pashto (ps) | 89.76% | **38.55%** | 44.40% | −51.2 pp | FT Whisper |
-| Urdu (ur) | 21.23% | 19.82% | **16.90%** | −1.4 pp | SeamlessM4T |
-| Nepali (ne) | 88.85% | 50.92% | **28.46%** | −37.9 pp | SeamlessM4T |
-| Mandarin (zh) | **10.99%** | 14.22% | 11.69% | **+3.2 pp (regression)** | SeamlessM4T |
-| Hindi (hi) | 26.34% | 19.78% | **15.44%** | −6.6 pp | SeamlessM4T |
-| Kashmiri (ks) | 96.87% | **74.02%**† | —‡ | −22.85 pp | FT Whisper |
+Cells give **WER% (CER%)**. CER is reported alongside WER because two of the seven scripts (Han, Perso-Arabic Kashmiri) have orthographies where whitespace tokenisation misleads — the defect class behind the original Mandarin numbers. Mandarin is scored with character segmentation, so its WER and CER coincide by construction. **Never compare a character-level number against a word-level one** — CER runs ~2–3× lower than WER on the space-delimited languages.
 
-† Kashmiri values are the training-time eval on the IndicVoices-R test split (custom `<|ks|>` token model, best checkpoint step 2400); the cross-model re-run was skipped for ks (18 GB loader issue).
+| Language | Whisper Baseline (large-v3) | Whisper Fine-Tuned | SeamlessM4T v2 (zero-shot) | FT Gain vs Baseline (WER) | Deployed Backend |
+|----------|------------------------------|--------------------|----------------------------|---------------------|------------------|
+| Punjabi (pa) | 77.60 (39.73) | 57.39 (32.52) | **19.77 (9.97)** | −20.2 pp | SeamlessM4T |
+| Pashto (ps) | 89.76 (37.60) | **38.55 (17.65)** | 44.40 (22.92) | −51.2 pp | FT Whisper |
+| Urdu (ur) | 21.23 (8.12) | 19.82 (7.29) | **16.90 (7.00)** | −1.4 pp | SeamlessM4T |
+| Nepali (ne) | 88.85 (29.26) | 50.92 (18.83) | **28.46 (11.22)** | −37.9 pp | SeamlessM4T |
+| Mandarin (zh) | **10.99 (10.99)** | 14.22 (14.22) | 11.69 (11.69) | **+3.2 pp (regression)** | SeamlessM4T |
+| Hindi (hi) | 26.34 (10.55) | 19.78 (7.46) | **15.44 (9.12)** | −6.6 pp | SeamlessM4T |
+| Kashmiri (ks) | 96.87 (—) | **74.02 (—)**† | —‡ | −22.85 pp | FT Whisper |
+
+† Kashmiri values are the training-time eval on the IndicVoices-R test split (custom `<|ks|>` token model, best checkpoint step 2400); the cross-model re-run was skipped for ks (18 GB loader issue), and that eval did not record CER. On the 30-clip robustness set the deployed ks model scores ~41–45% CER vs ~75–77% WER — the gap reflects Perso-Arabic orthographic variation that WER over-penalises.
 ‡ SeamlessM4T v2 has no Kashmiri (`kas` absent from the model vocabulary). A Urdu-token proxy was tested and failed (109% WER — fluent but unrelated Urdu), so Kashmiri necessarily stays on fine-tuned Whisper.
 
 ### Translation Quality — chrF → English (higher is better)

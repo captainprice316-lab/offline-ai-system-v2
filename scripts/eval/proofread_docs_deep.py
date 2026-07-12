@@ -33,6 +33,12 @@ def num(cell):
     m = re.search(r"[-+]?\d+(?:\.\d+)?", c)
     return float(m.group()) if m else None
 
+def num2(cell):
+    """Second numeric value in a cell — the CER in 'WER (CER)' cells; None if absent."""
+    c = cell.replace("−", "-").replace("**", "")
+    m = re.findall(r"[-+]?\d+(?:\.\d+)?", c)
+    return float(m[1]) if len(m) > 1 else None
+
 md = (REPO/"docs/FINETUNE_REPORT.md").read_text(encoding="utf-8")
 
 def table_rows(anchor, n_langs=7):
@@ -65,6 +71,9 @@ for l in ["pa","ps","ur","ne","zh","hi"]:
     check(f"md ASR {l}.baseline", num(c[1]), comp[l]["whisper_baseline_wer"])
     check(f"md ASR {l}.ft",       num(c[2]), comp[l]["whisper_ft_wer"])
     check(f"md ASR {l}.seamless", num(c[3]), comp[l]["seamless_asr_wer"])
+    check(f"md ASR {l}.baseline-cer", num2(c[1]), comp[l]["whisper_baseline_cer"])
+    check(f"md ASR {l}.ft-cer",       num2(c[2]), comp[l]["whisper_ft_cer"])
+    check(f"md ASR {l}.seamless-cer", num2(c[3]), comp[l]["seamless_asr_cer"])
     gain = num(c[4])
     check(f"md ASR {l}.gain-arith", gain, round(comp[l]["whisper_ft_wer"] - comp[l]["whisper_baseline_wer"], 1), tol=0.06)
 ksc = rows["ks"]
@@ -217,6 +226,16 @@ for s, what in EXPECT.items():
     (ok if s in pptx_all else issues).append(
         f"PPTX has {what}" if s in pptx_all else f"PPTX missing corrected {what} ({s})")
 
+# CER presence: PPTX labels format CER as "(x.y)" (one decimal), PDF/md as "(x.yz)".
+CER_KEYS = [("whisper_ft_cer", "ft"), ("seamless_asr_cer", "sm")]
+for l in ["pa","ps","ur","ne","zh","hi"]:
+    for key, tag in CER_KEYS:
+        v = comp[l][key]
+        s1 = f"({v:.1f})"
+        (ok if s1 in pptx_all else issues).append(
+            f"PPTX has {l}.{tag} CER" if s1 in pptx_all
+            else f"PPTX missing {l}.{tag} CER {s1}")
+
 # ── 11. Built PDF text vs sources ────────────────────────────────────────────
 import pypdf
 rd = pypdf.PdfReader(str(REPO/"docs/VANI_Finetune_Report.pdf"))
@@ -224,6 +243,15 @@ pdf_all = " ".join((p.extract_text() or "") for p in rd.pages)
 for s, what in EXPECT.items():
     (ok if s in pdf_all else issues).append(
         f"PDF has {what}" if s in pdf_all else f"PDF missing corrected {what} ({s})")
+
+for l in ["pa","ps","ur","ne","zh","hi"]:
+    for key, tag in [("whisper_baseline_cer","base"), ("whisper_ft_cer","ft"),
+                     ("seamless_asr_cer","sm")]:
+        v = comp[l][key]
+        s2 = f"({v:.2f})"
+        (ok if s2 in pdf_all else issues).append(
+            f"PDF has {l}.{tag} CER" if s2 in pdf_all
+            else f"PDF missing {l}.{tag} CER {s2}")
 print("\nPDF occurrences of old zh figures (should be correction notes only):")
 for s in ["100.03","16.03","60.53","103.58","105.79"]:
     for i, p in enumerate(rd.pages, 1):
