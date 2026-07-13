@@ -420,11 +420,12 @@ def extract_locations(text: str) -> list:
 
 def _base_map(center_lat: float, center_lon: float,
               zoom: int = 10, height: int = 400) -> folium.Map:
-    """OpenStreetMap base — shows city/village/road labels like Google Maps."""
+    """CartoDB Positron base — light, low-saturation styling like Google Maps,
+    with city/village/road labels. (Was OpenStreetMap, which reads darker/busier.)"""
     return folium.Map(
         location=[center_lat, center_lon],
         zoom_start=zoom,
-        tiles="OpenStreetMap",
+        tiles="CartoDB positron",
         width="100%",
         height=height,
         prefer_canvas=True,

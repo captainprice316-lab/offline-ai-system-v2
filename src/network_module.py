@@ -517,3 +517,93 @@ def render_network_figure(G: nx.Graph, title: str = "") -> Optional[object]:
             height=640,
         ),
     )
+
+
+# ── Interactive (pyvis / vis.js) rendering ────────────────────────────────────
+
+def render_network_html(G: nx.Graph, height_px: int = 640) -> Optional[str]:
+    """Interactive vis.js network as a self-contained HTML string.
+
+    Scroll to zoom, drag the background to pan, drag nodes to rearrange
+    (physics re-settles the layout), hover for the intel tooltip, corner
+    navigation buttons for zoom/fit. cdn_resources='in_line' embeds the
+    vis.js bundle in the HTML, so this works fully offline.
+
+    Returns None if pyvis is unavailable (caller falls back to plotly).
+    """
+    try:
+        from pyvis.network import Network
+    except ImportError:
+        return None
+    if not G.nodes:
+        return None
+
+    _shape = {"actor": "dot", "location": "triangle",
+              "codeword": "diamond", "voice": "square"}
+
+    net = Network(height=f"{height_px}px", width="100%",
+                  bgcolor="#0d1117", font_color="#8a9aaa",
+                  cdn_resources="in_line", notebook=False, directed=False)
+
+    for name, attrs in G.nodes(data=True):
+        ntype  = attrs.get("node_type", "actor")
+        threat = attrs.get("threat", "CLEAR")
+        cnt    = attrs.get("count", 1)
+        if ntype == "actor":
+            size  = max(14, min(44, 10 + cnt * 4))
+            color = THREAT_COLOR.get(threat, "#00aaff")
+        elif ntype == "location":
+            size  = max(10, min(28, 8 + cnt * 3))
+            color = NODE_COLOR["location"]
+        elif ntype == "codeword":
+            size  = max(11, min(30, 9 + cnt * 3))
+            color = NODE_COLOR["codeword"]
+        else:
+            size  = max(12, min(32, 10 + cnt * 3))
+            color = attrs.get("node_color", NODE_COLOR["voice"])
+
+        label = attrs.get("label", name)
+        deg   = G.degree(name)
+        rids  = list({rid for _, _, d in G.edges(name, data=True)
+                      for rid in d.get("report_ids", [])})[:5]
+        tooltip = (
+            f"{label}\n"
+            f"Type: {CTYPE_LABEL.get(attrs.get('ctype', ntype), ntype.upper())}\n"
+            f"Appearances: {cnt}   Connections: {deg}"
+            + (f"\nThreat: {threat}" if ntype == "actor" else "")
+            + (f"\nLanguage(s): {attrs.get('langs')}" if attrs.get("langs") else "")
+            + (f"\nIntercepts: {', '.join(rids)}" if rids else "")
+        )
+        net.add_node(name, label=label, title=tooltip, size=size, color=color,
+                     shape=_shape.get(ntype, "dot"),
+                     borderWidth=1, borderWidthSelected=3)
+
+    max_weight = max((d.get("weight", 1) for _, _, d in G.edges(data=True)), default=1)
+    for u, v, d in G.edges(data=True):
+        etype  = d.get("edge_type", "co-occurrence")
+        weight = d.get("weight", 1)
+        net.add_edge(u, v,
+                     color=EDGE_COLOR.get(etype, "#2a4060"),
+                     width=max(1.0, min(6.0, weight / max_weight * 6.0)),
+                     title=f"{etype}  ·  {weight}×")
+
+    # Valid JSON only (set_options is parsed as JSON by pyvis).
+    net.set_options("""{
+      "interaction": {
+        "hover": true, "zoomView": true, "dragView": true,
+        "navigationButtons": true, "multiselect": true, "tooltipDelay": 120
+      },
+      "physics": {
+        "solver": "forceAtlas2Based",
+        "forceAtlas2Based": {
+          "gravitationalConstant": -60, "springLength": 130,
+          "springConstant": 0.06, "avoidOverlap": 0.5
+        },
+        "stabilization": {"iterations": 200, "fit": true}
+      },
+      "edges": {"smooth": false},
+      "nodes": {"font": {"size": 12, "face": "Share Tech Mono, monospace",
+                          "color": "#c8d8e8", "strokeWidth": 0}}
+    }""")
+
+    return net.generate_html()
