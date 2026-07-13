@@ -13,7 +13,7 @@
 
 \begin{center}
 {\Large\bfseries Correction Memo --- VANI ASR Fine-Tuning Results}\\[2pt]
-{\small 12 July 2026 \quad$\cdot$\quad supersedes the fine-tuning figures reported prior to 10 July 2026}
+{\small 12 July 2026, addendum 13 July \quad$\cdot$\quad supersedes the fine-tuning figures reported prior to 10 July 2026}
 \end{center}
 
 \vspace{2pt}
@@ -62,6 +62,20 @@ regression from a small single-domain training set). A 30-clip $\times$ 5-condit
 300--3400~Hz bandpass, 10/0~dB SNR noise, MP3 codec) shows SeamlessM4T's advantage holds and \emph{widens} under
 degradation (Hindi $+5.0 \rightarrow +19.5$~pp at 0~dB), so the backend-selection conclusion is safe for
 operational radio --- a more defensible contribution than the original per-language fine-tuning claim.
+
+\textbf{Addendum (13 July) --- Defect 3, fine-tuning label encoding.} A third defect was found in the
+SeamlessM4T fine-tuning script (not the scoring pipeline). Training labels were tokenised as plain text,
+which SeamlessM4T's tokenizer encodes in \emph{source} mode --- prefix \texttt{\_\_eng\_\_} --- regardless
+of the requested target language; target-mode encoding (prefix \texttt{[eos, \_\_lang\_\_]}, what
+\texttt{generate()} forces at inference) requires the \texttt{text\_target=} argument. All six SeamlessM4T
+LoRA adapters were therefore trained against mismatched prefixes. The effect was invisible in ASR (the model
+learned ``emit source-language text after any prefix'', which happens to be correct for transcription) but
+destroyed translation: the near-zero S2TT chrF (0.06--2.12) previously reported as ``LoRA adaptation
+overrides multi-task language conditioning'' was entirely this bug, and that explanation is withdrawn.
+A controlled retrain of the Pashto adapter with corrected labels changed nothing else: ASR WER 41.30 vs.\
+41.22 (identical), chrF $2.12 \rightarrow 37.60$ (near the zero-shot 40.15). The pattern matches Defects
+1--2: a silent methodological error producing plausible headline numbers and a wrong causal story ---
+reinforcing the memo's central lesson rather than altering any deployment decision.
 
 \textbf{Audit trail.} The correction is fully reproducible: pre-fix results are archived (the
 \texttt{PRE\_FIX} JSONs in \texttt{docs/}), all re-runs persist raw per-utterance hypotheses to JSONL so
