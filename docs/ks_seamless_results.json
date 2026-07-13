@@ -1,0 +1,22 @@
+{
+  "indicvoices_test": {
+    "wer_raw": 129.29,
+    "cer_raw": 89.22,
+    "wer_nfc": 129.26,
+    "cer_nfc": 89.37,
+    "n": 372
+  },
+  "robustness_clean": {
+    "wer_raw": 144.87,
+    "cer_raw": 97.21,
+    "wer_nfc": 144.87,
+    "cer_nfc": 97.32,
+    "n": 30
+  },
+  "whisper_ks_reference": {
+    "indicvoices_test_wer_raw": 74.02,
+    "robustness_clean_wer": 81.46,
+    "robustness_clean_cer": 47.95,
+    "note": "Whisper-ks: training-eval 74.02 (raw jiwer, same split); robustness figures from eval_data/wer_robustness_results.csv (clean)."
+  }
+}

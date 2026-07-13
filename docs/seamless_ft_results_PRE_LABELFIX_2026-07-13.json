@@ -9,6 +9,15 @@
     "time": 245.9
   },
   {
+    "lang": "ps",
+    "name": "Pashto",
+    "n": 100,
+    "sm_ft_asr_wer": 41.22,
+    "sm_ft_asr_cer": 21.79,
+    "sm_ft_s2tt_chrf": 2.12,
+    "time": 218.7
+  },
+  {
     "lang": "ur",
     "name": "Urdu",
     "n": 100,
@@ -43,14 +52,5 @@
     "sm_ft_asr_cer": 7.17,
     "sm_ft_s2tt_chrf": 0.06,
     "time": 211.2
-  },
-  {
-    "lang": "ps",
-    "name": "Pashto",
-    "n": 100,
-    "sm_ft_asr_wer": 41.3,
-    "sm_ft_asr_cer": 24.51,
-    "sm_ft_s2tt_chrf": 37.6,
-    "time": 199.8
   }
 ]
