@@ -36,15 +36,6 @@
     "time": 254.5
   },
   {
-    "lang": "hi",
-    "name": "Hindi",
-    "n": 100,
-    "sm_ft_asr_wer": 13.43,
-    "sm_ft_asr_cer": 7.17,
-    "sm_ft_s2tt_chrf": 0.06,
-    "time": 211.2
-  },
-  {
     "lang": "ps",
     "name": "Pashto",
     "n": 100,
@@ -52,5 +43,14 @@
     "sm_ft_asr_cer": 24.51,
     "sm_ft_s2tt_chrf": 37.6,
     "time": 199.8
+  },
+  {
+    "lang": "hi",
+    "name": "Hindi",
+    "n": 100,
+    "sm_ft_asr_wer": 13.94,
+    "sm_ft_asr_cer": 7.98,
+    "sm_ft_s2tt_chrf": 43.24,
+    "time": 180.9
   }
 ]

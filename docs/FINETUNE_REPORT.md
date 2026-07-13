@@ -166,7 +166,7 @@ SeamlessM4T's advantage is positive in every condition for all five routed langu
 - **Base:** `openai/whisper-large-v3`
 - **Dataset:** FLEURS `hi_in` — 2,120 train / 239 val
 - **Training:** 600 steps, ~6 h 45 m; `max_grad_norm=0.5` applied (lesson from Mandarin); fully stable; near-best WER by step 200
-- **Held-out eval WER:** 19.78% fine-tuned vs 26.34% baseline (−6.6 pp, a genuine gain) · **SeamlessM4T: 15.44%** (fine-tuned SeamlessM4T LoRA: 13.43%, not deployed)
+- **Held-out eval WER:** 19.78% fine-tuned vs 26.34% baseline (−6.6 pp, a genuine gain) · **SeamlessM4T: 15.44%** (fine-tuned SeamlessM4T LoRA, corrected labels: 13.94%, not deployed)
 - **Translation:** Whisper+NLLB chrF 53.71 · SeamlessM4T S2TT chrF 51.54 — Whisper+NLLB wins
 - **Pipeline role:** since 2026-07-11, `hi` → **SeamlessM4T** ASR → NLLB-200 → English
 
@@ -255,12 +255,12 @@ SeamlessM4T v2 large was fine-tuned with LoRA (r=8, α=16, target=q_proj+v_proj,
 | Urdu (ur) | **16.90%** | 17.26% | +0.4 pp | 19.82% |
 | Nepali (ne) | **28.46%** | 28.92% | +0.5 pp | 50.92% |
 | Mandarin (zh) | **11.69%** | 18.68%† | +7.0 pp | 14.22% |
-| Hindi (hi) | 15.44% | **13.43%** | −2.0 pp | 19.78% |
+| Hindi (hi) | 15.44% | **13.94%**‡ | −1.5 pp | 19.78% |
 
 † The previously published FT SM4T Mandarin figure (60.53%) carried the same whitespace artefact as the other Mandarin numbers; the corrected value is 18.68% — still a large regression vs zero-shot, so the zh adapter is not deployed.
-‡ Pashto is the 2026-07-13 **corrected-label retrain** (see the label-bug note below); its wrong-label predecessor scored 41.22% — statistically identical ASR. The other five rows are the original wrong-label adapters (not retrained).
+‡ Pashto and Hindi are 2026-07-13 **corrected-label retrains** (see the label-bug note below); their wrong-label predecessors scored 41.22% and 13.43% — statistically identical ASR in both cases. The pa/ur/ne/zh rows are the original wrong-label adapters (not retrained).
 
-**Fine-tuning SeamlessM4T is a wash for ASR:** only Hindi improves meaningfully (−2.0 pp), Pashto improves but still loses to fine-tuned Whisper (with or without the label fix), and Mandarin regresses badly. Seven adapters exist in `finetune_runs_seamless/` (six original + the ps retrain); **none are deployed** — the production SeamlessM4T path is zero-shot.
+**Fine-tuning SeamlessM4T is a wash for ASR:** only Hindi improves meaningfully (−1.5 pp vs zero-shot), Pashto improves but still loses to fine-tuned Whisper (with or without the label fix), and Mandarin regresses badly. **No adapter is deployed** — the production SeamlessM4T path is zero-shot (the wrong-label runs are archived as `*_PRE_LABELFIX_*` alongside the retrains in `finetune_runs_seamless/`).
 
 ### Translation (S2TT chrF) — Fine-tuned SM4T (broken)
 
@@ -271,11 +271,11 @@ SeamlessM4T v2 large was fine-tuned with LoRA (r=8, α=16, target=q_proj+v_proj,
 | Urdu (ur) | 50.73 | 0.55 | 51.34 |
 | Nepali (ne) | 51.67 | 0.10 | 45.55 |
 | Mandarin (zh) | 49.15 | 0.62 | 42.00 |
-| Hindi (hi) | 51.54 | 0.06 | 53.71 |
+| Hindi (hi) | 51.54 | **43.24**‡ | 53.71 |
 
-‡ Corrected-label retrain (2026-07-13); the wrong-label predecessor scored 2.12.
+‡ Corrected-label retrains (2026-07-13); the wrong-label predecessors scored 2.12 (ps) and 0.06 (hi).
 
-**Finding (CORRECTED 2026-07-13):** the near-zero chrF rows were **not** an inherent property of ASR-only LoRA fine-tuning — they were a label-encoding bug. The original training script tokenised targets as plain `text`, which SeamlessM4T's tokenizer encodes in *source* mode (prefix `__eng__`) regardless of the `tgt_lang` argument; the model therefore learned to emit source-language text after *any* prefix, destroying translation at inference. With labels correctly encoded in target mode (`text_target=`, prefix `[eos, __lang__]`), the retrained Pashto adapter's chrF recovers from 2.12 to **37.60** — near the zero-shot 40.15 — while its ASR WER is unchanged (41.30 vs 41.22). The earlier explanation ("LoRA adaptation overrides multi-task language conditioning") is withdrawn. ASR-focused fine-tuning costs a few chrF points, not all of them. The five non-ps adapters still carry wrong-label training and their chrF rows remain artefactual. (Moot in production: VANI uses NLLB-200 for translation regardless.)
+**Finding (CORRECTED 2026-07-13):** the near-zero chrF rows were **not** an inherent property of ASR-only LoRA fine-tuning — they were a label-encoding bug. The original training script tokenised targets as plain `text`, which SeamlessM4T's tokenizer encodes in *source* mode (prefix `__eng__`) regardless of the `tgt_lang` argument; the model therefore learned to emit source-language text after *any* prefix, destroying translation at inference. With labels correctly encoded in target mode (`text_target=`, prefix `[eos, __lang__]`), the retrained adapters' chrF recovers — Pashto 2.12 → **37.60**, Hindi 0.06 → **43.24** — while ASR WER is unchanged in both (41.30 vs 41.22; 13.94 vs 13.43). Two independent confirmations. The earlier explanation ("LoRA adaptation overrides multi-task language conditioning") is withdrawn. ASR-focused fine-tuning costs a few chrF points (vs zero-shot: ps −2.6, hi −8.3), not all of them. The pa/ur/ne/zh adapters still carry wrong-label training and their chrF rows remain artefactual. (Moot in production: VANI uses NLLB-200 for translation regardless.)
 
 ---
 
@@ -289,7 +289,7 @@ SeamlessM4T v2 large was fine-tuned with LoRA (r=8, α=16, target=q_proj+v_proj,
 6. **fp16 instability at low learning rates** — Mandarin training showed a gradient spike at step ~820 when LR decayed to ~1.5×10⁻⁵. `max_grad_norm=0.5` resolved this in subsequent training.
 7. **CT2 models need `tokenizer.json` from the source model** — `ct2-transformers-converter` does not copy it; faster-whisper falls back to `whisper-tiny`'s tokenizer where `<|transcribe|>=50359`, but large-v3 uses `<|transcribe|>=50360` / `<|translate|>=50359`. The off-by-one made fine-tuned large-v3 CT2 models *translate* instead of transcribe. **Fix:** `finetune_whisper.py merge_and_convert()` now copies `tokenizer.json` into each CT2 directory.
 8. **Kashmiri required a custom vocab token** — `<|ks|>` (ID 51866) added to large-v3 with embedding initialised from `<|ur|>`; 74.02% WER at step 2400 (−22.85 pp). The earlier Urdu-proxy approach (eval 103.58%, not a true accuracy figure) is superseded. SeamlessM4T cannot cover Kashmiri, so the hybrid Whisper+SeamlessM4T architecture is forced.
-9. **Fine-tuning SeamlessM4T buys almost nothing on ASR** (only hi −2.0 pp); the deployed SeamlessM4T path is zero-shot. The dramatic "fine-tuning breaks translation" effect reported earlier was a label-encoding bug (targets tokenised in source mode with an `__eng__` prefix), not a property of LoRA: the corrected-label Pashto retrain recovers chrF from 2.12 to 37.60 with identical ASR. Scoring methodology strikes again — see Finding 4.
+9. **Fine-tuning SeamlessM4T buys almost nothing on ASR** (only hi −1.5 pp vs zero-shot); the deployed SeamlessM4T path is zero-shot. The dramatic "fine-tuning breaks translation" effect reported earlier was a label-encoding bug (targets tokenised in source mode with an `__eng__` prefix), not a property of LoRA: corrected-label retrains recover chrF from 2.12 to 37.60 (ps) and 0.06 to 43.24 (hi) with statistically identical ASR in both. Scoring methodology strikes again — see Finding 4.
 10. **Script-based cascade prevents misidentification** — the Arabic-script detection fallback correctly catches Urdu even when MMS-LID confidence is below threshold.
 
 ---
