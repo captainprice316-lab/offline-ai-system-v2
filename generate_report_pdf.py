@@ -191,7 +191,9 @@ LANG_META = {
                 "max_grad_norm=0.5 applied after Mandarin gradient explosion; training fully stable. "
                 "Held-out test WER 19.78% vs true large-v3 baseline 26.34% (n=100 FLEURS) — a genuine "
                 "6.6 pp fine-tuning gain. However zero-shot SeamlessM4T reaches 15.44% on the same test, "
-                "so Hindi is operationally routed to SeamlessM4T, not this model (see §5.5).",
+                "and a corrected-label SeamlessM4T LoRA adapter reaches 13.94% — so Hindi is "
+                "operationally routed to SeamlessM4T with that adapter enabled (deployed 2026-07-13; "
+                "wins 4/5 radio-degradation conditions incl. bandpass 16.28 vs 18.96), not this model (see §5.5).",
         "training_time": "~6 h 45 m",
     },
     "ks": {
@@ -1083,7 +1085,7 @@ def build():
              Paragraph("<b>SeamlessM4T</b>", ParagraphStyle("Bzh", fontName="Helvetica-Bold",
                         fontSize=9, textColor=HDR_BLUE, alignment=TA_CENTER)), tc("42.00"), tc("49.15")],
             [tcl("Hindi (hi)"), tc("26.34 (10.55)"), tc("19.78 (7.46)"), tc("15.44 (9.12)"),
-             Paragraph("<b>SeamlessM4T</b>", ParagraphStyle("Bhi", fontName="Helvetica-Bold",
+             Paragraph("<b>SM4T + LoRA</b>", ParagraphStyle("Bhi", fontName="Helvetica-Bold",
                         fontSize=9, textColor=HDR_BLUE, alignment=TA_CENTER)), tc("53.71"), tc("51.54")],
             [tcl("Kashmiri (ks)‡"), tc("96.87 (—)"),
              Paragraph("<b>74.02 (—)</b>", ParagraphStyle("FTks", fontName="Helvetica-Bold",

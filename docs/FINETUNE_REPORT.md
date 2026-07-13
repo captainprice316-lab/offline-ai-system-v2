@@ -47,7 +47,7 @@ The originally published numbers contained two independent scoring defects; both
 | 3 | Urdu (ur) | Nastaliq | whisper-large-v3 | FLEURS ur_pk | 2,109 | 22.27% @ step 800 | 19.82% | **SeamlessM4T (16.90%)** |
 | 4 | Nepali (ne) | Devanagari | whisper-large-v3 | FLEURS ne_np + IndicVoices-R | 13,332 | 50.82% @ step 3000 | 50.92% | **SeamlessM4T (28.46%)** |
 | 5 | Mandarin (zh) | Simplified Han | whisper-large-v3 | FLEURS cmn_hans_cn | 3,246 | 8.97% @ step 400‡ | 14.22%§ | **SeamlessM4T (11.69%)** |
-| 6 | Hindi (hi) | Devanagari | whisper-large-v3 | FLEURS hi_in | 2,120 | 23.13% @ step 600 | 19.78% | **SeamlessM4T (15.44%)** |
+| 6 | Hindi (hi) | Devanagari | whisper-large-v3 | FLEURS hi_in | 2,120 | 23.13% @ step 600 | 19.78% | **SeamlessM4T + LoRA (13.94%)** |
 | 7 | Kashmiri (ks) | Nastaliq | whisper-large-v3 + `<\|ks\|>` token | IndicVoices-R Kashmiri | 20,000 | 74.02% @ step 2400 | 74.02%¶ | **FT Whisper** |
 
 † Held-out eval: 100-sample cross-model evaluation on the FLEURS test split (pa/ps/ur/ne/zh/hi), one CJK-aware normaliser, true large-v3 baseline. See Cross-Model Evaluation.
@@ -72,7 +72,7 @@ Cells give **WER% (CER%)**. CER is reported alongside WER because two of the sev
 | Urdu (ur) | 21.23 (8.12) | 19.82 (7.29) | **16.90 (7.00)** | −1.4 pp | SeamlessM4T |
 | Nepali (ne) | 88.85 (29.26) | 50.92 (18.83) | **28.46 (11.22)** | −37.9 pp | SeamlessM4T |
 | Mandarin (zh) | **10.99 (10.99)** | 14.22 (14.22) | 11.69 (11.69) | **+3.2 pp (regression)** | SeamlessM4T |
-| Hindi (hi) | 26.34 (10.55) | 19.78 (7.46) | **15.44 (9.12)** | −6.6 pp | SeamlessM4T |
+| Hindi (hi) | 26.34 (10.55) | 19.78 (7.46) | **15.44 (9.12)** | −6.6 pp | SeamlessM4T + LoRA |
 | Kashmiri (ks) | 96.87 (—) | **74.02 (—)**† | —‡ | −22.85 pp | FT Whisper |
 
 † Kashmiri values are the training-time eval on the IndicVoices-R test split (custom `<|ks|>` token model, best checkpoint step 2400); the cross-model re-run was skipped for ks (18 GB loader issue), and that eval did not record CER (hence the dash). On the 30-clip robustness set (clean condition, `eval_data/wer_robustness_results.csv`) the deployed ks model scores **81.46% WER / 47.95% CER** — the wide gap reflects Perso-Arabic orthographic variation that WER over-penalises. That is a different sample set than the 74.02% column, so the two must not be read as one WER (CER) pair.
@@ -166,9 +166,9 @@ SeamlessM4T's advantage is positive in every condition for all five routed langu
 - **Base:** `openai/whisper-large-v3`
 - **Dataset:** FLEURS `hi_in` — 2,120 train / 239 val
 - **Training:** 600 steps, ~6 h 45 m; `max_grad_norm=0.5` applied (lesson from Mandarin); fully stable; near-best WER by step 200
-- **Held-out eval WER:** 19.78% fine-tuned vs 26.34% baseline (−6.6 pp, a genuine gain) · **SeamlessM4T: 15.44%** (fine-tuned SeamlessM4T LoRA, corrected labels: 13.94%, not deployed)
+- **Held-out eval WER:** 19.78% fine-tuned vs 26.34% baseline (−6.6 pp, a genuine gain) · **SeamlessM4T: 15.44%; + LoRA adapter 13.94% (DEPLOYED 2026-07-13)**
 - **Translation:** Whisper+NLLB chrF 53.71 · SeamlessM4T S2TT chrF 51.54 — Whisper+NLLB wins
-- **Pipeline role:** since 2026-07-11, `hi` → **SeamlessM4T** ASR → NLLB-200 → English
+- **Pipeline role:** since 2026-07-11, `hi` → **SeamlessM4T** ASR → NLLB-200 → English; since 2026-07-13 with the corrected-label **LoRA adapter** enabled for Hindi calls (13.94 vs 15.44 clean; wins 4/5 degradation conditions incl. bandpass 16.28 vs 18.96)
 
 ### 7. Kashmiri (ks) — `whisper-large-v3-ks-ct2` *(DEPLOYED)*
 - **Base:** `openai/whisper-large-v3` + custom `<|ks|>` token (ID 51866)
@@ -198,7 +198,7 @@ Audio Input
   → Stage 3.5: Per-language ASR backend selection
        MMS lang=pa  → SeamlessM4T v2 (zero-shot)      → NLLB-200
        MMS lang=ne  → SeamlessM4T v2 (zero-shot)      → NLLB-200
-       MMS lang=hi  → SeamlessM4T v2 (zero-shot)      → NLLB-200
+       MMS lang=hi  → SeamlessM4T v2 + hi LoRA        → NLLB-200
        MMS lang=ur  → SeamlessM4T v2 (zero-shot)      → NLLB-200
        MMS lang=zh  → SeamlessM4T v2 (zero-shot)      → NLLB-200
        MMS lang=ps  → whisper-medium-pashto-ct2 (FT)  → NLLB-200
@@ -236,7 +236,7 @@ offline_ai_system_v2/
 │   ├── zh/adapter/   — LoRA checkpoints (Mandarin, best=ckpt-400)
 │   ├── hi/adapter/   — LoRA checkpoints (Hindi)
 │   └── ks/adapter/   — LoRA checkpoints (Kashmiri, best=ckpt-2400)
-├── finetune_runs_seamless/{hi,ne,pa,ps,ur,zh}/adapter/ — SM4T LoRA (none deployed)
+├── finetune_runs_seamless/{hi,ne,pa,ps,ur,zh,ks}/adapter/ — SM4T LoRA (hi DEPLOYED 2026-07-13; rest not)
 └── finetune_whisper.py              — Training script
 ```
 
@@ -260,7 +260,7 @@ SeamlessM4T v2 large was fine-tuned with LoRA (r=8, α=16, target=q_proj+v_proj,
 † The previously published FT SM4T Mandarin figure (60.53%) carried the same whitespace artefact as the other Mandarin numbers; the corrected value is 18.68% — still a large regression vs zero-shot, so the zh adapter is not deployed.
 ‡ Pashto and Hindi are 2026-07-13 **corrected-label retrains** (see the label-bug note below); their wrong-label predecessors scored 41.22% and 13.43% — statistically identical ASR in both cases. The pa/ur/ne/zh rows are the original wrong-label adapters (not retrained).
 
-**Fine-tuning SeamlessM4T is a wash for ASR:** only Hindi improves meaningfully (−1.5 pp vs zero-shot), Pashto improves but still loses to fine-tuned Whisper (with or without the label fix), and Mandarin regresses badly. **No adapter is deployed** — the production SeamlessM4T path is zero-shot (the wrong-label runs are archived as `*_PRE_LABELFIX_*` alongside the retrains in `finetune_runs_seamless/`).
+**Fine-tuning SeamlessM4T is a wash for ASR except Hindi** (−1.5 pp vs zero-shot): Pashto improves but still loses to fine-tuned Whisper (with or without the label fix), and Mandarin regresses badly. **The hi adapter is DEPLOYED (2026-07-13)** — it also wins 4/5 radio-degradation conditions incl. bandpass (16.28 vs 18.96, 30-clip sweep; only 10 dB noise is a marginal +0.6 loss). It is enabled only for Hindi `generate()` calls via `asr.seamless_adapters`; every other language runs with adapters disabled, verified byte-identical to the plain base model. The wrong-label runs are archived as `*_PRE_LABELFIX_*` alongside the retrains in `finetune_runs_seamless/`.
 
 ### Translation (S2TT chrF) — Fine-tuned SM4T (broken)
 
@@ -289,7 +289,7 @@ SeamlessM4T v2 large was fine-tuned with LoRA (r=8, α=16, target=q_proj+v_proj,
 6. **fp16 instability at low learning rates** — Mandarin training showed a gradient spike at step ~820 when LR decayed to ~1.5×10⁻⁵. `max_grad_norm=0.5` resolved this in subsequent training.
 7. **CT2 models need `tokenizer.json` from the source model** — `ct2-transformers-converter` does not copy it; faster-whisper falls back to `whisper-tiny`'s tokenizer where `<|transcribe|>=50359`, but large-v3 uses `<|transcribe|>=50360` / `<|translate|>=50359`. The off-by-one made fine-tuned large-v3 CT2 models *translate* instead of transcribe. **Fix:** `finetune_whisper.py merge_and_convert()` now copies `tokenizer.json` into each CT2 directory.
 8. **Kashmiri required a custom vocab token** — `<|ks|>` (ID 51866) added to large-v3 with embedding initialised from `<|ur|>`; 74.02% WER at step 2400 (−22.85 pp). The earlier Urdu-proxy approach (eval 103.58%, not a true accuracy figure) is superseded. SeamlessM4T cannot cover Kashmiri, so the hybrid Whisper+SeamlessM4T architecture is forced.
-9. **Fine-tuning SeamlessM4T buys almost nothing on ASR** (only hi −1.5 pp vs zero-shot); the deployed SeamlessM4T path is zero-shot. The dramatic "fine-tuning breaks translation" effect reported earlier was a label-encoding bug (targets tokenised in source mode with an `__eng__` prefix), not a property of LoRA: corrected-label retrains recover chrF from 2.12 to 37.60 (ps) and 0.06 to 43.24 (hi) with statistically identical ASR in both. Scoring methodology strikes again — see Finding 4.
+9. **Fine-tuning SeamlessM4T buys almost nothing on ASR except Hindi** (−1.5 pp vs zero-shot, and the win holds in 4/5 degradation conditions — so the hi LoRA adapter is deployed as of 2026-07-13; all other languages run zero-shot). The dramatic "fine-tuning breaks translation" effect reported earlier was a label-encoding bug (targets tokenised in source mode with an `__eng__` prefix), not a property of LoRA: corrected-label retrains recover chrF from 2.12 to 37.60 (ps) and 0.06 to 43.24 (hi) with statistically identical ASR in both. Scoring methodology strikes again — see Finding 4.
 10. **Script-based cascade prevents misidentification** — the Arabic-script detection fallback correctly catches Urdu even when MMS-LID confidence is below threshold.
 
 ---

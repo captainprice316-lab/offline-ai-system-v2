@@ -390,7 +390,7 @@ def slide_05_wer_chart(prs, n=8):
     selection = [
         ("Punjabi",  "57.4 → 19.8%", "SeamlessM4T"),
         ("Nepali",   "50.9 → 28.5%", "SeamlessM4T"),
-        ("Hindi",    "19.8 → 15.4%", "SeamlessM4T"),
+        ("Hindi",    "19.8 → 13.9%", "SM4T + LoRA"),
         ("Urdu",     "19.8 → 16.9%", "SeamlessM4T"),
         ("Mandarin", "14.2 → 11.7%", "SeamlessM4T"),
         ("Pashto",   "38.6 < 44.4%", "FT Whisper"),
