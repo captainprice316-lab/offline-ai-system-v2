@@ -26,6 +26,7 @@ class SeamlessASR:
     def __init__(self, model_path: str, device: str = "cpu",
                  cfg: dict = None, default_lang: str = None):
         import torch
+        from pathlib import Path
         from transformers import AutoProcessor, SeamlessM4Tv2ForSpeechToText
 
         self.model_path = str(model_path)
@@ -37,6 +38,38 @@ class SeamlessASR:
             self.model_path, torch_dtype=dtype
         ).to(self.device)
         self.model.eval()
+
+        # Optional per-language LoRA adapters (cfg asr.seamless_adapters:
+        # {vani_lang: path}). The adapter is enabled ONLY for its language's
+        # generate() calls; every other language runs with adapters disabled,
+        # which is numerically identical to the plain base model. Deployed for
+        # hi 2026-07-13: 13.94 vs zero-shot 15.44 WER (n=100 clean), and wins
+        # 4/5 radio-degradation conditions incl. bandpass (16.28 vs 18.96).
+        self._adapters = {}   # sm_lang code -> peft adapter name
+        adapters_cfg = (cfg or {}).get("seamless_adapters") or {}
+        if adapters_cfg:
+            from peft import PeftModel
+            repo_root = Path(__file__).resolve().parents[1]
+            for vani_lang, rel in adapters_cfg.items():
+                sm = SEAMLESS_LANG.get(vani_lang)
+                p  = Path(rel)
+                if not p.is_absolute():
+                    p = repo_root / rel
+                if sm is None or not p.exists():
+                    print(f"[SeamlessASR] WARN: adapter for '{vani_lang}' not loaded "
+                          f"({'unknown language' if sm is None else p})")
+                    continue
+                name = f"lora_{vani_lang}"
+                if not self._adapters:
+                    self.model = PeftModel.from_pretrained(self.model, str(p),
+                                                           adapter_name=name)
+                else:
+                    self.model.load_adapter(str(p), adapter_name=name)
+                self._adapters[sm] = name
+                print(f"[SeamlessASR] LoRA adapter loaded for {vani_lang} ({name})")
+            if self._adapters:
+                self.model.to(self.device)
+                self.model.eval()
 
         self._torch             = torch
         self.default_lang       = default_lang
@@ -62,13 +95,25 @@ class SeamlessASR:
     _MIN_SUBSEG_S = 0.20
 
     def _generate(self, audio_16k, sm_lang: str) -> str:
-        """Run one SeamlessM4T ASR pass over a 16 kHz mono array → text."""
+        """Run one SeamlessM4T ASR pass over a 16 kHz mono array → text.
+
+        If a LoRA adapter is registered for this language it is activated for
+        the call; otherwise all adapters are disabled so non-adapter languages
+        see the unmodified base model."""
         inputs = self.processor(
             audio=audio_16k, return_tensors="pt",
             sampling_rate=16000, src_lang=sm_lang,
         ).to(self.device)
+        adapter = self._adapters.get(sm_lang)
         with self._torch.no_grad():
-            toks = self.model.generate(**inputs, tgt_lang=sm_lang)
+            if adapter is not None:
+                self.model.set_adapter(adapter)
+                toks = self.model.generate(**inputs, tgt_lang=sm_lang)
+            elif self._adapters:
+                with self.model.disable_adapter():
+                    toks = self.model.generate(**inputs, tgt_lang=sm_lang)
+            else:
+                toks = self.model.generate(**inputs, tgt_lang=sm_lang)
         return self.processor.decode(toks[0], skip_special_tokens=True).strip()
 
     def transcribe(self, audio_path: str, language_hint: str = None,

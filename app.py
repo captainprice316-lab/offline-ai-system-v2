@@ -479,7 +479,7 @@ def _get_translator(indic_path: str, nllb_path: str, device: str):
 @st.cache_resource(show_spinner="Loading SeamlessM4T (first run only)...")
 def _get_seamless_model(model_path: str, device: str):
     from seamless_asr import SeamlessASR
-    m = SeamlessASR(model_path=model_path, device=device)
+    m = SeamlessASR(model_path=model_path, device=device, cfg=cfg.get("asr", {}))
     # Park in CPU RAM immediately — the pipeline promotes it to GPU only for
     # the ASR stage (constructing on cuda first keeps the fp16 weights)
     m.to_device("cpu")

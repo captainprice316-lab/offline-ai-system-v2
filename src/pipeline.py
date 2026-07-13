@@ -423,9 +423,9 @@ def run_pipeline(
             _asr_cached = True
         else:
             from seamless_asr import SeamlessASR
-            logger.info(f"  ASR backend: SeamlessM4T (zero-shot) for {_probe_lang}")
+            logger.info(f"  ASR backend: SeamlessM4T for {_probe_lang}")
             asr = SeamlessASR(model_path=str(_seamless_path), device=device,
-                              default_lang=_probe_lang)
+                              cfg=config.get("asr", {}), default_lang=_probe_lang)
             _asr_cached = False
         _seamless_used = True
     else:

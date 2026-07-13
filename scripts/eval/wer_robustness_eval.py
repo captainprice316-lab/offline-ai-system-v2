@@ -209,6 +209,23 @@ def make_seamless(cfg, device):
     return SeamlessASR(str(path), device=device, cfg=cfg.get("asr", {})), path.name
 
 
+def make_seamless_ft(cfg, lang, device):
+    """SeamlessM4T with the language's fixed-label LoRA adapter applied on top of the
+    production SeamlessASR path — tests whether an adapter's clean-speech win (hi:
+    13.94 vs zero-shot 15.44) survives radio degradation. Per-language, like whisper_ft.
+
+    Not valid for ks: that adapter needs its own tokenizer (custom __kas__ token) —
+    use scripts/eval/eval_ks_seamless.py for Kashmiri instead."""
+    from peft import PeftModel
+    asr, model_name = make_seamless(cfg, device)
+    adapter = VANI_ROOT / "finetune_runs_seamless" / lang / "adapter"
+    if not adapter.exists():
+        raise FileNotFoundError(f"no Seamless adapter for {lang}: {adapter}")
+    asr.model = PeftModel.from_pretrained(asr.model, str(adapter))
+    asr.model.eval()
+    return asr, f"{model_name}+{lang}-lora"
+
+
 def _free(model):
     del model
     gc.collect()
@@ -275,7 +292,7 @@ def sweep(systems, langs, conditions, n_samples, device):
             print(f"  loaded {model_name}", flush=True)
 
         for lang in langs:
-            if system == "seamless_zs" and lang in SEAMLESS_UNSUPPORTED:
+            if system in ("seamless_zs", "seamless_ft") and lang in SEAMLESS_UNSUPPORTED:
                 msg = f"{lang}: SeamlessM4T v2 has no {lang} support — no result, not a zero"
                 print(f"  [SKIP] {msg}", flush=True)
                 skipped_langs.append((system, msg))
@@ -294,6 +311,9 @@ def sweep(systems, langs, conditions, n_samples, device):
                 asr, model_name, is_ft = make_whisper(cfg, lang, device)
                 tag = "fine-tuned" if is_ft else "TURBO FALLBACK (no fine-tuned model)"
                 print(f"\n  [{lang}] {model_name}  ({tag})", flush=True)
+            elif system == "seamless_ft":
+                asr, model_name = make_seamless_ft(cfg, lang, device)
+                print(f"\n  [{lang}] {model_name}", flush=True)
             else:
                 asr = shared
                 print(f"\n  [{lang}] {model_name}", flush=True)
@@ -320,7 +340,7 @@ def sweep(systems, langs, conditions, n_samples, device):
 
                 print(f"    {condition:10} {len(todo)} transcribed", flush=True)
 
-            if system == "whisper_ft":
+            if system in ("whisper_ft", "seamless_ft"):
                 _free(asr)
 
         if shared is not None:
@@ -345,7 +365,7 @@ def main():
     ap.add_argument("--langs",      nargs="+", default=DEFAULT_LANGS)
     ap.add_argument("--conditions", nargs="+", default=DEFAULT_CONDITIONS)
     ap.add_argument("--systems",    nargs="+", default=DEFAULT_SYSTEMS,
-                    choices=["whisper_ft", "seamless_zs", "whisper_base"])
+                    choices=["whisper_ft", "seamless_zs", "whisper_base", "seamless_ft"])
     ap.add_argument("--n",          type=int, default=30, help="samples per language")
     ap.add_argument("--device",     default="cuda")
     args = ap.parse_args()
