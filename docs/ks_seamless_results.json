@@ -1,17 +1,22 @@
 {
   "indicvoices_test": {
-    "wer_raw": 129.29,
-    "cer_raw": 89.22,
-    "wer_nfc": 129.26,
-    "cer_nfc": 89.37,
+    "wer_raw": 92.09,
+    "cer_raw": 62.02,
+    "wer_nfc": 92.04,
+    "cer_nfc": 62.0,
     "n": 372
   },
   "robustness_clean": {
-    "wer_raw": 144.87,
-    "cer_raw": 97.21,
-    "wer_nfc": 144.87,
-    "cer_nfc": 97.32,
+    "wer_raw": 92.72,
+    "cer_raw": 64.64,
+    "wer_nfc": 92.72,
+    "cer_nfc": 64.61,
     "n": 30
+  },
+  "_decode_settings": {
+    "min_tok_per_sec": 2.5,
+    "min_tok_cap": 180,
+    "no_repeat_ngram": 3
   },
   "whisper_ks_reference": {
     "indicvoices_test_wer_raw": 74.02,

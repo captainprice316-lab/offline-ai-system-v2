@@ -52,5 +52,14 @@
     "sm_ft_asr_cer": 7.98,
     "sm_ft_s2tt_chrf": 43.24,
     "time": 180.9
+  },
+  {
+    "lang": "ps_cv",
+    "name": "Pashto (FLEURS+CV)",
+    "n": 100,
+    "sm_ft_asr_wer": 42.47,
+    "sm_ft_asr_cer": 25.04,
+    "sm_ft_s2tt_chrf": 15.25,
+    "time": 158.7
   }
 ]
