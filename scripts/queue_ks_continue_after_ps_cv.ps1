@@ -41,8 +41,22 @@ if (-not (Saved-Ok "$root\logs\ps_cv_seamless_train.log")) {
     exit 1
 }
 
-# ── Stage 2: ks Seamless continuation ────────────────────────────────────────
-Log "ps_cv adapter confirmed - launching ks Seamless CONTINUATION (resume -> $KsSteps total steps)"
+# ── Stage 2: ps_cv held-out eval (n=100 vs Whisper-medium 38.55) ─────────────
+# Runs BETWEEN the trainings (~5 min) so the routing verdict doesn't wait ~6 h
+# behind the ks continuation.
+Log "ps_cv adapter confirmed - running n=100 held-out eval"
+$ev = Start-Process -FilePath "$root\venv\Scripts\python.exe" `
+    -ArgumentList '-u','scripts\eval\eval_seamless_ft.py','--lang','ps_cv' `
+    -WorkingDirectory $root `
+    -RedirectStandardOutput "$root\logs\ps_cv_eval.log" `
+    -RedirectStandardError  "$root\logs\ps_cv_eval_err.log" `
+    -WindowStyle Hidden -PassThru
+$ev.WaitForExit()
+Log "ps_cv eval finished (exit $($ev.ExitCode)) - see logs\ps_cv_eval.log and docs\seamless_ft_results.json"
+Start-Sleep -Seconds 30   # VRAM release before the next training
+
+# ── Stage 3: ks Seamless continuation ────────────────────────────────────────
+Log "launching ks Seamless CONTINUATION (resume -> $KsSteps total steps)"
 $ks = Start-Process -FilePath "$root\venv\Scripts\python.exe" `
     -ArgumentList '-u','finetune_seamless.py','ks','--steps',"$KsSteps",'--resume' `
     -WorkingDirectory $root `

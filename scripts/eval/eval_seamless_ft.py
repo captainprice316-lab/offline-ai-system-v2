@@ -38,6 +38,9 @@ LANG_CFG = {
     "ne": {"fleurs": "ne_np",       "sm_lang": "npi", "name": "Nepali"},
     "zh": {"fleurs": "cmn_hans_cn", "sm_lang": "cmn", "name": "Mandarin"},
     "hi": {"fleurs": "hi_in",       "sm_lang": "hin", "name": "Hindi"},
+    # Extra-data experiment (finetune_runs_seamless/ps_cv) — same FLEURS ps_af
+    # test ruler as "ps", stored as its own results row.
+    "ps_cv": {"fleurs": "ps_af",    "sm_lang": "pbt", "name": "Pashto (FLEURS+CV)"},
 }
 
 
