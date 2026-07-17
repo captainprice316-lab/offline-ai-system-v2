@@ -55,6 +55,23 @@ LANG_CFG = {
         "fleurs": "ps_af", "sm_lang": "pbt", "name": "Pashto (FLEURS + CV-20)",
         "cv_dataset": "SherwinDesouza/pashto-common-voice-20",
     },
+    "hi_iv": {
+        # Experimental: Hindi with IndicVoices-R added (cap 20k) on top of FLEURS
+        # hi_in (2,120). The deployed hi adapter (13.94) is FLEURS-only — this
+        # probes whether domain-diverse data pushes further. Own run dir; the
+        # deployed hi/ adapter is untouched.
+        "fleurs": "hi_in", "sm_lang": "hin", "name": "Hindi (FLEURS + IndicVoices-R)",
+        "indicvoices_config": "Hindi", "train_cap": 20000,
+    },
+    "ne_iv": {
+        # Experimental: Nepali with IndicVoices-R added (cap 20k) on top of FLEURS
+        # ne_np. Doubly fresh: the existing ne adapter still carries the
+        # wrong-label training (only ps/hi were retrained after the label fix),
+        # and zero-shot (28.46, deployed) has never been challenged with extra
+        # data. Own run dir.
+        "fleurs": "ne_np", "sm_lang": "npi", "name": "Nepali (FLEURS + IndicVoices-R)",
+        "indicvoices_config": "Nepali", "train_cap": 20000,
+    },
 }
 
 
@@ -135,6 +152,83 @@ def load_fleurs_plus_cv(lang: str):
     total = len(fleurs_train) + len(cv_train)
     print(f"\n  [data] Combined train: {total:,} samples "
           f"(FLEURS {len(fleurs_train):,} + CV {len(cv_train):,}, streaming, pre-shuffled)"
+          f"  Val: {len(fleurs_val)} (FLEURS only)")
+    return train_ds, fleurs_val
+
+
+def load_fleurs_plus_indicvoices(lang: str):
+    """FLEURS + IndicVoices-R (hub-cache parquet, read directly via pyarrow —
+    same battle-tested path as the ks run, no load_dataset for audio).
+    FLEURS rows are interleaved into the IndicVoices stream at the ratio of the
+    two set sizes (seeded RNG), then buffer-shuffled. Val is FLEURS-only."""
+    import random
+    import pyarrow.parquet as pq
+    from huggingface_hub import snapshot_download
+    from datasets import IterableDataset as HFIterableDataset, Features, Value
+
+    cfg = LANG_CFG[lang]
+    iv_config = cfg["indicvoices_config"]
+    train_cap = cfg.get("train_cap", 20000)
+    fleurs_train, fleurs_val = load_fleurs(lang)
+
+    print(f"\n  [data] Resolving IndicVoices-R {iv_config} parquet (hub cache) ...")
+    snap = pathlib.Path(snapshot_download(
+        "ai4bharat/indicvoices_r", repo_type="dataset",
+        allow_patterns=f"{iv_config}/*",
+    ))
+    iv_files = sorted((snap / iv_config).glob("train-*.parquet"))
+    if not iv_files:
+        raise FileNotFoundError(f"No {iv_config} train parquet under {snap}")
+
+    feats = Features({
+        "audio":         {"bytes": Value("binary"), "path": Value("string")},
+        "transcription": Value("string"),
+    })
+    min_dur, max_dur = 2.0, 20.0
+
+    def _gen(pq_files, max_iv, n_fleurs):
+        rng = random.Random(42)
+        fleurs_order = list(range(n_fleurs))
+        rng.shuffle(fleurs_order)
+        f_pos = 0
+        p_fleurs = n_fleurs / max(1, max_iv)   # interleave ratio
+        count = 0
+        for pq_file in pq_files:
+            if count >= max_iv:
+                break
+            t   = pq.read_table(pq_file, columns=["audio", "normalized", "duration"])
+            raw = t.to_pydict()
+            del t
+            for audio, text, dur in zip(raw["audio"], raw["normalized"], raw["duration"]):
+                if count >= max_iv:
+                    break
+                if dur is None or not (min_dur <= dur <= max_dur) or not text:
+                    continue
+                yield {"audio": audio, "transcription": text}
+                count += 1
+                if f_pos < n_fleurs and rng.random() < p_fleurs:
+                    row = fleurs_train[fleurs_order[f_pos]]
+                    f_pos += 1
+                    a = row["audio"]
+                    yield {"audio": {"bytes": a.get("bytes"), "path": a.get("path")},
+                           "transcription": row["transcription"]}
+            del raw
+        # flush any FLEURS rows the ratio draw missed
+        while f_pos < n_fleurs:
+            row = fleurs_train[fleurs_order[f_pos]]
+            f_pos += 1
+            a = row["audio"]
+            yield {"audio": {"bytes": a.get("bytes"), "path": a.get("path")},
+                   "transcription": row["transcription"]}
+
+    train_ds = HFIterableDataset.from_generator(
+        _gen, gen_kwargs={"pq_files": iv_files, "max_iv": train_cap,
+                          "n_fleurs": len(fleurs_train)},
+        features=feats,
+    ).shuffle(seed=42, buffer_size=3000)
+
+    print(f"\n  [data] Combined train: ~{train_cap + len(fleurs_train):,} samples "
+          f"(IndicVoices cap {train_cap:,} + FLEURS {len(fleurs_train):,}, streaming)"
           f"  Val: {len(fleurs_val)} (FLEURS only)")
     return train_ds, fleurs_val
 
@@ -403,6 +497,8 @@ def train(lang: str, args):
         train_raw, val_raw = load_indicvoices_ks(cfg)
     elif cfg.get("cv_dataset"):
         train_raw, val_raw = load_fleurs_plus_cv(lang)
+    elif cfg.get("indicvoices_config"):
+        train_raw, val_raw = load_fleurs_plus_indicvoices(lang)
     else:
         train_raw, val_raw = load_fleurs(lang)
 
@@ -522,9 +618,9 @@ def main():
         print("        It should already be at models/seamless-m4t-v2-large")
         sys.exit(1)
 
-    # "all" = the six FLEURS languages; ks (custom token) and ps_cv (extra-data
-    # experiment) run only when named explicitly
-    EXPERIMENTS = {"ks", "ps_cv"}
+    # "all" = the six FLEURS languages; ks (custom token) and the extra-data
+    # experiments run only when named explicitly
+    EXPERIMENTS = {"ks", "ps_cv", "hi_iv", "ne_iv"}
     langs = [l for l in LANG_CFG if l not in EXPERIMENTS] if args.lang == "all" else [args.lang]
     for lang in langs:
         train(lang, args)

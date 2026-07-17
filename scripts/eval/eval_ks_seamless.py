@@ -48,6 +48,14 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=None, help="cap IndicVoices test samples")
     ap.add_argument("--skip-robustness", action="store_true")
+    # Decode fixes from the 2026-07-17 probe: the 129.29 WER was dominated by
+    # early-EOS under-generation; duration-scaled min_new_tokens + no-repeat-
+    # ngram recovered 128.28 -> 94.31 on a 50-sample subset (beams alone: worse).
+    ap.add_argument("--min-tok-per-sec", type=float, default=0.0,
+                    help="duration-scaled min_new_tokens (0 = off; probe used 2.5)")
+    ap.add_argument("--min-tok-cap", type=int, default=180)
+    ap.add_argument("--no-repeat-ngram", type=int, default=0,
+                    help="no_repeat_ngram_size (0 = off; probe used 3)")
     args = ap.parse_args()
 
     import torch
@@ -78,11 +86,19 @@ def main():
             pass
 
     def transcribe(arr):
+        gen_kwargs = {}
+        if args.min_tok_per_sec > 0:
+            dur = len(arr) / 16000.0
+            gen_kwargs["min_new_tokens"] = min(
+                args.min_tok_cap, max(5, int(dur * args.min_tok_per_sec)))
+        if args.no_repeat_ngram > 0:
+            gen_kwargs["no_repeat_ngram_size"] = args.no_repeat_ngram
         feat = processor.feature_extractor(arr, sampling_rate=16000, return_tensors="pt")
         feat = {k: (v.half() if device == "cuda" and v.dtype == torch.float32 else v).to(device)
                 for k, v in feat.items()}
         with torch.no_grad():
-            out = model.generate(**feat, tgt_lang="kas", num_beams=1, max_new_tokens=200)
+            out = model.generate(**feat, tgt_lang="kas", num_beams=1, max_new_tokens=200,
+                                 **gen_kwargs)
         return processor.decode(out[0], skip_special_tokens=True).strip()
 
     OUT_JSONL.parent.mkdir(exist_ok=True)
@@ -129,6 +145,11 @@ def main():
         print(f"[done] robustness_clean: {results['robustness_clean']}")
 
     jl.close()
+    results["_decode_settings"] = {
+        "min_tok_per_sec": args.min_tok_per_sec,
+        "min_tok_cap": args.min_tok_cap,
+        "no_repeat_ngram": args.no_repeat_ngram,
+    }
     results["whisper_ks_reference"] = {
         "indicvoices_test_wer_raw": 74.02,
         "robustness_clean_wer": 81.46, "robustness_clean_cer": 47.95,
