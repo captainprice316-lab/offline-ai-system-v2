@@ -45,6 +45,16 @@ LANG_CFG = {
         "indicvoices_parquet_dir": r"E:\VANI\datasets\hf_ks_temp\hub\datasets--ai4bharat--indicvoices_r\snapshots\5f4495c91d500742a58d1be2ab07d77f73c0acf8\Kashmiri",
         "train_cap": 20000,
     },
+    "ps_cv": {
+        # Experimental: Pashto with Common Voice 20 added (~50k clips, upvote-
+        # filtered) on top of FLEURS ps_af (2,082). The fixed-label FLEURS-only
+        # adapter scored 41.30 vs deployed Whisper-medium 38.55 — this probes
+        # whether 24x more data closes the 2.75 pp gap. Own run dir; the ps/
+        # adapter and its results are untouched. Val stays FLEURS-only so model
+        # selection aims at the held-out FLEURS ruler.
+        "fleurs": "ps_af", "sm_lang": "pbt", "name": "Pashto (FLEURS + CV-20)",
+        "cv_dataset": "SherwinDesouza/pashto-common-voice-20",
+    },
 }
 
 
@@ -66,6 +76,67 @@ def load_fleurs(lang: str):
     val_ds   = val_ds.cast_column("audio",   Audio(decode=False))
     print(f"         Train: {len(train_ds)}  Val: {len(val_ds)}")
     return train_ds, val_ds
+
+
+def load_fleurs_plus_cv(lang: str):
+    """FLEURS + Common Voice Pashto, streamed in one pre-shuffled order.
+
+    Both sources stay decode=False (bytes only) and are drawn through a
+    generator-backed IterableDataset — same pattern as the ks IndicVoices run,
+    avoiding the Windows Arrow-temp-file locking that binary-audio .map()
+    caching hits at this row count. Val is FLEURS-only (unchanged ruler).
+    The CV mirror's split names are inverted upstream (train=3.4k,
+    validation=46.5k) — both splits are training data here; we never eval on CV.
+    """
+    import random
+    from datasets import load_dataset, Audio, concatenate_datasets
+    from datasets import IterableDataset as HFIterableDataset, Features, Value
+
+    cfg = LANG_CFG[lang]
+    fleurs_train, fleurs_val = load_fleurs(lang)
+
+    token = os.environ.get("HF_TOKEN")
+    print(f"\n  [data] Loading Common Voice ({cfg['cv_dataset']}) ...")
+    parts = []
+    for split in ("train", "validation"):
+        ds = load_dataset(cfg["cv_dataset"], split=split, token=token,
+                          cache_dir=str(DATA_DIR / "cv_ps"))
+        ds = ds.cast_column("path", Audio(decode=False))
+        before = len(ds)
+        ds = ds.filter(lambda x: x["up_votes"] >= x["down_votes"]
+                       and x["sentence"] and x["sentence"].strip())
+        ds = ds.rename_column("path", "audio")
+        ds = ds.rename_column("sentence", "transcription")
+        ds = ds.select_columns(["audio", "transcription"])
+        parts.append(ds)
+        print(f"         CV {split}: {len(ds):,} kept ({before - len(ds):,} filtered)")
+    cv_train = concatenate_datasets(parts)
+
+    feats = Features({
+        "audio":         {"bytes": Value("binary"), "path": Value("string")},
+        "transcription": Value("string"),
+    })
+
+    def _gen(n_fleurs, n_cv):
+        order = [("f", i) for i in range(n_fleurs)] + [("c", i) for i in range(n_cv)]
+        random.Random(42).shuffle(order)
+        for src, i in order:
+            row = fleurs_train[i] if src == "f" else cv_train[i]
+            audio = row["audio"]
+            yield {
+                "audio": {"bytes": audio.get("bytes"), "path": audio.get("path")},
+                "transcription": row["transcription"],
+            }
+
+    train_ds = HFIterableDataset.from_generator(
+        _gen, gen_kwargs={"n_fleurs": len(fleurs_train), "n_cv": len(cv_train)},
+        features=feats,
+    )
+    total = len(fleurs_train) + len(cv_train)
+    print(f"\n  [data] Combined train: {total:,} samples "
+          f"(FLEURS {len(fleurs_train):,} + CV {len(cv_train):,}, streaming, pre-shuffled)"
+          f"  Val: {len(fleurs_val)} (FLEURS only)")
+    return train_ds, fleurs_val
 
 
 def load_indicvoices_ks(cfg: dict):
@@ -330,6 +401,8 @@ def train(lang: str, args):
     # ── Data ──────────────────────────────────────────────────────────────────
     if cfg.get("indicvoices_parquet_dir"):
         train_raw, val_raw = load_indicvoices_ks(cfg)
+    elif cfg.get("cv_dataset"):
+        train_raw, val_raw = load_fleurs_plus_cv(lang)
     else:
         train_raw, val_raw = load_fleurs(lang)
 
@@ -449,8 +522,10 @@ def main():
         print("        It should already be at models/seamless-m4t-v2-large")
         sys.exit(1)
 
-    # "all" = the six FLEURS languages; ks is its own experiment (custom token)
-    langs = [l for l in LANG_CFG if l != "ks"] if args.lang == "all" else [args.lang]
+    # "all" = the six FLEURS languages; ks (custom token) and ps_cv (extra-data
+    # experiment) run only when named explicitly
+    EXPERIMENTS = {"ks", "ps_cv"}
+    langs = [l for l in LANG_CFG if l not in EXPERIMENTS] if args.lang == "all" else [args.lang]
     for lang in langs:
         train(lang, args)
 
