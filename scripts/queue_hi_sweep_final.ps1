@@ -49,7 +49,20 @@ $p = Start-Process -FilePath "$root\venv\Scripts\python.exe" `
     -RedirectStandardError  "$root\logs\hi_iv_sweep_err.log" `
     -WindowStyle Hidden -PassThru
 $p.WaitForExit()
-Log "sweep inference finished (exit $($p.ExitCode)) - scoring"
+Log "hi_iv sweep finished (exit $($p.ExitCode))"
+Start-Sleep -Seconds 30
+
+# ne_iv won clean speech too (24.34 vs ZS 28.46) - same gate before its
+# first-ever deployment (bar: the existing seamless_zs ne rows)
+Log "running ne_iv degradation sweep (5 conditions x 30 clips)"
+$p2 = Start-Process -FilePath "$root\venv\Scripts\python.exe" `
+    -ArgumentList '-u','scripts\eval\wer_robustness_eval.py','--systems','seamless_ft','--langs','ne','--adapter-name','ne_iv' `
+    -WorkingDirectory $root `
+    -RedirectStandardOutput "$root\logs\ne_iv_sweep.log" `
+    -RedirectStandardError  "$root\logs\ne_iv_sweep_err.log" `
+    -WindowStyle Hidden -PassThru
+$p2.WaitForExit()
+Log "ne_iv sweep finished (exit $($p2.ExitCode)) - scoring"
 
 $s = Start-Process -FilePath "$root\venv\Scripts\python.exe" `
     -ArgumentList '-u','scripts\eval\score_wer_robustness.py' `
