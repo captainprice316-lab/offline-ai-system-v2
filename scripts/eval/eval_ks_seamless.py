@@ -56,7 +56,16 @@ def main():
     ap.add_argument("--min-tok-cap", type=int, default=180)
     ap.add_argument("--no-repeat-ngram", type=int, default=0,
                     help="no_repeat_ngram_size (0 = off; probe used 3)")
+    ap.add_argument("--adapter-dir", type=str, default=None,
+                    help="override adapter dir (default: finetune_runs_seamless/ks/adapter)")
     args = ap.parse_args()
+
+    global ADAPTER_DIR, OUT_JSONL, OUT_JSON
+    if args.adapter_dir:
+        ADAPTER_DIR = pathlib.Path(args.adapter_dir)
+        tag = ADAPTER_DIR.parent.name          # e.g. ks_r16
+        OUT_JSONL = ROOT / "eval_data" / f"{tag}_seamless_hyps.jsonl"
+        OUT_JSON  = ROOT / "docs" / f"{tag}_seamless_results.json"
 
     import torch
     from transformers import AutoProcessor, SeamlessM4Tv2ForSpeechToText

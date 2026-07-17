@@ -55,6 +55,21 @@ LANG_CFG = {
         "fleurs": "ps_af", "sm_lang": "pbt", "name": "Pashto (FLEURS + CV-20)",
         "cv_dataset": "SherwinDesouza/pashto-common-voice-20",
     },
+    "ks_r16": {
+        # Kashmiri attempt #3 (after 1-epoch r=8 129.29 greedy and 3-epoch r=8
+        # 92.09 with decode fixes, both losing to Whisper-ks 74.02). First
+        # capacity increase for ks: r=16 a=32 on q/k/v/out_proj — SM4T never saw
+        # Kashmiri, so encoder adaptation should matter more here than anywhere.
+        # Cap raised to all available IndicVoices (24.7k total). Fresh run, not
+        # a resume (different adapter shape). If this moves WER but falls short,
+        # the next surgical lever is a trainable __kas__ embedding row (frozen
+        # urd-init under LoRA — the suspected conditioning bottleneck).
+        "sm_lang": "kas", "name": "Kashmiri (r16, full data)",
+        "indicvoices_parquet_dir": r"E:\VANI\datasets\hf_ks_temp\hub\datasets--ai4bharat--indicvoices_r\snapshots\5f4495c91d500742a58d1be2ab07d77f73c0acf8\Kashmiri",
+        "train_cap": 24000,
+        "lora_r": 16, "lora_alpha": 32,
+        "lora_targets": ["q_proj", "k_proj", "v_proj", "out_proj"],
+    },
     "ps_bal": {
         # Pashto attempt #3 (after FLEURS-only 41.30 and CV-dominated 42.47 both
         # lost to Whisper-medium 38.55). Fixes ps_cv's failure mode: FLEURS is
@@ -642,7 +657,7 @@ def main():
 
     # "all" = the six FLEURS languages; ks (custom token) and the extra-data
     # experiments run only when named explicitly
-    EXPERIMENTS = {"ks", "ps_cv", "ps_bal", "hi_iv", "ne_iv"}
+    EXPERIMENTS = {"ks", "ks_r16", "ps_cv", "ps_bal", "hi_iv", "ne_iv"}
     langs = [l for l in LANG_CFG if l not in EXPERIMENTS] if args.lang == "all" else [args.lang]
     for lang in langs:
         train(lang, args)
