@@ -209,21 +209,24 @@ def make_seamless(cfg, device):
     return SeamlessASR(str(path), device=device, cfg=cfg.get("asr", {})), path.name
 
 
-def make_seamless_ft(cfg, lang, device):
+def make_seamless_ft(cfg, lang, device, adapter_dirname=None):
     """SeamlessM4T with the language's fixed-label LoRA adapter applied on top of the
     production SeamlessASR path — tests whether an adapter's clean-speech win (hi:
     13.94 vs zero-shot 15.44) survives radio degradation. Per-language, like whisper_ft.
+    `adapter_dirname` overrides the finetune_runs_seamless subdir (e.g. "hi_iv" to
+    sweep an experimental adapter against the deployed one).
 
     Not valid for ks: that adapter needs its own tokenizer (custom __kas__ token) —
     use scripts/eval/eval_ks_seamless.py for Kashmiri instead."""
     from peft import PeftModel
     asr, model_name = make_seamless(cfg, device)
-    adapter = VANI_ROOT / "finetune_runs_seamless" / lang / "adapter"
+    dirname = adapter_dirname or lang
+    adapter = VANI_ROOT / "finetune_runs_seamless" / dirname / "adapter"
     if not adapter.exists():
         raise FileNotFoundError(f"no Seamless adapter for {lang}: {adapter}")
     asr.model = PeftModel.from_pretrained(asr.model, str(adapter))
     asr.model.eval()
-    return asr, f"{model_name}+{lang}-lora"
+    return asr, f"{model_name}+{dirname}-lora"
 
 
 def _free(model):
@@ -264,7 +267,7 @@ def transcribe_one(asr, arr, sr, lang):
         os.unlink(tmp_path)
 
 
-def sweep(systems, langs, conditions, n_samples, device):
+def sweep(systems, langs, conditions, n_samples, device, adapter_name=None):
     cfg  = load_config()
     OUT_JSONL.parent.mkdir(parents=True, exist_ok=True)
     seen = done_keys(OUT_JSONL)
@@ -307,12 +310,18 @@ def sweep(systems, langs, conditions, n_samples, device):
 
             wavs = sorted((CACHE_DIR / lang).glob("*.wav"))[:n_samples]
 
+            # experimental adapters get their own system tag so they neither
+            # dedupe against nor overwrite the deployed adapter's rows
+            sys_tag = (f"seamless_ft_{adapter_name}"
+                       if system == "seamless_ft" and adapter_name else system)
+
             if system == "whisper_ft":
                 asr, model_name, is_ft = make_whisper(cfg, lang, device)
                 tag = "fine-tuned" if is_ft else "TURBO FALLBACK (no fine-tuned model)"
                 print(f"\n  [{lang}] {model_name}  ({tag})", flush=True)
             elif system == "seamless_ft":
-                asr, model_name = make_seamless_ft(cfg, lang, device)
+                asr, model_name = make_seamless_ft(cfg, lang, device,
+                                                   adapter_dirname=adapter_name)
                 print(f"\n  [{lang}] {model_name}", flush=True)
             else:
                 asr = shared
@@ -320,7 +329,7 @@ def sweep(systems, langs, conditions, n_samples, device):
 
             for condition in conditions:
                 todo = [i for i in range(len(wavs))
-                        if i in refs and (system, lang, condition, i) not in seen]
+                        if i in refs and (sys_tag, lang, condition, i) not in seen]
                 if not todo:
                     print(f"    {condition:10} done", flush=True)
                     continue
@@ -333,7 +342,7 @@ def sweep(systems, langs, conditions, n_samples, device):
                     except Exception as e:
                         print(f"    [ERR] {lang}/{condition}/{i}: {e}", flush=True)
                         continue
-                    emit(system=system, lang=lang, condition=condition, idx=i,
+                    emit(system=sys_tag, lang=lang, condition=condition, idx=i,
                          model=model_name, ref=refs[i], hyp=hyp,
                          dur=round(len(arr) / sr, 3))
                     print(f"    {condition:10} {n}/{len(todo)}", end="\r", flush=True)
@@ -368,6 +377,9 @@ def main():
                     choices=["whisper_ft", "seamless_zs", "whisper_base", "seamless_ft"])
     ap.add_argument("--n",          type=int, default=30, help="samples per language")
     ap.add_argument("--device",     default="cuda")
+    ap.add_argument("--adapter-name", default=None,
+                    help="seamless_ft only: finetune_runs_seamless subdir to load "
+                         "(e.g. hi_iv); rows are tagged seamless_ft_<name>")
     args = ap.parse_args()
 
     if args.cache_refs:
@@ -379,7 +391,8 @@ def main():
     print(f"conditions={args.conditions}  n={args.n}  device={args.device}")
     total = len(args.systems) * len(args.langs) * len(args.conditions) * args.n
     print(f"upper bound: {total} transcriptions (minus skips/resume)\n")
-    sweep(args.systems, args.langs, args.conditions, args.n, args.device)
+    sweep(args.systems, args.langs, args.conditions, args.n, args.device,
+          adapter_name=args.adapter_name)
 
 
 if __name__ == "__main__":
