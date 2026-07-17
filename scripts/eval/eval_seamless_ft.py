@@ -41,6 +41,7 @@ LANG_CFG = {
     # Extra-data experiments (finetune_runs_seamless/<key>) — same FLEURS test
     # rulers as their base languages, stored as their own results rows.
     "ps_cv": {"fleurs": "ps_af",    "sm_lang": "pbt", "name": "Pashto (FLEURS+CV)"},
+    "ps_bal": {"fleurs": "ps_af",   "sm_lang": "pbt", "name": "Pashto (bal+r16)"},
     "hi_iv": {"fleurs": "hi_in",    "sm_lang": "hin", "name": "Hindi (FLEURS+IV)"},
     "ne_iv": {"fleurs": "ne_np",    "sm_lang": "npi", "name": "Nepali (FLEURS+IV)"},
 }

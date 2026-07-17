@@ -55,6 +55,19 @@ LANG_CFG = {
         "fleurs": "ps_af", "sm_lang": "pbt", "name": "Pashto (FLEURS + CV-20)",
         "cv_dataset": "SherwinDesouza/pashto-common-voice-20",
     },
+    "ps_bal": {
+        # Pashto attempt #3 (after FLEURS-only 41.30 and CV-dominated 42.47 both
+        # lost to Whisper-medium 38.55). Fixes ps_cv's failure mode: FLEURS is
+        # oversampled 8x (~20k effective) against a 10k CV cap, keeping ~2/3 of
+        # batches on the eval domain. Also the first run with more adapter
+        # capacity: r=16 α=32 on q/k/v/out_proj — Pashto is thin in SM4T's
+        # pretraining, so encoder adaptation is the suspected binding constraint.
+        "fleurs": "ps_af", "sm_lang": "pbt", "name": "Pashto (bal. FLEURSx8 + CV10k, r16)",
+        "cv_dataset": "SherwinDesouza/pashto-common-voice-20",
+        "cv_cap": 10000, "fleurs_repeat": 8,
+        "lora_r": 16, "lora_alpha": 32,
+        "lora_targets": ["q_proj", "k_proj", "v_proj", "out_proj"],
+    },
     "hi_iv": {
         # Experimental: Hindi with IndicVoices-R added (cap 20k) on top of FLEURS
         # hi_in (2,120). The deployed hi adapter (13.94) is FLEURS-only — this
@@ -129,13 +142,21 @@ def load_fleurs_plus_cv(lang: str):
         print(f"         CV {split}: {len(ds):,} kept ({before - len(ds):,} filtered)")
     cv_train = concatenate_datasets(parts)
 
+    cv_cap = cfg.get("cv_cap")
+    if cv_cap and len(cv_train) > cv_cap:
+        cv_train = cv_train.shuffle(seed=42).select(range(cv_cap))
+        print(f"         CV capped to {cv_cap:,}")
+
     feats = Features({
         "audio":         {"bytes": Value("binary"), "path": Value("string")},
         "transcription": Value("string"),
     })
 
-    def _gen(n_fleurs, n_cv):
-        order = [("f", i) for i in range(n_fleurs)] + [("c", i) for i in range(n_cv)]
+    fleurs_repeat = cfg.get("fleurs_repeat", 1)
+
+    def _gen(n_fleurs, n_cv, n_repeat):
+        order = ([("f", i) for i in range(n_fleurs)] * n_repeat
+                 + [("c", i) for i in range(n_cv)])
         random.Random(42).shuffle(order)
         for src, i in order:
             row = fleurs_train[i] if src == "f" else cv_train[i]
@@ -146,13 +167,14 @@ def load_fleurs_plus_cv(lang: str):
             }
 
     train_ds = HFIterableDataset.from_generator(
-        _gen, gen_kwargs={"n_fleurs": len(fleurs_train), "n_cv": len(cv_train)},
+        _gen, gen_kwargs={"n_fleurs": len(fleurs_train), "n_cv": len(cv_train),
+                          "n_repeat": fleurs_repeat},
         features=feats,
     )
-    total = len(fleurs_train) + len(cv_train)
+    total = len(fleurs_train) * fleurs_repeat + len(cv_train)
     print(f"\n  [data] Combined train: {total:,} samples "
-          f"(FLEURS {len(fleurs_train):,} + CV {len(cv_train):,}, streaming, pre-shuffled)"
-          f"  Val: {len(fleurs_val)} (FLEURS only)")
+          f"(FLEURS {len(fleurs_train):,} x{fleurs_repeat} + CV {len(cv_train):,}, "
+          f"streaming, pre-shuffled)  Val: {len(fleurs_val)} (FLEURS only)")
     return train_ds, fleurs_val
 
 
@@ -482,9 +504,9 @@ def train(lang: str, args):
 
     # ── LoRA ──────────────────────────────────────────────────────────────────
     lora_cfg = LoraConfig(
-        r=8,
-        lora_alpha=16,
-        target_modules=["q_proj", "v_proj"],
+        r=cfg.get("lora_r", 8),
+        lora_alpha=cfg.get("lora_alpha", 16),
+        target_modules=cfg.get("lora_targets", ["q_proj", "v_proj"]),
         lora_dropout=0.05,
         task_type=TaskType.SEQ_2_SEQ_LM,
         bias="none",
@@ -620,7 +642,7 @@ def main():
 
     # "all" = the six FLEURS languages; ks (custom token) and the extra-data
     # experiments run only when named explicitly
-    EXPERIMENTS = {"ks", "ps_cv", "hi_iv", "ne_iv"}
+    EXPERIMENTS = {"ks", "ps_cv", "ps_bal", "hi_iv", "ne_iv"}
     langs = [l for l in LANG_CFG if l not in EXPERIMENTS] if args.lang == "all" else [args.lang]
     for lang in langs:
         train(lang, args)
