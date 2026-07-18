@@ -88,5 +88,14 @@
     "sm_ft_asr_cer": 9.66,
     "sm_ft_s2tt_chrf": 45.13,
     "time": 192.3
+  },
+  {
+    "lang": "ps_bal2",
+    "name": "Pashto (bal+r32+MLP)",
+    "n": 100,
+    "sm_ft_asr_wer": 37.29,
+    "sm_ft_asr_cer": 21.09,
+    "sm_ft_s2tt_chrf": 27.46,
+    "time": 183.5
   }
 ]

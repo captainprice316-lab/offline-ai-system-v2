@@ -290,7 +290,8 @@ All adapters LoRA on SeamlessM4T v2; n=100 held-out FLEURS eval unless noted.
 | Experiment | Recipe | Result | Verdict |
 |---|---|---|---|
 | ps_cv | FLEURS + CV-20 Pashto (~50k, 95% CV), r=8 | 42.47 | **Lost** — worse than FLEURS-only (41.30); CV domain drift |
-| ps_bal | FLEURS ×8 + CV cap 10k, r=16 α=32 q/k/v/out | 39.72; best decode (beam 5, lp 0.8) **38.88** | **Lost by 0.33** to Whisper-medium 38.55 — Pashto stays on Whisper |
+| ps_bal | FLEURS ×8 + CV cap 10k, r=16 α=32 q/k/v/out | 39.72; best decode (beam 5, lp 0.8) **38.88** | **Lost by 0.33** to Whisper-medium 38.55 |
+| ps_bal2 | ps_bal data, r=32 α=64 + MLP (fc1/fc2) | **37.29** clean (first Seamless win) — but **87.2 at 0 dB** vs Whisper 64.8; loses 3/5 sweep conditions | **Failed the robustness gate** — Pashto stays on Whisper |
 | ks continuation | r=8 resumed to 7,500 steps + decode fixes | 92.09 (test) | **Lost** to Whisper-ks 74.02 |
 | ks_r16 | r=16 α=32, all 24k IndicVoices samples | 88.42 (test) | **Lost** — Whisper keeps Kashmiri definitively |
 | hi_iv | FLEURS + IndicVoices-R Hindi (cap 20k), r=8 | **12.91** vs prior adapter 13.94 | **WON** — deployed 2026-07-18 (4/5 sweep conditions) |
@@ -299,11 +300,13 @@ All adapters LoRA on SeamlessM4T v2; n=100 held-out FLEURS eval unless noted.
 **What the campaign established:**
 
 1. **Where SeamlessM4T is already strong, more data helps; where it is weak, nothing closes
-   the gap.** Hindi and Nepali (well-covered in SM4T pretraining) each gained ~1–4 points
-   from IndicVoices data and now run deployed adapters. Pashto (thin coverage) got within
-   0.33 points of Whisper after three attempts and still lost; Kashmiri (no coverage — custom
-   `__kas__` token) never got within 14 points despite epochs, decode fixes, and doubled
-   adapter rank.
+   the gap operationally.** Hindi and Nepali (well-covered in SM4T pretraining) each gained
+   ~1–4 points from IndicVoices data and now run deployed adapters. Pashto took four
+   attempts to finally beat Whisper on clean speech (37.29 vs 38.55, r=32 + MLP LoRA) — and
+   then failed the degradation sweep, collapsing to 87.2% WER at 0 dB SNR against Whisper's
+   64.8: the added capacity traded noise robustness for clean accuracy. Kashmiri (no
+   coverage — custom `__kas__` token) never got within 14 points at all. Both stay on
+   Whisper; for radio audio, clean-speech wins that don't survive the sweep don't count.
 2. **Validation loss is not a model-selection metric for ASR.** Three times in this campaign
    a clearly better eval_loss produced equal or worse WER (ps_cv: −6% loss, +1.2 WER;
    ks continuation: −17% loss, −2 WER; ks_r16: −23% loss, −3.7 WER). Free-running generation
