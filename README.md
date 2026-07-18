@@ -26,19 +26,19 @@ All processing is **fully offline** — no internet connection required after se
 | Punjabi | pa | SeamlessM4T v2 (zero-shot) | 19.77% | 57.39% | 77.60% | NLLB-200 |
 | Pashto | ps | whisper-medium-pashto-ct2 ★ | 38.55% | 38.55% | 89.76% | NLLB-200 |
 | Urdu | ur | SeamlessM4T v2 (zero-shot) | 16.90% | 19.82% | 21.23% | NLLB-200 |
-| Nepali | ne | SeamlessM4T v2 (zero-shot) | 28.46% | 50.92% | 88.85% | NLLB-200 |
+| Nepali | ne | SeamlessM4T v2 + LoRA ★ | 24.34% | 50.92% | 88.85% | NLLB-200 |
 | Mandarin | zh | SeamlessM4T v2 (zero-shot) | 11.69% | 14.22%‡ | 10.99% | NLLB-200 |
-| Hindi | hi | SeamlessM4T v2 + LoRA ★ | 13.94% | 19.78% | 26.34% | NLLB-200 |
+| Hindi | hi | SeamlessM4T v2 + LoRA ★ | 12.91% | 19.78% | 26.34% | NLLB-200 |
 | Kashmiri | ks | whisper-large-v3-ks-ct2 ★ | 74.02%¶ | 74.02% | 96.87% | NLLB-200 |
 | Dogri | doi | whisper-large-v3-turbo-ct2 | — | — | — | IndicTrans2 |
 | Burmese | my | whisper-large-v3-turbo-ct2 | — | — | — | NLLB-200 |
 
-★ Fine-tuned with LoRA. Whisper models: r=8, α=16 on FLEURS / IndicVoices; Hindi is a SeamlessM4T LoRA adapter (deployed 2026-07-13). See `docs/FINETUNE_REPORT.md`.  
+★ Fine-tuned with LoRA. Whisper models: r=8, α=16 on FLEURS / IndicVoices; Hindi and Nepali are SeamlessM4T LoRA adapters trained on FLEURS + IndicVoices-R (deployed 2026-07-18 after winning the degradation sweep). See `docs/FINETUNE_REPORT.md`.  
 † True `openai/whisper-large-v3` baseline, CJK-aware scoring (corrected eval, 2026-07-10; the previously published baselines used a mislabelled turbo model and whitespace WER on character-spaced Han).  
 ‡ Mandarin fine-tuning *regressed* vs the 10.99% baseline (+3.2 pp); the fine-tuned zh model is retained but not deployed.  
 ¶ Kashmiri: custom `<|ks|>` vocab token (ID 51866, embedding initialised from `<|ur|>`), IndicVoices-R (20k samples), best checkpoint step 2400. SeamlessM4T has no Kashmiri, so ks stays on fine-tuned Whisper.
 
-**Backend routing (since 2026-07-11):** zero-shot SeamlessM4T beats fine-tuned Whisper on clean speech for 5 of 6 comparable languages *and* in every radio-degradation condition, so `asr.seamless_langs: [pa, ne, hi, ur, zh]` routes those five to SeamlessM4T. Per-language fine-tuning earned deployment only for Pashto and Kashmiri (Whisper) and Hindi (SeamlessM4T adapter).
+**Backend routing (since 2026-07-11, adapters updated 2026-07-18):** zero-shot SeamlessM4T beats fine-tuned Whisper on clean speech for 5 of 6 comparable languages *and* in every radio-degradation condition, so `asr.seamless_langs: [pa, ne, hi, ur, zh]` routes those five to SeamlessM4T — Hindi and Nepali with deployed LoRA adapters (FLEURS + IndicVoices-R), the rest zero-shot. Whisper keeps Pashto (its domain-pretrained medium base survived three SeamlessM4T challenges; final margin 38.55 vs 38.88) and Kashmiri (SM4T has no `kas`; custom-token attempts lost by 14+ points).
 
 ### Cross-model comparison (100-sample FLEURS test, corrected re-run 2026-07-10)
 
@@ -47,9 +47,9 @@ All processing is **fully offline** — no internet connection required after se
 | Punjabi | 77.60% | 57.39% | **19.77%** | 19.77% | ZS SM4T |
 | Pashto | 89.76% | **38.55%** | 44.40% | 41.30% | **FT Whisper** |
 | Urdu | 21.23% | 19.82% | **16.90%** | 17.26% | ZS SM4T |
-| Nepali | 88.85% | 50.92% | **28.46%** | 28.92% | ZS SM4T |
+| Nepali | 88.85% | 50.92% | 28.46% | **24.34%** | **FT SM4T (LoRA)** |
 | Mandarin | **10.99%** | 14.22% | 11.69% | 18.68% | ZS SM4T |
-| Hindi | 26.34% | 19.78% | 15.44% | **13.94%** | **FT SM4T (LoRA)** |
+| Hindi | 26.34% | 19.78% | 15.44% | **12.91%** | **FT SM4T (LoRA)** |
 
 Note: the FT SM4T translation collapse reported earlier (chrF ≈ 0) was a **label-encoding bug** in the training script (targets tokenised in source mode with an `__eng__` prefix), not a property of LoRA fine-tuning — corrected-label retrains recover chrF (ps 2.12→37.60, hi 0.06→43.24) with unchanged ASR. Moot in production: VANI translates with NLLB-200 regardless.  
 Full results: `docs/model_comparison_results.json` · `docs/seamless_ft_results.json` · `docs/model_comparison_report.md`
@@ -71,7 +71,7 @@ offline_ai_system_v2/
 │   └── model_comparison_report.md   # Cross-model comparison report
 │
 ├── models/                          # Deployed models
-│   ├── seamless-m4t-v2-large/       # SeamlessM4T v2 — DEPLOYED for pa/ne/hi/ur/zh (hi with LoRA)
+│   ├── seamless-m4t-v2-large/       # SeamlessM4T v2 — DEPLOYED for pa/ne/hi/ur/zh (hi/ne with LoRA)
 │   ├── whisper-medium-pashto-ct2/   # Pashto    — DEPLOYED, eval WER 38.55%
 │   ├── whisper-large-v3-ks-ct2/     # Kashmiri  — DEPLOYED, eval WER 74.02% (ckpt-2400)
 │   ├── whisper-large-v3-pa-ct2/     # Punjabi   — retained; SM4T serves pa
@@ -94,7 +94,7 @@ offline_ai_system_v2/
 │   ├── hi/adapter/                  # Hindi     (ckpt-600)
 │   └── ks/adapter/                  # Kashmiri  (best = ckpt-2400, custom <|ks|> token)
 │
-├── finetune_runs_seamless/          # SeamlessM4T LoRA adapters (hi DEPLOYED 2026-07-13; rest not)
+├── finetune_runs_seamless/          # SeamlessM4T LoRA adapters (hi_iv + ne_iv DEPLOYED 2026-07-18)
 │
 ├── scripts/
 │   ├── eval/
@@ -195,7 +195,7 @@ Audio Input
   → Stage 3:  MMS-LID language detection (256-language model)
   → Stage 3.5: Per-language ASR backend selection
        pa → SeamlessM4T v2 (zero-shot)      → NLLB-200
-       ne → SeamlessM4T v2 (zero-shot)      → NLLB-200
+       ne → SeamlessM4T v2 + ne LoRA        → NLLB-200
        hi → SeamlessM4T v2 + hi LoRA        → NLLB-200
        ur → SeamlessM4T v2 (zero-shot)      → NLLB-200
        zh → SeamlessM4T v2 (zero-shot)      → NLLB-200

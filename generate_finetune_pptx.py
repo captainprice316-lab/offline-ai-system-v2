@@ -496,7 +496,7 @@ def slide_07_language_deep(prs, n=12):
          ["Base: whisper-large-v3  |  LoRA r=8",
           "Train: FLEURS hi_in  (2,120 samples)",
           "Baseline 26.34%  →  FT test 19.78%  (−6.6 pp)",
-          "SeamlessM4T 15.44% wins → DEPLOYED backend",
+          "SM4T + IV-R LoRA adapter 12.91% → DEPLOYED",
           "max_grad_norm=0.5 (post-Mandarin fix)"]),
         ("Pashto (ps)", "38.55%", C_GREEN,
          ["Base: pashto-ghag-whisper-medium-asr",
@@ -514,8 +514,8 @@ def slide_07_language_deep(prs, n=12):
          ["Base: whisper-large-v3  |  LoRA r=8",
           "Train: FLEURS ne_np + IV-R = 13,332 samples",
           "Baseline 88.85%  →  FT test 50.92%  (−38 pp)",
-          "SeamlessM4T 28.46% wins → DEPLOYED backend",
-          "Loss still declining at step 3000"]),
+          "SM4T + IV-R LoRA adapter 24.34% → DEPLOYED",
+          "Nepali's first working adapter (post label fix)"]),
     ]
 
     positions = [(0.3, 1.42), (4.55, 1.42), (8.8, 1.42),
@@ -803,9 +803,9 @@ def slide_12_conclusion(prs, n=24):
         ("SeamlessM4T (zero-shot)",   "Punjabi",  "19.77%", C_TEAL),
         ("whisper-medium-pashto-ct2", "Pashto",   "38.55%", C_GREEN),
         ("SeamlessM4T (zero-shot)",   "Urdu",     "16.90%", C_TEAL),
-        ("SeamlessM4T (zero-shot)",   "Nepali",   "28.46%", C_TEAL),
+        ("SeamlessM4T + ne LoRA",     "Nepali",   "24.34%", C_TEAL),
         ("SeamlessM4T (zero-shot)",   "Mandarin", "11.69%", C_TEAL),
-        ("SeamlessM4T (zero-shot)",   "Hindi",    "15.44%", C_TEAL),
+        ("SeamlessM4T + hi LoRA",     "Hindi",    "12.91%", C_TEAL),
         ("whisper-large-v3-ks-ct2",   "Kashmiri", "74.02%", C_GREEN),
     ]
     y = 3.04

@@ -142,9 +142,13 @@ for l in ["pa","ps","ur","ne","zh","hi","ks"]:
     check(f"md summary {l}.heldout", num(ho), m["eval_wer"])
     if EVAL_RESULTS[l]["best"] == "seamless":
         mm = re.search(r"\((\d+\.?\d*)%\)", bk)
-        # "SeamlessM4T + LoRA (x%)" cells cite the deployed ADAPTER's WER (smft JSON),
+        # "SeamlessM4T + LoRA (x%)" cells cite the deployed ADAPTER's WER (smft JSON;
+        # since 2026-07-18 the deployed hi/ne adapters are the <lang>_iv rows),
         # plain "SeamlessM4T (x%)" cells cite zero-shot (comp JSON).
-        truth = smft[l]["sm_ft_asr_wer"] if "LoRA" in bk else comp[l]["seamless_asr_wer"]
+        if "LoRA" in bk:
+            truth = (smft.get(f"{l}_iv") or smft[l])["sm_ft_asr_wer"]
+        else:
+            truth = comp[l]["seamless_asr_wer"]
         check(f"md summary {l}.backend-wer", float(mm.group(1)) if mm else None, truth)
 
 # ── 7. Corrections section quotes vs PRE_FIX archives ────────────────────────

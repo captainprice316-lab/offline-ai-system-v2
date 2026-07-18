@@ -140,7 +140,11 @@ LANG_META = {
         "note": "v1 trained on FLEURS ne_np (3,332 samples, 2,000 steps, best WER 52.14%). "
                 "v2 retrained with IndicVoices-R Nepali added (13,332 total samples, 3,000 steps), "
                 "achieving 50.82% on a 572-sample combined eval set (FLEURS val + IndicVoices-R test). "
-                "Loss continued declining through step 3,000, suggesting further gains with extended training.",
+                "However zero-shot SeamlessM4T reaches 28.46% on the held-out test, and a SeamlessM4T "
+                "LoRA adapter trained on the same FLEURS + IndicVoices-R mix reaches 24.34% — so Nepali "
+                "is operationally routed to SeamlessM4T with that ne_iv adapter enabled (deployed "
+                "2026-07-18; wins all 5 radio-degradation conditions, e.g. bandpass 30.6 vs 34.3), "
+                "not this model (see §5.5).",
         "training_time": "~30 h",
     },
     "zh": {
@@ -191,9 +195,11 @@ LANG_META = {
                 "max_grad_norm=0.5 applied after Mandarin gradient explosion; training fully stable. "
                 "Held-out test WER 19.78% vs true large-v3 baseline 26.34% (n=100 FLEURS) — a genuine "
                 "6.6 pp fine-tuning gain. However zero-shot SeamlessM4T reaches 15.44% on the same test, "
-                "and a corrected-label SeamlessM4T LoRA adapter reaches 13.94% — so Hindi is "
-                "operationally routed to SeamlessM4T with that adapter enabled (deployed 2026-07-13; "
-                "wins 4/5 radio-degradation conditions incl. bandpass 16.28 vs 18.96), not this model (see §5.5).",
+                "a corrected-label SeamlessM4T LoRA adapter reached 13.94% (2026-07-13), and an adapter "
+                "retrained with FLEURS + IndicVoices-R data reaches 12.91% — so Hindi is operationally "
+                "routed to SeamlessM4T with that hi_iv adapter enabled (deployed 2026-07-18; beats the "
+                "previous adapter in 4/5 radio-degradation conditions incl. bandpass 15.0 vs 16.3), "
+                "not this model (see §5.5).",
         "training_time": "~6 h 45 m",
     },
     "ks": {
@@ -1076,7 +1082,7 @@ def build():
              Paragraph("<b>SeamlessM4T</b>", ParagraphStyle("Bur", fontName="Helvetica-Bold",
                         fontSize=9, textColor=HDR_BLUE, alignment=TA_CENTER)), tc("51.34"), tc("50.73")],
             [tcl("Nepali (ne)"), tc("88.85 (29.26)"), tc("50.92 (18.83)"), tc("28.46 (11.22)"),
-             Paragraph("<b>SeamlessM4T</b>", ParagraphStyle("Bne", fontName="Helvetica-Bold",
+             Paragraph("<b>SM4T + LoRA</b>", ParagraphStyle("Bne", fontName="Helvetica-Bold",
                         fontSize=9, textColor=HDR_BLUE, alignment=TA_CENTER)), tc("45.55"), tc("51.67")],
             [tcl("Mandarin (zh)¶"), tc("10.99 (10.99)"),
              Paragraph("14.22 (14.22)†", ParagraphStyle("FTzh", fontName="Helvetica",
@@ -1112,6 +1118,20 @@ def build():
             "margins from 1.4 pp (Urdu) to 37.6 pp (Punjabi). VANI routes ASR per language accordingly: "
             "SeamlessM4T for pa/ne/hi/ur/zh, fine-tuned Whisper for ps/ks. This lead holds under "
             "radio-channel degradation (§5.6)."
+        ),
+        sp(6),
+        body(
+            "<b>SeamlessM4T LoRA adapters (deployed 2026-07-18).</b> On top of the routing, Hindi and "
+            "Nepali run per-language LoRA adapters trained on FLEURS + IndicVoices-R (cap 20k samples): "
+            "Hindi 15.44% → <b>12.91%</b> and Nepali 28.46% → <b>24.34%</b> versus zero-shot on the same "
+            "held-out test. Each adapter passed a 30-clip, 5-condition degradation sweep before "
+            "deployment (Hindi wins 4/5 conditions against the earlier FLEURS-only adapter; Nepali wins "
+            "5/5 against zero-shot), and each is enabled only for its own language's decoding calls — "
+            "the other languages still run the plain base model. The same extra-data recipe was tried "
+            "and rejected for Pashto (best 38.88% incl. decode tuning, vs fine-tuned Whisper 38.55%) "
+            "and Kashmiri (best 88.42% with a custom __kas__ token, vs fine-tuned Whisper 74.02%) — "
+            "SeamlessM4T improves where its pretraining already covers the language, but cannot "
+            "overtake Whisper where it does not, which is precisely why the hybrid architecture exists."
         ),
         sp(4),
         note("† Mandarin: fine-tuning regressed the model (baseline 10.99% → fine-tuned 14.22%). The prior "
