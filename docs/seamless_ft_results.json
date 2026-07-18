@@ -61,5 +61,32 @@
     "sm_ft_asr_cer": 25.04,
     "sm_ft_s2tt_chrf": 15.25,
     "time": 158.7
+  },
+  {
+    "lang": "ps_bal",
+    "name": "Pashto (bal+r16)",
+    "n": 100,
+    "sm_ft_asr_wer": 39.72,
+    "sm_ft_asr_cer": 20.77,
+    "sm_ft_s2tt_chrf": 38.32,
+    "time": 199.4
+  },
+  {
+    "lang": "hi_iv",
+    "name": "Hindi (FLEURS+IV)",
+    "n": 100,
+    "sm_ft_asr_wer": 12.91,
+    "sm_ft_asr_cer": 7.27,
+    "sm_ft_s2tt_chrf": 45.76,
+    "time": 188.7
+  },
+  {
+    "lang": "ne_iv",
+    "name": "Nepali (FLEURS+IV)",
+    "n": 100,
+    "sm_ft_asr_wer": 24.34,
+    "sm_ft_asr_cer": 9.66,
+    "sm_ft_s2tt_chrf": 45.13,
+    "time": 192.3
   }
 ]

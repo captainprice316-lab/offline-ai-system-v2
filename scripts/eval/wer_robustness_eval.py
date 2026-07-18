@@ -219,6 +219,14 @@ def make_seamless_ft(cfg, lang, device, adapter_dirname=None):
     Not valid for ks: that adapter needs its own tokenizer (custom __kas__ token) —
     use scripts/eval/eval_ks_seamless.py for Kashmiri instead."""
     from peft import PeftModel
+    # Build a CLEAN SeamlessASR: since the hi adapter deployment, the production
+    # asr.seamless_adapters machinery calls set_adapter/disable_adapter per
+    # language inside generate(), which silently overrides (hi) or disables (ne)
+    # a stacked experimental adapter. Caught 2026-07-18: the hi_iv sweep scored
+    # identical to the deployed adapter and ne_iv identical to zero-shot.
+    cfg = dict(cfg)
+    cfg["asr"] = {k: v for k, v in (cfg.get("asr") or {}).items()
+                  if k != "seamless_adapters"}
     asr, model_name = make_seamless(cfg, device)
     dirname = adapter_dirname or lang
     adapter = VANI_ROOT / "finetune_runs_seamless" / dirname / "adapter"

@@ -1,0 +1,31 @@
+{
+  "A_greedy": {
+    "wer": 39.72,
+    "cer": 20.77,
+    "time": 110.9,
+    "n": 100
+  },
+  "B_beam5": {
+    "wer": 39.21,
+    "cer": 20.48,
+    "time": 118.8,
+    "n": 100
+  },
+  "C_beam5_lp12": {
+    "wer": 39.21,
+    "cer": 20.44,
+    "time": 118.5,
+    "n": 100
+  },
+  "D_beam5_lp08": {
+    "wer": 38.88,
+    "cer": 20.29,
+    "time": 112.7,
+    "n": 100
+  },
+  "_reference": {
+    "ps_bal_greedy_eval": 39.72,
+    "whisper_medium_deployed": 38.55,
+    "note": "Same 100 FLEURS ps_af test samples and text_norm normaliser as eval_seamless_ft. If any condition beats 38.55, run the 5-condition degradation sweep before any routing change."
+  }
+}

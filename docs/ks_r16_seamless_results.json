@@ -1,0 +1,27 @@
+{
+  "indicvoices_test": {
+    "wer_raw": 88.42,
+    "cer_raw": 55.5,
+    "wer_nfc": 88.17,
+    "cer_nfc": 55.39,
+    "n": 372
+  },
+  "robustness_clean": {
+    "wer_raw": 88.08,
+    "cer_raw": 54.27,
+    "wer_nfc": 88.08,
+    "cer_nfc": 54.36,
+    "n": 30
+  },
+  "_decode_settings": {
+    "min_tok_per_sec": 2.5,
+    "min_tok_cap": 180,
+    "no_repeat_ngram": 3
+  },
+  "whisper_ks_reference": {
+    "indicvoices_test_wer_raw": 74.02,
+    "robustness_clean_wer": 81.46,
+    "robustness_clean_cer": 47.95,
+    "note": "Whisper-ks: training-eval 74.02 (raw jiwer, same split); robustness figures from eval_data/wer_robustness_results.csv (clean)."
+  }
+}

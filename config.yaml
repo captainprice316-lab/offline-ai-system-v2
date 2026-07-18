@@ -38,11 +38,20 @@ asr:
                              # An adapter is enabled ONLY for that language's generate()
                              # calls; every other language runs with adapters disabled,
                              # numerically identical to the plain base model.
-    hi: finetune_runs_seamless/hi/adapter
-                             # hi (deployed 2026-07-13): corrected-label LoRA. 13.94 vs
-                             # zero-shot 15.44 WER (n=100 clean); wins 4/5 degradation
-                             # conditions incl. bandpass 16.28 vs 18.96 (30-clip sweep).
-                             # Remove the entry to revert hi to zero-shot.
+    hi: finetune_runs_seamless/hi_iv/adapter
+                             # hi_iv (deployed 2026-07-18, replaces the 2026-07-13 hi
+                             # adapter): FLEURS + IndicVoices-R (cap 20k). 12.91 vs prior
+                             # adapter 13.94 vs zero-shot 15.44 WER (n=100 clean); beats
+                             # the prior adapter in 4/5 degradation conditions (30-clip
+                             # sweep, e.g. bandpass 15.0 vs 16.3). Previous adapter kept
+                             # at finetune_runs_seamless/hi/adapter for rollback.
+    ne: finetune_runs_seamless/ne_iv/adapter
+                             # ne_iv (deployed 2026-07-18, Nepali's FIRST adapter — the
+                             # old ne adapter carried the label bug): FLEURS +
+                             # IndicVoices-R (cap 20k). 24.34 vs zero-shot 28.46 WER
+                             # (n=100 clean); wins ALL 5 degradation conditions
+                             # (e.g. bandpass 30.6 vs 34.3, codec 32.0 vs 36.6).
+                             # Remove an entry to revert that language to zero-shot.
   temperature: 0.0
   condition_on_previous_text: false
   word_timestamps: true
