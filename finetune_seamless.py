@@ -83,6 +83,19 @@ LANG_CFG = {
         "lora_r": 16, "lora_alpha": 32,
         "lora_targets": ["q_proj", "k_proj", "v_proj", "out_proj"],
     },
+    "ps_bal2": {
+        # Pashto attempt #4 (after ps_bal: 39.72 greedy / 38.88 best-decode vs
+        # Whisper-medium 38.55 — lost by 0.33). Same balanced data recipe as
+        # ps_bal (proven; keeps attribution clean); the only change is the next
+        # rung of the capacity ladder, which is the one lever that has reliably
+        # paid (r8→r16 bought 1.6 pp): r=32 α=64 and LoRA extended to the MLP
+        # (fc1/fc2) alongside q/k/v/out_proj.
+        "fleurs": "ps_af", "sm_lang": "pbt", "name": "Pashto (bal, r32+MLP)",
+        "cv_dataset": "SherwinDesouza/pashto-common-voice-20",
+        "cv_cap": 10000, "fleurs_repeat": 8,
+        "lora_r": 32, "lora_alpha": 64,
+        "lora_targets": ["q_proj", "k_proj", "v_proj", "out_proj", "fc1", "fc2"],
+    },
     "hi_iv": {
         # Experimental: Hindi with IndicVoices-R added (cap 20k) on top of FLEURS
         # hi_in (2,120). The deployed hi adapter (13.94) is FLEURS-only — this
@@ -657,7 +670,7 @@ def main():
 
     # "all" = the six FLEURS languages; ks (custom token) and the extra-data
     # experiments run only when named explicitly
-    EXPERIMENTS = {"ks", "ks_r16", "ps_cv", "ps_bal", "hi_iv", "ne_iv"}
+    EXPERIMENTS = {"ks", "ks_r16", "ps_cv", "ps_bal", "ps_bal2", "hi_iv", "ne_iv"}
     langs = [l for l in LANG_CFG if l not in EXPERIMENTS] if args.lang == "all" else [args.lang]
     for lang in langs:
         train(lang, args)

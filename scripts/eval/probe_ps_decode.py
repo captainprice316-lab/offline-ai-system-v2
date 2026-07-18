@@ -29,8 +29,7 @@ from eval_seamless_ft import (  # noqa: E402
 )
 from text_norm import compute_wer, compute_cer  # noqa: E402
 
-ADAPTER_DIR = RUNS_DIR / "ps_bal" / "adapter"
-OUT_JSON    = ROOT / "docs" / "ps_bal_decode_probe.json"
+ADAPTER_NAME = "ps_bal"   # overridden by --adapter
 
 CONDITIONS = {
     "A_greedy":   dict(num_beams=1),
@@ -43,7 +42,12 @@ CONDITIONS = {
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--samples", type=int, default=100)
+    ap.add_argument("--adapter", default=ADAPTER_NAME,
+                    help="finetune_runs_seamless subdir (e.g. ps_bal2)")
     args = ap.parse_args()
+
+    adapter_dir = RUNS_DIR / args.adapter / "adapter"
+    out_json    = ROOT / "docs" / f"{args.adapter}_decode_probe.json"
 
     import torch
     from transformers import AutoProcessor, SeamlessM4Tv2ForSpeechToText
@@ -52,13 +56,13 @@ def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     sm_lang = LANG_CFG["ps_bal"]["sm_lang"]
 
-    print(f"[model] loading ps_bal adapter on {device} ...")
+    print(f"[model] loading {args.adapter} adapter on {device} ...")
     processor = AutoProcessor.from_pretrained(str(SEAMLESS_DIR))
     base = SeamlessM4Tv2ForSpeechToText.from_pretrained(
         str(SEAMLESS_DIR),
         torch_dtype=torch.float16 if device == "cuda" else torch.float32,
     )
-    model = PeftModel.from_pretrained(base, str(ADAPTER_DIR)).merge_and_unload()
+    model = PeftModel.from_pretrained(base, str(adapter_dir)).merge_and_unload()
     model = model.to(device).eval()
 
     print(f"[data] loading {args.samples} FLEURS ps test samples (same seed as eval) ...")
@@ -87,14 +91,16 @@ def main():
         print(f"[done] {name}: WER {results[name]['wer']}%  CER {results[name]['cer']}%")
 
     results["_reference"] = {
+        "adapter": args.adapter,
         "ps_bal_greedy_eval": 39.72,
+        "ps_bal_best_decode": 38.88,
         "whisper_medium_deployed": 38.55,
         "note": "Same 100 FLEURS ps_af test samples and text_norm normaliser as "
                 "eval_seamless_ft. If any condition beats 38.55, run the "
                 "5-condition degradation sweep before any routing change.",
     }
-    OUT_JSON.write_text(json.dumps(results, indent=2, ensure_ascii=False), encoding="utf-8")
-    print(f"\n[saved] {OUT_JSON}")
+    out_json.write_text(json.dumps(results, indent=2, ensure_ascii=False), encoding="utf-8")
+    print(f"\n[saved] {out_json}")
 
 
 if __name__ == "__main__":

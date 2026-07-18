@@ -42,6 +42,7 @@ LANG_CFG = {
     # rulers as their base languages, stored as their own results rows.
     "ps_cv": {"fleurs": "ps_af",    "sm_lang": "pbt", "name": "Pashto (FLEURS+CV)"},
     "ps_bal": {"fleurs": "ps_af",   "sm_lang": "pbt", "name": "Pashto (bal+r16)"},
+    "ps_bal2": {"fleurs": "ps_af",  "sm_lang": "pbt", "name": "Pashto (bal+r32+MLP)"},
     "hi_iv": {"fleurs": "hi_in",    "sm_lang": "hin", "name": "Hindi (FLEURS+IV)"},
     "ne_iv": {"fleurs": "ne_np",    "sm_lang": "npi", "name": "Nepali (FLEURS+IV)"},
 }
