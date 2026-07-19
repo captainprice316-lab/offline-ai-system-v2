@@ -97,5 +97,14 @@
     "sm_ft_asr_cer": 21.09,
     "sm_ft_s2tt_chrf": 27.46,
     "time": 183.5
+  },
+  {
+    "lang": "ps_aug",
+    "name": "Pashto (r32+MLP, noise-aug)",
+    "n": 100,
+    "sm_ft_asr_wer": 36.91,
+    "sm_ft_asr_cer": 19.01,
+    "sm_ft_s2tt_chrf": 31.12,
+    "time": 186.0
   }
 ]

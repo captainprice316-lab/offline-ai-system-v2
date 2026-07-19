@@ -27,12 +27,14 @@ asr:
   beam_size: 5   # raised from 2 (2026-07-06) — beam 2 was a CPU-era speed compromise;
                  # published eval WERs were measured at beam 5, ASR now runs on GPU
   best_of: 1
-  seamless_langs: [pa, ne, hi, ur, zh]   # route these to zero-shot SeamlessM4T ASR.
+  seamless_langs: [pa, ne, hi, ur, zh, ps]   # route these to SeamlessM4T ASR.
                              # Corrected n=100 eval (2026-07-11): zero-shot Seamless beats
-                             # fine-tuned Whisper on WER for all five, and holds under
+                             # fine-tuned Whisper on WER for pa/ne/hi/ur/zh and holds under
                              # bandpass/noise (robustness sweep). Numbers (whisper_ft -> seamless):
                              #   pa 57.4->19.8  ne 50.9->28.5  hi 19.8->15.4  ur 19.8->16.9  zh 14.2->11.7
-                             # Whisper KEEPS ps (38.6, beats Seamless 44.4) and ks (no Seamless support).
+                             # ps added 2026-07-19: the noise-augmented ps_aug adapter (below)
+                             # beats Whisper-medium 4/5 degradation conditions + clean
+                             # (36.91 vs 38.55 n=100). Whisper KEEPS only ks (no Seamless support).
                              # Empty the list to fall back to Whisper for all langs.
   seamless_adapters:         # per-language LoRA adapters on the shared SeamlessM4T model.
                              # An adapter is enabled ONLY for that language's generate()
@@ -45,6 +47,14 @@ asr:
                              # the prior adapter in 4/5 degradation conditions (30-clip
                              # sweep, e.g. bandpass 15.0 vs 16.3). Previous adapter kept
                              # at finetune_runs_seamless/hi/adapter for rollback.
+    ps: finetune_runs_seamless/ps_aug/adapter
+                             # ps_aug (deployed 2026-07-19, Pashto's first Seamless win —
+                             # attempt #5): balanced FLEURS+CV data, LoRA r=32 on
+                             # q/k/v/out+MLP, NOISE-AUGMENTED training (the sweep's own
+                             # degradation family). 36.91 vs Whisper-medium 38.55 clean
+                             # (n=100); wins 4/5 degradation conditions incl. 0 dB SNR
+                             # 56.0 vs 64.8. whisper-medium-pashto-ct2 retained for
+                             # rollback (remove this entry + drop ps from seamless_langs).
     ne: finetune_runs_seamless/ne_iv/adapter
                              # ne_iv (deployed 2026-07-18, Nepali's FIRST adapter — the
                              # old ne adapter carried the label bug): FLEURS +
