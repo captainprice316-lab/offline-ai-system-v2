@@ -96,6 +96,21 @@ LANG_CFG = {
         "lora_r": 32, "lora_alpha": 64,
         "lora_targets": ["q_proj", "k_proj", "v_proj", "out_proj", "fc1", "fc2"],
     },
+    "ps_aug": {
+        # Pashto attempt #5 — targets ps_bal2's robustness-gate failure (37.29
+        # clean but 87.2 @ 0 dB vs Whisper 64.8). Same data and capacity as
+        # ps_bal2; the ONLY change is noise-augmented training: each training
+        # sample passes through the SAME degradation family the sweep tests
+        # (scripts/eval/robustness_eval.degrade — clean 40%, bandpass 15%,
+        # AWGN at 0/5/10/15 dB 30%, MP3 codec 10%, bandpass+AWGN5 5%).
+        # Val stays clean FLEURS (comparability); the sweep is the judge.
+        "fleurs": "ps_af", "sm_lang": "pbt", "name": "Pashto (bal, r32+MLP, noise-aug)",
+        "cv_dataset": "SherwinDesouza/pashto-common-voice-20",
+        "cv_cap": 10000, "fleurs_repeat": 8,
+        "lora_r": 32, "lora_alpha": 64,
+        "lora_targets": ["q_proj", "k_proj", "v_proj", "out_proj", "fc1", "fc2"],
+        "augment": True,
+    },
     "hi_iv": {
         # Experimental: Hindi with IndicVoices-R added (cap 20k) on top of FLEURS
         # hi_in (2,120). The deployed hi adapter (13.94) is FLEURS-only — this
@@ -419,11 +434,43 @@ def decode_audio(audio_dict: dict, target_sr: int = 16000) -> np.ndarray:
 MAX_AUDIO_SEC = 20   # truncate long samples
 
 
-def make_preprocess_fn(processor, sm_lang: str):
+def make_augment_fn():
+    """Radio-channel training augmentation drawing from the SAME degradation
+    family the robustness sweep evaluates (scripts/eval/robustness_eval.degrade),
+    so robustness is trained on the distribution it is judged on. Seeded RNG for
+    reproducibility. Menu: clean 40% / bandpass 15% / AWGN 0-15 dB 30% /
+    MP3 codec 10% / bandpass+AWGN5 5%."""
+    import random
+    sys.path.insert(0, str(ROOT / "scripts" / "eval"))
+    from robustness_eval import degrade  # noqa: E402
+    rng = random.Random(42)
+
+    def augment(arr):
+        r = rng.random()
+        try:
+            if r < 0.40:
+                return arr
+            if r < 0.55:
+                return degrade(arr, 16000, "bandpass")
+            if r < 0.85:
+                snr = rng.choice([0, 5, 10, 15])
+                return degrade(arr, 16000, f"awgn_{snr}")
+            if r < 0.95:
+                return degrade(arr, 16000, "codec_mp3")
+            return degrade(degrade(arr, 16000, "bandpass"), 16000, "awgn_5")
+        except Exception:
+            return arr   # a failed ffmpeg round-trip must not kill training
+
+    return augment
+
+
+def make_preprocess_fn(processor, sm_lang: str, augment=None):
     """Returns a function that processes one FLEURS sample."""
     def fn(batch):
         arr = decode_audio(batch["audio"])
         arr = arr[: MAX_AUDIO_SEC * 16000]           # hard truncate
+        if augment is not None:
+            arr = augment(arr)
 
         # Audio features (speech encoder input)
         feat = processor.feature_extractor(
@@ -552,7 +599,13 @@ def train(lang: str, args):
     else:
         train_raw, val_raw = load_fleurs(lang)
 
-    preprocess = make_preprocess_fn(processor, sm_lang)
+    # augmentation applies to TRAIN only; val stays clean (model selection on
+    # the same clean ruler as every prior run)
+    augment_fn = make_augment_fn() if cfg.get("augment") else None
+    preprocess = make_preprocess_fn(processor, sm_lang, augment=augment_fn)
+    preprocess_val = make_preprocess_fn(processor, sm_lang)
+    if augment_fn is not None:
+        print("  [data] Training-time radio augmentation ENABLED (val stays clean)")
 
     cache_base = RUNS_DIR / lang / "data"
     cache_base.mkdir(parents=True, exist_ok=True)
@@ -574,7 +627,7 @@ def train(lang: str, args):
 
     print("  [data] Preprocessing val split ...")
     val_ds = val_raw.map(
-        preprocess,
+        preprocess_val,
         remove_columns=val_raw.column_names,
         desc="val-preproc",
         num_proc=1,
@@ -670,7 +723,7 @@ def main():
 
     # "all" = the six FLEURS languages; ks (custom token) and the extra-data
     # experiments run only when named explicitly
-    EXPERIMENTS = {"ks", "ks_r16", "ps_cv", "ps_bal", "ps_bal2", "hi_iv", "ne_iv"}
+    EXPERIMENTS = {"ks", "ks_r16", "ps_cv", "ps_bal", "ps_bal2", "ps_aug", "hi_iv", "ne_iv"}
     langs = [l for l in LANG_CFG if l not in EXPERIMENTS] if args.lang == "all" else [args.lang]
     for lang in langs:
         train(lang, args)
