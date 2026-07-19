@@ -99,7 +99,12 @@ LANG_META = {
         "eval_wer": 38.55,
         "ct2_model": "whisper-medium-pashto-ct2",
         "translation": "NLLB-200",
-        "note": "Started from a domain-specific Pashto medium model (734 MB). Higher initial loss reflects harder acoustic domain.",
+        "note": "Started from a domain-specific Pashto medium model (734 MB). Higher initial loss reflects harder "
+                "acoustic domain. For a year this was the one language where fine-tuned Whisper beat SeamlessM4T; "
+                "on 2026-07-19 a noise-augmented SeamlessM4T LoRA adapter (ps_aug: r=32 incl. MLP, balanced "
+                "FLEURS+Common Voice data, training audio degraded with the evaluation's own bandpass/noise/codec "
+                "pipeline) reached 36.91% clean and won 4/5 degradation conditions (0 dB SNR: 56.0 vs 64.8) — "
+                "Pashto is now routed to SeamlessM4T with that adapter; this model is retained for rollback (see §5.5).",
         "training_time": "~3.5 h",
     },
     "ur": {
@@ -253,7 +258,9 @@ EVAL_RESULTS = {
     "pa": {"baseline": 77.60, "ft": 57.39, "seamless": 19.77, "baseline_cer": 39.73, "ft_cer": 32.52, "sm_cer": 9.97,
            "nllb_chrf": 40.15, "sm_chrf": 54.53, "best": "seamless"},
     "ps": {"baseline": 89.76, "ft": 38.55, "seamless": 44.40, "baseline_cer": 37.60, "ft_cer": 17.65, "sm_cer": 22.92,
-           "nllb_chrf": 44.48, "sm_chrf": 40.15, "best": "whisper_ft"},
+           # "best" = deployed backend. Flipped 2026-07-19: the noise-augmented ps_aug
+           # SeamlessM4T adapter (36.91) beats FT Whisper (38.55) + 4/5 sweep conditions.
+           "nllb_chrf": 44.48, "sm_chrf": 40.15, "best": "seamless"},
     "ur": {"baseline": 21.23, "ft": 19.82, "seamless": 16.90, "baseline_cer": 8.12,  "ft_cer": 7.29,  "sm_cer": 7.00,
            "nllb_chrf": 51.34, "sm_chrf": 50.73, "best": "seamless"},
     "ne": {"baseline": 88.85, "ft": 50.92, "seamless": 28.46, "baseline_cer": 29.26, "ft_cer": 18.83, "sm_cer": 11.22,
@@ -611,7 +618,7 @@ def build():
         Table([
             [tch("Item", left=True), tch("Value", left=True)],
             [tcl("Languages Fine-Tuned", bold=True), tcl("7  (Punjabi, Pashto, Urdu, Nepali, Mandarin, Hindi, Kashmiri)")],
-            [tcl("Deployed via fine-tuned Whisper", bold=True), tcl("2  (Pashto, Kashmiri) — the rest route to SeamlessM4T")],
+            [tcl("Deployed via fine-tuned Whisper", bold=True), tcl("1  (Kashmiri) — the rest route to SeamlessM4T (LoRA adapters for hi/ne/ps)")],
             [tcl("Best held-out test WER (FT)", bold=True), tcl("Pashto 38.55%  |  Hindi 19.78%  |  Urdu 19.82%  (n=100 FLEURS test)")],
             [tcl("Training Hardware",    bold=True), tcl("NVIDIA RTX 5060 8 GB VRAM (CUDA) - Windows 11")],
             [tcl("Base Model",           bold=True), tcl("OpenAI Whisper large-v3 (1.55 B parameters)")],
@@ -645,16 +652,18 @@ def build():
             "quantised to CTranslate2 int8."
         ),
         body(
-            "This revision (2026-07-11) reports a rigorous <b>backend selection</b> study. Each "
-            "fine-tuned model was benchmarked, on a held-out FLEURS test set and under simulated "
-            "radio-channel degradation, against two alternatives: the true un-fine-tuned "
+            "This revision (2026-07-11, extended 2026-07-19) reports a rigorous <b>backend selection</b> "
+            "study. Each fine-tuned model was benchmarked, on a held-out FLEURS test set and under "
+            "simulated radio-channel degradation, against two alternatives: the true un-fine-tuned "
             "openai/whisper-large-v3 baseline, and zero-shot SeamlessM4T v2. The central finding is "
-            "that per-language fine-tuning is <b>not</b> the best choice for most languages: zero-shot "
-            "SeamlessM4T beats the fine-tuned Whisper models on five of seven languages "
+            "that per-language Whisper fine-tuning is <b>not</b> the best choice for most languages: "
+            "zero-shot SeamlessM4T beats the fine-tuned Whisper models on five of seven languages "
             "(pa 19.8%, ne 28.5%, hi 15.4%, ur 16.9%, zh 11.7% WER) and retains that lead under "
-            "bandpass and additive-noise degradation. Fine-tuned Whisper is retained in production only "
-            "for <b>Pashto</b> (38.6%, where it beats SeamlessM4T's 44.4%) and <b>Kashmiri</b> (SeamlessM4T "
-            "has no Kashmiri support). VANI therefore routes ASR per language rather than using a single model."
+            "bandpass and additive-noise degradation. A follow-up campaign of SeamlessM4T LoRA "
+            "adapters then also captured <b>Pashto</b> (noise-augmented training: 36.9% vs fine-tuned "
+            "Whisper's 38.6%, winning 4/5 degradation conditions), leaving fine-tuned Whisper in "
+            "production only for <b>Kashmiri</b> (SeamlessM4T has no Kashmiri support). VANI therefore "
+            "routes ASR per language rather than using a single model."
         ),
         body(
             "A correction is documented in full: the previously reported Mandarin baseline of 100.03% WER "
@@ -1076,8 +1085,8 @@ def build():
              Paragraph("<b>38.55 (17.65)</b>", ParagraphStyle("FTps", fontName="Helvetica-Bold",
                         fontSize=9, textColor=SUCCESS_GRN, alignment=TA_CENTER)),
              tc("44.40 (22.92)"),
-             Paragraph("<b>FT Whisper</b>", ParagraphStyle("Bps", fontName="Helvetica-Bold",
-                        fontSize=9, textColor=SUCCESS_GRN, alignment=TA_CENTER)), tc("44.48"), tc("40.15")],
+             Paragraph("<b>SM4T + LoRA</b>", ParagraphStyle("Bps", fontName="Helvetica-Bold",
+                        fontSize=9, textColor=HDR_BLUE, alignment=TA_CENTER)), tc("44.48"), tc("40.15")],
             [tcl("Urdu (ur)"), tc("21.23 (8.12)"), tc("19.82 (7.29)"), tc("16.90 (7.00)"),
              Paragraph("<b>SeamlessM4T</b>", ParagraphStyle("Bur", fontName="Helvetica-Bold",
                         fontSize=9, textColor=HDR_BLUE, alignment=TA_CENTER)), tc("51.34"), tc("50.73")],
@@ -1112,31 +1121,31 @@ def build():
              "orthographic variation that WER over-penalises. Different sample set than the 74.02% "
              "column, so the two must not be read as one WER (CER) pair."),
         body(
-            "<b>Result: fine-tuned Whisper is the best backend for only two of seven languages</b> — "
-            "Pashto (38.55% vs SeamlessM4T's 44.40%) and Kashmiri (SeamlessM4T has no Kashmiri support). "
-            "For Punjabi, Nepali, Hindi, Urdu and Mandarin, zero-shot SeamlessM4T wins outright, by "
-            "margins from 1.4 pp (Urdu) to 37.6 pp (Punjabi). VANI routes ASR per language accordingly: "
-            "SeamlessM4T for pa/ne/hi/ur/zh, fine-tuned Whisper for ps/ks. This lead holds under "
-            "radio-channel degradation (§5.6)."
+            "<b>Result: fine-tuned Whisper survives as the deployed backend for only one of seven "
+            "languages</b> — Kashmiri (SeamlessM4T has no Kashmiri support). For Punjabi, Nepali, "
+            "Hindi, Urdu and Mandarin, zero-shot SeamlessM4T wins outright, by margins from 1.4 pp "
+            "(Urdu) to 37.6 pp (Punjabi). Pashto was fine-tuned Whisper's stronghold (38.55% vs "
+            "zero-shot SeamlessM4T's 44.40%, and 4/5 degradation conditions) until 2026-07-19, when "
+            "a noise-augmented SeamlessM4T adapter overtook it (below). VANI routes ASR per language "
+            "accordingly: SeamlessM4T for pa/ne/hi/ur/zh/ps, fine-tuned Whisper for ks."
         ),
         sp(6),
         body(
-            "<b>SeamlessM4T LoRA adapters (deployed 2026-07-18).</b> On top of the routing, Hindi and "
-            "Nepali run per-language LoRA adapters trained on FLEURS + IndicVoices-R (cap 20k samples): "
-            "Hindi 15.44% → <b>12.91%</b> and Nepali 28.46% → <b>24.34%</b> versus zero-shot on the same "
-            "held-out test. Each adapter passed a 30-clip, 5-condition degradation sweep before "
-            "deployment (Hindi wins 4/5 conditions against the earlier FLEURS-only adapter; Nepali wins "
-            "5/5 against zero-shot), and each is enabled only for its own language's decoding calls — "
-            "the other languages still run the plain base model. The same approach was tried and "
-            "rejected for Pashto and Kashmiri. Pashto took four attempts to beat Whisper on clean "
-            "speech (37.29% vs 38.55%, with a larger r=32 adapter incl. MLP layers) — but that "
-            "adapter then failed the degradation sweep, collapsing to 87.2% WER at 0 dB SNR against "
-            "Whisper's 64.8% and losing 3 of 5 conditions: the added capacity traded noise "
-            "robustness for clean accuracy, and for radio audio that trade is disqualifying. "
-            "Kashmiri never got closer than 88.42% vs Whisper's 74.02% (custom __kas__ token). "
-            "SeamlessM4T improves where its pretraining already covers the language, but cannot "
-            "overtake Whisper operationally where it does not — precisely why the hybrid "
-            "architecture exists."
+            "<b>SeamlessM4T LoRA adapters (deployed 2026-07-18/19).</b> On top of the routing, Hindi, "
+            "Nepali and Pashto run per-language LoRA adapters. Hindi and Nepali were trained on FLEURS "
+            "+ IndicVoices-R (cap 20k samples): Hindi 15.44% → <b>12.91%</b> and Nepali 28.46% → "
+            "<b>24.34%</b> versus zero-shot on the same held-out test. Pashto required five attempts: "
+            "more data alone regressed (CV domain drift), a larger adapter (r=32 incl. MLP layers) won "
+            "clean speech (37.29% vs Whisper's 38.55%) but collapsed at 0 dB SNR (87.2% vs 64.8%), and "
+            "the final <b>noise-augmented</b> adapter — training audio degraded with the evaluation's "
+            "own bandpass/noise/codec pipeline — reached <b>36.91%</b> clean while fixing the collapse "
+            "(56.0% at 0 dB, beating Whisper's 64.8%). Every adapter passed the 30-clip, 5-condition "
+            "degradation sweep before deployment (Hindi 4/5, Nepali 5/5, Pashto 4/5), and each is "
+            "enabled only for its own language's decoding calls — other languages run the plain base "
+            "model. Kashmiri is the sole holdout: no attempt (epochs, decode fixes, doubled rank) got "
+            "a custom-token adapter closer than 88.42% vs Whisper's 74.02%. Where SeamlessM4T's "
+            "pretraining covers a language it can be pushed past Whisper; where the vocabulary itself "
+            "is missing, it cannot — which is exactly why the hybrid architecture remains."
         ),
         sp(4),
         note("† Mandarin: fine-tuning regressed the model (baseline 10.99% → fine-tuned 14.22%). The prior "

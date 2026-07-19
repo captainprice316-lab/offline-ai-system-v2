@@ -498,12 +498,12 @@ def slide_07_language_deep(prs, n=12):
           "Baseline 26.34%  →  FT test 19.78%  (−6.6 pp)",
           "SM4T + IV-R LoRA adapter 12.91% → DEPLOYED",
           "max_grad_norm=0.5 (post-Mandarin fix)"]),
-        ("Pashto (ps)", "38.55%", C_GREEN,
+        ("Pashto (ps)", "→ SM4T", C_TEAL,
          ["Base: pashto-ghag-whisper-medium-asr",
           "Train: FLEURS ps_af  (2,082 samples)",
           "Baseline 89.76%  →  FT test 38.55%  (−51 pp)",
-          "Beats SeamlessM4T (44.40%) ✓ → FT DEPLOYED",
-          "The one language where fine-tuning wins ASR"]),
+          "Beat zero-shot SM4T for a year — finally lost to a",
+          "noise-augmented SM4T LoRA (36.91%) → DEPLOYED"]),
         ("Mandarin (zh)", "→ SM4T", C_RED,
          ["Base: whisper-large-v3  |  LoRA r=8",
           "Baseline 10.99%  →  FT test 14.22%  (+3.2 pp ✗)",
@@ -801,7 +801,7 @@ def slide_12_conclusion(prs, n=24):
           font_size=13, bold=True, color=C_NAVY)
     models = [
         ("SeamlessM4T (zero-shot)",   "Punjabi",  "19.77%", C_TEAL),
-        ("whisper-medium-pashto-ct2", "Pashto",   "38.55%", C_GREEN),
+        ("SeamlessM4T + ps LoRA",     "Pashto",   "36.91%", C_TEAL),
         ("SeamlessM4T (zero-shot)",   "Urdu",     "16.90%", C_TEAL),
         ("SeamlessM4T + ne LoRA",     "Nepali",   "24.34%", C_TEAL),
         ("SeamlessM4T (zero-shot)",   "Mandarin", "11.69%", C_TEAL),
@@ -987,7 +987,7 @@ def slide_table_sm4t(prs, n):
 
     sm4t_data = [
         ("Punjabi (pa)",  "Gurmukhi",  " 77.60", "57.39", "19.77", "SM4T",     "40.15", "54.53", "SM4T"),
-        ("Pashto (ps)",   "Nastaliq",  " 89.76", "38.55", "44.40", "FT Whsp ✓","44.48", "40.15", "NLLB"),
+        ("Pashto (ps)",   "Nastaliq",  " 89.76", "38.55", "44.40", "SM4T+LoRA","44.48", "40.15", "NLLB"),
         ("Urdu (ur)",     "Nastaliq",  " 21.23", "19.82", "16.90", "SM4T",     "51.34", "50.73", "NLLB"),
         ("Nepali (ne)",   "Devanagari"," 88.85", "50.92", "28.46", "SM4T",     "45.55", "51.67", "SM4T"),
         ("Mandarin (zh)", "Han Simpl.", " 10.99", "14.22", "11.69", "SM4T",    "42.00", "49.15", "SM4T"),

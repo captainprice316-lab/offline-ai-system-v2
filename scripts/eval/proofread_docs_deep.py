@@ -143,10 +143,12 @@ for l in ["pa","ps","ur","ne","zh","hi","ks"]:
     if EVAL_RESULTS[l]["best"] == "seamless":
         mm = re.search(r"\((\d+\.?\d*)%\)", bk)
         # "SeamlessM4T + LoRA (x%)" cells cite the deployed ADAPTER's WER (smft JSON;
-        # since 2026-07-18 the deployed hi/ne adapters are the <lang>_iv rows),
+        # deployed adapter rows: hi_iv/ne_iv since 2026-07-18, ps_aug since 2026-07-19),
         # plain "SeamlessM4T (x%)" cells cite zero-shot (comp JSON).
+        DEPLOYED_ADAPTER_ROW = {"hi": "hi_iv", "ne": "ne_iv", "ps": "ps_aug"}
         if "LoRA" in bk:
-            truth = (smft.get(f"{l}_iv") or smft[l])["sm_ft_asr_wer"]
+            row = smft.get(DEPLOYED_ADAPTER_ROW.get(l, "")) or smft[l]
+            truth = row["sm_ft_asr_wer"]
         else:
             truth = comp[l]["seamless_asr_wer"]
         check(f"md summary {l}.backend-wer", float(mm.group(1)) if mm else None, truth)
