@@ -96,6 +96,21 @@ LANG_CFG = {
         "lora_r": 32, "lora_alpha": 64,
         "lora_targets": ["q_proj", "k_proj", "v_proj", "out_proj", "fc1", "fc2"],
     },
+    "ks_max": {
+        # Kashmiri attempt #4 (after r=8 129.29 → +decode 92.09 → r=16 88.42,
+        # all losing to Whisper-ks 74.02). Stacks the two untried levers:
+        # (1) the r=32+MLP capacity rung that won Pashto, and (2) a TRAINABLE
+        # __kas__ embedding row via PEFT trainable_token_indices — in every
+        # prior attempt the Kashmiri conditioning vector was a FROZEN copy of
+        # Urdu's (LoRA cannot touch embeddings), the suspected bottleneck
+        # behind three loss/WER divergences. Full data, ~2.5 epochs.
+        "sm_lang": "kas", "name": "Kashmiri (r32+MLP, trainable __kas__)",
+        "indicvoices_parquet_dir": r"E:\VANI\datasets\hf_ks_temp\hub\datasets--ai4bharat--indicvoices_r\snapshots\5f4495c91d500742a58d1be2ab07d77f73c0acf8\Kashmiri",
+        "train_cap": 24000,
+        "lora_r": 32, "lora_alpha": 64,
+        "lora_targets": ["q_proj", "k_proj", "v_proj", "out_proj", "fc1", "fc2"],
+        "trainable_kas_token": True,
+    },
     "ps_aug": {
         # Pashto attempt #5 — targets ps_bal2's robustness-gate failure (37.29
         # clean but 87.2 @ 0 dB vs Whisper 64.8). Same data and capacity as
@@ -574,10 +589,19 @@ def train(lang: str, args):
 
     # Kashmiri: SeamlessM4T has no __kas__ — add it (embedding init from __urd__)
     # BEFORE the PEFT wrap so the resized embedding is part of the base model.
+    kas_id = None
     if sm_lang == "kas":
-        add_kas_token(processor, model)
+        kas_id = add_kas_token(processor, model)
 
     # ── LoRA ──────────────────────────────────────────────────────────────────
+    lora_kwargs = {}
+    if cfg.get("trainable_kas_token") and kas_id is not None:
+        # Train ONLY the __kas__ row of text_decoder.embed_tokens (PEFT
+        # TrainableTokens delta) — the frozen urd-init conditioning vector is
+        # the suspected ks bottleneck. lm_head is unaffected (delta applies to
+        # the input-embedding forward, which is what conditions generation).
+        lora_kwargs["trainable_token_indices"] = {"embed_tokens": [kas_id]}
+        print(f"  [kas] __kas__ embedding row {kas_id} set TRAINABLE (PEFT trainable_token_indices)")
     lora_cfg = LoraConfig(
         r=cfg.get("lora_r", 8),
         lora_alpha=cfg.get("lora_alpha", 16),
@@ -585,6 +609,7 @@ def train(lang: str, args):
         lora_dropout=0.05,
         task_type=TaskType.SEQ_2_SEQ_LM,
         bias="none",
+        **lora_kwargs,
     )
     model = get_peft_model(model, lora_cfg)
     model.print_trainable_parameters()
@@ -723,7 +748,7 @@ def main():
 
     # "all" = the six FLEURS languages; ks (custom token) and the extra-data
     # experiments run only when named explicitly
-    EXPERIMENTS = {"ks", "ks_r16", "ps_cv", "ps_bal", "ps_bal2", "ps_aug", "hi_iv", "ne_iv"}
+    EXPERIMENTS = {"ks", "ks_r16", "ks_max", "ps_cv", "ps_bal", "ps_bal2", "ps_aug", "hi_iv", "ne_iv"}
     langs = [l for l in LANG_CFG if l not in EXPERIMENTS] if args.lang == "all" else [args.lang]
     for lang in langs:
         train(lang, args)
