@@ -1,0 +1,156 @@
+{
+  "indicvoices_test": {
+    "L0 raw": {
+      "ks_max": {
+        "wer": 80.91,
+        "cer": 39.33,
+        "n": 372
+      },
+      "whisper": {
+        "wer": 79.29,
+        "cer": 44.23,
+        "n": 372
+      },
+      "wer_gap_ksmax_minus_whisper": 1.62
+    },
+    "L1 NFC+zw+ws": {
+      "ks_max": {
+        "wer": 80.31,
+        "cer": 39.14,
+        "n": 372
+      },
+      "whisper": {
+        "wer": 79.29,
+        "cer": 44.37,
+        "n": 372
+      },
+      "wer_gap_ksmax_minus_whisper": 1.02
+    },
+    "L2 +no diacritics": {
+      "ks_max": {
+        "wer": 64.31,
+        "cer": 32.24,
+        "n": 372
+      },
+      "whisper": {
+        "wer": 65.19,
+        "cer": 39.36,
+        "n": 372
+      },
+      "wer_gap_ksmax_minus_whisper": -0.88
+    },
+    "L3 +fold cons.+no punct": {
+      "ks_max": {
+        "wer": 64.26,
+        "cer": 32.22,
+        "n": 372
+      },
+      "whisper": {
+        "wer": 65.1,
+        "cer": 39.33,
+        "n": 372
+      },
+      "wer_gap_ksmax_minus_whisper": -0.84
+    },
+    "L4 +fold aggressive": {
+      "ks_max": {
+        "wer": 63.29,
+        "cer": 30.85,
+        "n": 372
+      },
+      "whisper": {
+        "wer": 64.02,
+        "cer": 38.1,
+        "n": 372
+      },
+      "wer_gap_ksmax_minus_whisper": -0.73
+    },
+    "L3 boundary-free CER": {
+      "ks_max": {
+        "cer": 34.85,
+        "n": 372
+      },
+      "whisper": {
+        "cer": 42.91,
+        "n": 372
+      }
+    }
+  },
+  "robustness_clean": {
+    "L0 raw": {
+      "ks_max": {
+        "wer": 82.78,
+        "cer": 38.96,
+        "n": 30
+      },
+      "whisper": {
+        "wer": 81.46,
+        "cer": 44.64,
+        "n": 30
+      },
+      "wer_gap_ksmax_minus_whisper": 1.32
+    },
+    "L1 NFC+zw+ws": {
+      "ks_max": {
+        "wer": 82.45,
+        "cer": 38.88,
+        "n": 30
+      },
+      "whisper": {
+        "wer": 81.46,
+        "cer": 44.77,
+        "n": 30
+      },
+      "wer_gap_ksmax_minus_whisper": 0.99
+    },
+    "L2 +no diacritics": {
+      "ks_max": {
+        "wer": 65.89,
+        "cer": 31.6,
+        "n": 30
+      },
+      "whisper": {
+        "wer": 64.74,
+        "cer": 38.86,
+        "n": 30
+      },
+      "wer_gap_ksmax_minus_whisper": 1.15
+    },
+    "L3 +fold cons.+no punct": {
+      "ks_max": {
+        "wer": 65.89,
+        "cer": 31.6,
+        "n": 30
+      },
+      "whisper": {
+        "wer": 64.74,
+        "cer": 38.86,
+        "n": 30
+      },
+      "wer_gap_ksmax_minus_whisper": 1.15
+    },
+    "L4 +fold aggressive": {
+      "ks_max": {
+        "wer": 64.57,
+        "cer": 29.92,
+        "n": 30
+      },
+      "whisper": {
+        "wer": 63.58,
+        "cer": 37.68,
+        "n": 30
+      },
+      "wer_gap_ksmax_minus_whisper": 0.99
+    },
+    "L3 boundary-free CER": {
+      "ks_max": {
+        "cer": 33.41,
+        "n": 30
+      },
+      "whisper": {
+        "cer": 41.1,
+        "n": 30
+      }
+    }
+  }
+}
