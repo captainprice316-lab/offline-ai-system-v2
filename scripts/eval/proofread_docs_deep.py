@@ -241,15 +241,12 @@ for s, what in EXPECT.items():
     (ok if s in pptx_all else issues).append(
         f"PPTX has {what}" if s in pptx_all else f"PPTX missing corrected {what} ({s})")
 
-# CER presence: PPTX labels format CER as "(x.y)" (one decimal), PDF/md as "(x.yz)".
+# Per-language CER is intentionally NOT required in the PPTX: since the
+# 2026-07-20 restructure the deck is an executive 7-section presentation whose
+# Results section carries WER headlines + the hero/robustness/ks charts, and the
+# per-language CER breakdown lives in the PDF (checked separately below). This
+# keeps the deck from re-bloating with the training-detail tables that were cut.
 CER_KEYS = [("whisper_ft_cer", "ft"), ("seamless_asr_cer", "sm")]
-for l in ["pa","ps","ur","ne","zh","hi"]:
-    for key, tag in CER_KEYS:
-        v = comp[l][key]
-        s1 = f"({v:.1f})"
-        (ok if s1 in pptx_all else issues).append(
-            f"PPTX has {l}.{tag} CER" if s1 in pptx_all
-            else f"PPTX missing {l}.{tag} CER {s1}")
 
 # ── 11. Built PDF text vs sources ────────────────────────────────────────────
 import pypdf

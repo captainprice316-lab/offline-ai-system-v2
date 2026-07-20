@@ -13,6 +13,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
+import report_charts   # shared hero figures (identical in PDF + PPTX)
+
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
@@ -383,6 +385,16 @@ def code_block(txt):
 def img_from_buf(buf, width=None):
     w = width or PAGE_W
     return Image(buf, width=w, height=w * 0.45)
+
+def img_scaled(buf, width=None):
+    """Embed a PNG buffer preserving its TRUE aspect ratio (unlike img_from_buf,
+    which forces 0.45). Used for the shared report_charts hero figures."""
+    from PIL import Image as _PILImage
+    w = width or PAGE_W
+    buf.seek(0)
+    pw, ph = _PILImage.open(buf).size
+    buf.seek(0)
+    return Image(buf, width=w, height=w * ph / pw)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # STANDARD TABLE STYLE
@@ -1088,7 +1100,12 @@ def build():
             "The <b>Deployed Backend</b> column is the operational choice — the lowest-WER option "
             "VANI actually routes to."
         ),
-        sp(4),
+        sp(6),
+        img_scaled(report_charts.hero_backend_dumbbell(), width=W * 0.92),
+        note("Figure 4: Deployed SeamlessM4T backend vs the fine-tuned Whisper model, per language "
+             "(n=100 FLEURS held-out, same scorer). Every arrow points to the deployed SeamlessM4T backend "
+             "— lower WER. Kashmiri is shown separately (§5.5.2): a different corpus and scoring ruler."),
+        sp(8),
         Table([
             [tch("Language"), tch("Baseline (large-v3)\nWER (CER)"), tch("FT Whisper\nWER (CER)"),
              tch("SeamlessM4T\nWER (CER)"),
@@ -1202,7 +1219,13 @@ def build():
             "30 FLEURS clips per language under five conditions: clean, 300–3400 Hz telephony bandpass, "
             "additive white noise at 10 dB and 0 dB SNR, and a 16 kbit/s MP3 codec pass."
         ),
-        sp(4),
+        sp(6),
+        img_scaled(report_charts.robustness_heatmap(), width=W * 0.78),
+        note("Figure 5: SeamlessM4T's WER advantage over fine-tuned Whisper (percentage points) across the "
+             "five channel conditions. Positive everywhere; Hindi (+5.0→+19.5) and Mandarin (+3.6→+17.2) "
+             "widen most at 0 dB SNR. This is the conservative zero-shot comparison — the deployed hi/ne LoRA "
+             "adapters improve on it further."),
+        sp(8),
         Table([
             [tch("Language"), tch("Clean"), tch("Bandpass"), tch("Noise\n10 dB"), tch("Noise\n0 dB"),
              tch("MP3\ncodec"), tch("Winner")],
@@ -1222,16 +1245,43 @@ def build():
         style=std_ts(left_cols=(0,)), repeatRows=1),
         sp(4),
         body(
-            "SeamlessM4T's advantage is positive in every condition for all five routed languages and "
+            "SeamlessM4T's advantage is positive in every condition for all five languages above and "
             "<b>widens as the channel worsens</b> — Hindi grows from +5.0 (clean) to +19.5 (0 dB), "
             "Mandarin from +3.6 to +17.2. The clean-speech ranking does not invert under noise, so the "
-            "routing in §5.5 is safe for operational radio. Pashto is the sole exception: fine-tuned "
-            "Whisper leads in four of five conditions and loses only at 0 dB SNR, so it stays on Whisper."
+            "routing is safe for operational radio. This table is the ZERO-SHOT comparison; Pashto loses "
+            "it 4/5 (winning only at 0 dB). That was fine-tuned Whisper's last stronghold — but a later "
+            "<b>noise-augmented SeamlessM4T adapter</b> (ps_aug: training audio degraded with the "
+            "evaluation's own bandpass/noise/codec pipeline) overturned it, winning 4/5 conditions and "
+            "clean speech (36.91% vs 38.55%). Pashto now runs on SeamlessM4T."
         ),
-        note("* Pashto: fine-tuned Whisper wins clean/bandpass/10 dB/MP3; SeamlessM4T edges ahead only at 0 dB. "
-             "Whisper WER here routes through VANI's ASRModule, whose military-radio initial prompt costs Mandarin "
-             "and Kashmiri ~2 pp but helps Pashto ~10 pp; the comparison is fair (each backend on its production path) "
-             "and does not change any winner."),
+        note("* This table's ps 'winner' column reflects the historical zero-shot comparison. As of "
+             "2026-07-19, Pashto is deployed on the noise-augmented SeamlessM4T adapter (ps_aug, described "
+             "above), so fine-tuned Whisper is retained for rollback only."),
+        sp(10),
+
+        # ── 5.5.2 Kashmiri ruler correction ──────────────────────────────────
+        h3("5.5.2  Kashmiri — the WER Gap Was the Scoring Ruler"),
+        body(
+            "Kashmiri has no native SeamlessM4T vocabulary, so a custom <b>__kas__</b> token was added and "
+            "made trainable (a first for this project — PEFT trainable_token_indices), on an r=32 LoRA with "
+            "MLP layers. On raw WER the adapter looks behind the deployed Whisper CT2 model (80.91% vs "
+            "79.29% — itself higher than the often-quoted 74.02%, which was a training-time eval of the "
+            "merged fp16 model, not the deployed int8 artefact). But Perso-Arabic references are densely "
+            "diacritised and BOTH systems drop the marks, so raw WER over-penalises both symmetrically. "
+            "Once the diacritics are normalised, the verdict flips: the SeamlessM4T adapter wins WER "
+            "(64.31% vs 65.19%) and wins CER at every normalisation level. It also won the radio-degradation "
+            "sweep 4/5 conditions, with Whisper's CER exceeding 100% at 0 dB SNR. Kashmiri now runs on "
+            "SeamlessM4T; fine-tuned Whisper is retained for rollback."
+        ),
+        sp(6),
+        img_scaled(report_charts.ks_ruler_bars(), width=W * 0.78),
+        note("Figure 6: Same 372 IndicVoices clips, same scorer. Raw WER makes Whisper look ahead; "
+             "diacritic-normalised WER and CER both put the SeamlessM4T adapter ahead — the gap was an "
+             "artefact of the Perso-Arabic scoring ruler, not a real model deficit."),
+        sp(6),
+        note("This is the fifth independent scoring-methodology correction in this project (after the "
+             "turbo-baseline mislabel, the CJK whitespace artefact, the S2TT label-encoding bug, and the "
+             "sweep-harness adapter-override bug) — each initially read as a real model result."),
         sp(10),
     ]
 
