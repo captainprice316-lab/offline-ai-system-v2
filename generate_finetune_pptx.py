@@ -16,6 +16,8 @@ from generate_report_pdf import (
     chart_dataset_sizes, chart_summary_bar, chart_wer_all,
     chart_wer_per_lang, LANG_ORDER, LANG_META,
 )
+# Shared hero charts (identical figures in the PDF + PPTX)
+import report_charts
 
 # ── Colour palette — light professional theme ──────────────────────────────────
 C_BG     = RGBColor(0xFF, 0xFF, 0xFF)   # white background
@@ -602,7 +604,7 @@ def slide_09_pipeline(prs, n=21):
         ("1",  "VAD",            "Silero — detect speech, discard silence",            C_TEAL),
         ("2",  "Preprocessing",  "Bandpass 300–3400 Hz + noise reduction + normalise",  C_TEAL),
         ("3",  "MMS-LID",        "Facebook MMS 256-language ID — route to correct model",C_GOLD),
-        ("4",  "ASR",            "Language-specific fine-tuned Whisper CT2 int8 model", C_GOLD),
+        ("4",  "ASR",            "SeamlessM4T v2, per-language backend (LoRA / zero-shot)", C_GOLD),
         ("5",  "Script Cascade", "Arabic-script override: >20% Nastaliq → Urdu routing",C_GOLD),
         ("6",  "Translation",    "NLLB-200 distilled 600M → English transcription",     C_GREEN),
         ("7",  "Diarization",    "Speaker separation — up to 4 speakers identified",    C_GREEN),
@@ -1032,39 +1034,246 @@ def slide_table_sm4t(prs, n):
              "SeamlessM4T; FT Whisper models are retained on disk for rollback only.",
           0.35, y+0.06, 12.5, 0.32, font_size=10, italic=True, color=C_SUB)
 
+# ══════════════════════════════════════════════════════════════════════════════
+#  Professor-presentation slides (7-section flow, added 2026-07-20)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def slide_section_divider(prs, sec_no, title, subtitle, n):
+    s = blank_slide(prs)
+    bg(s, C_NAVY)
+    box(s, 0, 3.55, 13.33, 0.07, fill_color=C_TEAL)
+    txbox(s, f"{sec_no:02d}", 1.0, 2.05, 3.0, 1.5,
+          font_size=96, bold=True, color=C_TEAL, align=PP_ALIGN.LEFT)
+    txbox(s, title, 3.6, 2.55, 9.0, 1.0,
+          font_size=40, bold=True, color=RGBColor(0xFF, 0xFF, 0xFF))
+    txbox(s, subtitle, 3.65, 3.75, 9.0, 0.8,
+          font_size=15, italic=True, color=RGBColor(0xB0, 0xC4, 0xDE))
+    slide_num(s, n)
+
+
+def slide_intro_problem(prs, n):
+    s = blank_slide(prs)
+    bg(s)
+    slide_header(s, "Introduction & Problem Statement", n, "Introduction")
+
+    txbox(s, "VANI — an offline AI system that turns foreign-language radio intercepts into "
+             "English intelligence summaries, on a single air-gapped workstation.",
+          0.4, 1.42, 12.5, 0.6, font_size=14, italic=True, color=C_NAVY)
+
+    card(s, 0.4, 2.15, 6.0, 4.55, accent_color=C_RED)
+    box(s, 0.4, 2.15, 6.0, 0.4, fill_color=C_RED)
+    txbox(s, "The Operational Problem", 0.55, 2.20, 5.7, 0.32,
+          font_size=13, bold=True, color=RGBColor(0xFF, 0xFF, 0xFF))
+    probs = [
+        "High-volume radio traffic in many low-resource\nborder languages (Punjabi, Pashto, Urdu,\nNepali, Mandarin, Hindi, Kashmiri, Dogri)",
+        "Must run FULLY OFFLINE / air-gapped —\nno cloud, no internet at runtime",
+        "Generic ASR fails on these languages AND\non the noisy, band-limited radio channel",
+        "Manual transcription + translation does not\nscale to an operational intercept volume",
+        "Analysts need actionable output (who / what /\nwhere / threat), not just a raw transcript",
+    ]
+    bullet_block(s, probs, 0.58, 2.72, 5.7, font_size=11.5,
+                 color=C_TEXT, spacing=0.75, bullet="✗")
+
+    card(s, 6.7, 2.15, 6.2, 4.55, accent_color=C_TEAL)
+    box(s, 6.7, 2.15, 6.2, 0.4, fill_color=C_TEAL)
+    txbox(s, "The Objective", 6.85, 2.20, 5.9, 0.32,
+          font_size=13, bold=True, color=RGBColor(0xFF, 0xFF, 0xFF))
+    objs = [
+        "One end-to-end offline pipeline:\nspeech → language ID → transcription →\nEnglish translation → threat detection →\nstructured intelligence summary",
+        "Best-in-class ASR per language, auto-selected\nby audio language identification",
+        "Rigorous, reproducible evaluation to choose the\nright ASR backend — under realistic radio noise",
+        "A usable analyst GUI: map, dashboard, search,\nlive-mic capture, coded-terminology alerts",
+    ]
+    bullet_block(s, objs, 6.88, 2.72, 5.9, font_size=11.5,
+                 color=C_TEXT, spacing=0.92, bullet="▸")
+
+
+def slide_deliverables(prs, n):
+    s = blank_slide(prs)
+    bg(s)
+    slide_header(s, "Deliverables", n, "Deliverables")
+    items = [
+        ("Working VANI system", "Streamlit GUI processing radio intercepts end-to-end, fully offline on one RTX 5060 workstation", C_TEAL),
+        ("7-language ASR backend", "SeamlessM4T v2, auto-selected by MMS-LID; 4 languages on LoRA adapters, 3 zero-shot", C_TEAL),
+        ("Full intelligence pipeline", "VAD → LID → ASR → NLLB translation → keyword/threat detection → ISUM (Gemma 3) → SQLite + reports", C_BLUE),
+        ("Backend-selection research", "Head-to-head WER + 5-condition robustness study; 5 scoring-methodology defects found and corrected", C_BLUE),
+        ("Analyst features", "Map + dashboard, transcript search, live-mic capture, coded-terminology alerts, speaker diarization", C_GOLD),
+        ("3-node LAN integration", "Optional distributed mode: denoise+diarize (A) + LID/dialect (B) + VANI orchestrator (C)", C_GOLD),
+        ("Documentation", "This fine-tuning report (PDF), presentation deck, correction memo, reproducible eval scripts", C_PURPLE),
+    ]
+    y = 1.55
+    for title, desc, col in items:
+        box(s, 0.4, y, 12.5, 0.72, fill_color=C_CARD, line_color=C_BORDER)
+        box(s, 0.4, y, 0.08, 0.72, fill_color=col)
+        txbox(s, title, 0.62, y + 0.06, 3.5, 0.6, font_size=13, bold=True, color=C_NAVY)
+        txbox(s, desc, 4.2, y + 0.10, 8.6, 0.55, font_size=11, color=C_SUB)
+        y += 0.76
+
+
+def slide_architecture(prs, n):
+    s = blank_slide(prs)
+    bg(s)
+    slide_header(s, "System Architecture", n, "Architecture")
+    txbox(s, "Single offline workstation · all models local (HF_HUB_OFFLINE) · GPU-resident with CPU parking on an 8 GB card",
+          0.4, 1.42, 12.5, 0.4, font_size=12, italic=True, color=C_SUB)
+
+    # three horizontal model-stack layers: input → models → output
+    layers = [
+        ("INPUT", ["Radio intercept WAV", "Live microphone", "16 kHz mono"], C_SUB),
+        ("PERCEPTION", ["Silero VAD", "MMS-LID-256 (language ID)", "SeamlessM4T v2 ASR\n(4 LoRA + 3 zero-shot)"], C_TEAL),
+        ("UNDERSTANDING", ["NLLB-200 translation", "Keyword / threat detection", "Gemma 3 ISUM (Ollama)"], C_BLUE),
+        ("OUTPUT", ["Intelligence summary (5W)", "Map · dashboard · search", "SQLite transcript store"], C_GREEN),
+    ]
+    x = 0.4
+    w = 3.05
+    for name, boxes, col in layers:
+        box(s, x, 1.95, w, 0.42, fill_color=col)
+        txbox(s, name, x, 2.0, w, 0.32, font_size=12, bold=True,
+              color=RGBColor(0xFF, 0xFF, 0xFF), align=PP_ALIGN.CENTER)
+        yy = 2.5
+        for b in boxes:
+            box(s, x, yy, w, 0.92, fill_color=C_CARD, line_color=col, line_width=Pt(1))
+            _multiline(s, b, x + 0.05, yy + 0.14, w - 0.1, 0.7,
+                       font_size=10.5, color=C_TEXT, align=PP_ALIGN.CENTER)
+            yy += 1.05
+        if name != "OUTPUT":
+            txbox(s, "→", x + w, 3.1, 0.18, 0.5, font_size=22, bold=True,
+                  color=C_TEAL, align=PP_ALIGN.CENTER)
+        x += w + 0.22
+
+    box(s, 0.4, 6.35, 12.5, 0.75, fill_color=C_TEAL_L, line_color=C_TEAL)
+    txbox(s, "Backend selection (Stage 3.5): MMS-LID routes each language to its best ASR backend. "
+             "All 7 languages now run on SeamlessM4T v2 — Hindi/Nepali/Pashto/Kashmiri with per-language "
+             "LoRA adapters, Punjabi/Urdu/Mandarin zero-shot. Fine-tuned Whisper models are retained on disk "
+             "for rollback only.",
+          0.55, 6.42, 12.2, 0.62, font_size=10.5, color=C_NAVY)
+
+
+def slide_features(prs, n):
+    s = blank_slide(prs)
+    bg(s)
+    slide_header(s, "Features", n, "Features")
+    feats = [
+        ("Multilingual ASR", "7 border languages auto-routed by LID; turbo fallback for others", C_TEAL),
+        ("Audio Language ID", "MMS-LID 256-language model + Arabic-script cascade", C_TEAL),
+        ("English Translation", "NLLB-200-distilled; IndicTrans2 for Dogri", C_BLUE),
+        ("Threat Detection", "Keyword + entity spotting with a coded-terminology lexicon", C_GOLD),
+        ("Intelligence Summary", "5W structured ISUM via Gemma 3 (Ollama), offline", C_PURPLE),
+        ("Speaker Diarization", "Who-spoke-when; per-speaker tracks in 3-node mode", C_TEAL),
+        ("Fully Offline", "Air-gapped runtime; no internet after model download", C_GREEN),
+        ("GPU-Accelerated", "int8 CT2 + CPU parking to fit an 8 GB card", C_BLUE),
+        ("Searchable Database", "SQLite transcript + summary store with full-text search", C_GOLD),
+        ("Analyst GUI", "Map, dashboard, live-mic capture, network view", C_PURPLE),
+    ]
+    cols, cw, ch = 2, 6.15, 1.0
+    x0, y0, gx, gy = 0.4, 1.55, 0.2, 0.1
+    for i, (title, desc, col) in enumerate(feats):
+        r, c = divmod(i, cols)
+        x = x0 + c * (cw + gx)
+        y = y0 + r * (ch + gy)
+        box(s, x, y, cw, ch, fill_color=C_CARD, line_color=C_BORDER)
+        box(s, x, y, 0.08, ch, fill_color=col)
+        txbox(s, title, x + 0.25, y + 0.10, cw - 0.4, 0.4, font_size=13, bold=True, color=C_NAVY)
+        txbox(s, desc, x + 0.25, y + 0.52, cw - 0.4, 0.42, font_size=10.5, color=C_SUB)
+
+
+def slide_results_hero(prs, n):
+    chart_slide(
+        prs, "Result: SeamlessM4T surpasses fine-tuned Whisper on WER", n, "Results",
+        report_charts.hero_backend_dumbbell(),
+        caption="Deployed backend vs the fine-tuned Whisper model, per language (n=100 FLEURS held-out, same scorer). "
+                "Every language improves; the arrow points to the deployed SeamlessM4T backend. Kashmiri is shown separately "
+                "(different corpus + scoring ruler).",
+        img_width=10.5, aspect=1.923,
+    )
+
+
+def slide_results_robustness_chart(prs, n):
+    chart_slide(
+        prs, "Result: the advantage holds — and widens — under radio degradation", n, "Results",
+        report_charts.robustness_heatmap(),
+        caption="SeamlessM4T's WER advantage over fine-tuned Whisper (percentage points), across five channel conditions on "
+                "30 clips/language. Positive everywhere; Hindi (+5→+19.5) and Mandarin (+3.6→+17.2) widen most at 0 dB SNR. "
+                "Conservative zero-shot comparison — the deployed hi/ne LoRA adapters improve on this further.",
+        img_width=8.8, aspect=1.955,
+    )
+
+
+def slide_results_ks_ruler(prs, n):
+    chart_slide(
+        prs, "Result: Kashmiri — the WER gap was the scoring ruler, not the model", n, "Results",
+        report_charts.ks_ruler_bars(),
+        caption="Raw word-error rate makes Whisper look ahead, but Perso-Arabic references are densely diacritised and BOTH "
+                "systems drop the marks — so raw WER over-penalises both. Diacritic-normalised, the SeamlessM4T adapter wins WER; "
+                "it wins CER at every level. It also won the 5-condition degradation sweep 4/5.",
+        img_width=8.8, aspect=1.87,
+    )
+
+
+def slide_finetune_summary(prs, n):
+    s = blank_slide(prs)
+    bg(s)
+    slide_header(s, "From Whisper fine-tuning to SeamlessM4T — how the backend was chosen", n, "Results")
+    txbox(s, "Seven Whisper LoRA models were fine-tuned first; a corrected evaluation then showed SeamlessM4T wins, "
+             "and a targeted adapter campaign brought all seven languages onto it.",
+          0.4, 1.42, 12.5, 0.55, font_size=12.5, italic=True, color=C_NAVY)
+
+    stages = [
+        ("1 · Fine-tune Whisper", "7 languages, LoRA r=8/16 on FLEURS + IndicVoices-R. Kashmiri needed a custom <|ks|> vocab token.", C_GOLD),
+        ("2 · Correct the scoring", "Found the baseline was mislabelled turbo, and Mandarin WER was a whitespace artefact. Re-scored with one CJK-aware normaliser.", C_RED),
+        ("3 · Head-to-head + robustness", "Zero-shot SeamlessM4T beat fine-tuned Whisper on 5/6 languages and held under bandpass/noise/codec.", C_TEAL),
+        ("4 · Adapter campaign", "hi/ne gained from IndicVoices data; Pashto fell to noise-augmented training; Kashmiri to a trainable __kas__ token + a ruler correction.", C_BLUE),
+        ("5 · Outcome", "All 7 languages route to SeamlessM4T. Fine-tuned Whisper is retained for rollback only. Five scoring defects caught in total.", C_GREEN),
+    ]
+    y = 2.1
+    for title, desc, col in stages:
+        box(s, 0.4, y, 12.5, 0.92, fill_color=C_CARD, line_color=C_BORDER)
+        box(s, 0.4, y, 0.08, 0.92, fill_color=col)
+        txbox(s, title, 0.62, y + 0.10, 3.7, 0.7, font_size=13, bold=True, color=col)
+        txbox(s, desc, 4.35, y + 0.12, 8.4, 0.72, font_size=11, color=C_SUB)
+        y += 0.98
+
+
 # ── Main ───────────────────────────────────────────────────────────────────────
 
 def main():
     prs = new_prs()
-    # ── Core narrative slides ──────────────────────────────
-    slide_01_title(prs)                          # 1
-    slide_02_motivation(prs)                     # 2
-    slide_03_methodology(prs)                    # 3
-    slide_04_results_overview(prs)               # 4
+    slide_01_title(prs)                                                   # 1
 
-    # ── Overview charts ────────────────────────────────────
-    slide_chartA_dataset(prs, 5)                 # 5  dataset sizes
-    slide_chartB_summary_bar(prs, 6)             # 6  baseline vs FT bar
-    slide_chartC_wer_all(prs, 7)                 # 7  all-language WER curves
+    slide_section_divider(prs, 1, "Introduction &\nProblem Statement",
+                          "What VANI is, and the operational problem it solves", 2)
+    slide_intro_problem(prs, 3)                                           # 3
 
-    # ── Training detail slides ─────────────────────────────
-    slide_05_wer_chart(prs, n=8)                 # 8  inline WER bar
-    slide_06_pa_v3_progress(prs, n=9)            # 9  PA v3 step table
-    slide_table_version_history(prs, 10)         # 10 all-language version history
-    slide_table_sm4t(prs, 11)                    # 11 FT Whisper vs NLLB vs SeamlessM4T
+    slide_section_divider(prs, 2, "Deliverables",
+                          "What was built and shipped", 4)
+    slide_deliverables(prs, 5)                                            # 5
 
-    # ── Language deep-dive + per-language curves ───────────
-    slide_07_language_deep(prs, n=12)            # 12 6-panel language overview
-    for i, lang in enumerate(LANG_ORDER, start=13):
-        slide_chartD_lang(prs, lang, i)          # 13-19  one curve slide per language
+    slide_section_divider(prs, 3, "Architecture",
+                          "The offline model stack, end to end", 6)
+    slide_architecture(prs, 7)                                            # 7
 
-    # ── Engineering & systems slides ──────────────────────
-    slide_08_kashmiri(prs, n=20)                 # 20 Kashmiri engineering detail
-    slide_09_pipeline(prs, n=21)                 # 21 10-stage pipeline
-    slide_10_key_findings(prs, n=22)             # 22 key findings
-    slide_11_robustness(prs, n=23)               # 23 robustness table
-    slide_next_steps_accuracy(prs, 24)           # 24 accuracy-improvement roadmap
-    slide_12_conclusion(prs, n=25)               # 25 deployment & conclusions
+    slide_section_divider(prs, 4, "Pipeline",
+                          "How one intercept flows through ten stages", 8)
+    slide_09_pipeline(prs, n=9)                                           # 9
+
+    slide_section_divider(prs, 5, "Features",
+                          "Analyst-facing capabilities", 10)
+    slide_features(prs, 11)                                               # 11
+
+    slide_section_divider(prs, 6, "Results",
+                          "Backend selection, robustness, and the headline WER win", 12)
+    slide_results_hero(prs, 13)                                          # 13  HERO
+    slide_table_sm4t(prs, 14)                                            # 14  cross-model comparison
+    slide_results_robustness_chart(prs, 15)                              # 15  robustness heatmap
+    slide_11_robustness(prs, n=16)                                       # 16  robustness (LangID) table
+    slide_results_ks_ruler(prs, 17)                                      # 17  Kashmiri ruler
+    slide_finetune_summary(prs, 18)                                     # 18  training campaign (one slide)
+    slide_10_key_findings(prs, n=19)                                     # 19  key findings
+
+    slide_section_divider(prs, 7, "Future Work",
+                          "Where VANI goes next", 20)
+    slide_next_steps_accuracy(prs, 21)                                   # 21
+    slide_12_conclusion(prs, n=22)                                       # 22
 
     OUT_PATH.parent.mkdir(exist_ok=True)
     prs.save(str(OUT_PATH))
