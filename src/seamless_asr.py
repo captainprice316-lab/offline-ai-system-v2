@@ -10,6 +10,8 @@ Only SeamlessM4T's ASR (speech -> source-language text) is used; downstream
 translation stays on NLLB (SeamlessM4T's S2TT is not used — its ASR-only
 quality is the win, and FT-SM4T S2TT was found broken).
 """
+import json
+
 import numpy as np
 import soundfile as sf
 
@@ -58,70 +60,102 @@ class SeamlessASR:
         # which is numerically identical to the plain base model. Deployed for
         # hi 2026-07-13: 13.94 vs zero-shot 15.44 WER (n=100 clean), and wins
         # 4/5 radio-degradation conditions incl. bandpass (16.28 vs 18.96).
-        self._adapters = {}   # sm_lang code -> peft adapter name, on self.model
-        self._ks_model = None       # Kashmiri gets its OWN model instance (see below)
-        self._ks_processor = None
+        #
+        # Kashmiri (ks_max, deployed 2026-07-20) needs two extra steps before
+        # it can stack like every other adapter: its checkpoint carries a
+        # TRAINABLE __kas__ embedding delta (PEFT `trainable_token_indices`),
+        # a mechanism no other deployed adapter uses. Loading it as an ordinary
+        # named adapter alongside hi/ne/ps corrupts the shared multi-adapter
+        # state dict (KeyError on `trainable_tokens_delta`, confirmed by direct
+        # testing 2026-07-20, regardless of load order) — the wrapper module
+        # that key needs is only built when its adapter is the sole one on a
+        # PeftModel. Since inference never trains further, that one delta is
+        # just a fixed correction: baked directly into the base embedding row
+        # (embed_tokens is weight-tied to lm_head, so one write covers both),
+        # BEFORE any adapter attaches. The adapter's remaining 480 tensors are
+        # pure LoRA rank matrices and load exactly like any other adapter.
+        self._adapters = {}   # sm_lang code -> peft adapter name
         adapters_cfg = (cfg or {}).get("seamless_adapters") or {}
         if adapters_cfg:
-            from peft import PeftModel
+            from peft import LoraConfig, PeftModel, get_peft_model
+            from peft.utils.save_and_load import set_peft_model_state_dict
+            from safetensors.torch import load_file as load_safetensors
             repo_root = Path(__file__).resolve().parents[1]
 
-            # Kashmiri (deployed 2026-07-20) is deliberately kept OFF the
-            # shared multi-adapter model. Its adapter carries a trainable
-            # __kas__ embedding delta (PEFT trainable_token_indices) whose
-            # wrapper module is only built when that adapter is the sole/
-            # first one on a PeftModel; stacking any other adapter (hi/ne/ps)
-            # alongside it — in either load order — corrupts the shared
-            # state dict (KeyError on trainable_tokens_delta, confirmed by
-            # direct testing 2026-07-20). A second, fully independent
-            # SeamlessM4Tv2ForSpeechToText + PeftModel instance sidesteps the
-            # whole class of bug, matching how every ks eval script already
-            # validated this adapter (eval_ks_seamless.py, ks_ruler_study.py).
+            def _resolve(rel):
+                p = Path(rel)
+                return p if p.is_absolute() else repo_root / rel
+
+            # ── Kashmiri: bake the trainable embedding delta, then let the
+            # LoRA matrices load through the normal path below ────────────
             ks_rel = adapters_cfg.get("ks")
             if ks_rel:
-                ks_p = Path(ks_rel)
-                if not ks_p.is_absolute():
-                    ks_p = repo_root / ks_rel
+                ks_p = _resolve(ks_rel)
                 if ks_p.exists():
-                    self._ks_processor = AutoProcessor.from_pretrained(str(ks_p))
-                    ks_base = SeamlessM4Tv2ForSpeechToText.from_pretrained(
-                        self.model_path, torch_dtype=dtype)
-                    tok = self._ks_processor.tokenizer
+                    ks_processor = AutoProcessor.from_pretrained(str(ks_p))
+                    tok = ks_processor.tokenizer
                     kas_id = tok.convert_tokens_to_ids("__kas__")
-                    if ks_base.get_input_embeddings().weight.shape[0] < len(tok):
-                        ks_base.resize_token_embeddings(len(tok))
-                    self._ks_model = PeftModel.from_pretrained(
-                        ks_base, str(ks_p)).to(self.device)
-                    self._ks_model.eval()
-                    lang_map = getattr(self._ks_model.generation_config,
+                    if self.model.get_input_embeddings().weight.shape[0] < len(tok):
+                        self.model.resize_token_embeddings(len(tok))
+                    st = load_safetensors(str(ks_p / "adapter_model.safetensors"))
+                    delta_key = ("base_model.model.text_decoder.embed_tokens."
+                                "token_adapter.trainable_tokens_delta")
+                    if delta_key in st:
+                        with torch.no_grad():
+                            emb = self.model.get_input_embeddings().weight
+                            emb[kas_id] += st[delta_key][0].to(emb.dtype).to(emb.device)
+                    else:
+                        print(f"[SeamlessASR] WARN: {delta_key} not found in ks adapter "
+                              "— __kas__ stays at its raw urd-init value")
+                    # The whole processor becomes a superset vocab shared by every
+                    # language (new token appended at the end, existing ids unchanged).
+                    self.processor = ks_processor
+                    lang_map = getattr(self.model.generation_config,
                                        "text_decoder_lang_to_code_id", None)
                     if lang_map is not None:
                         try:
                             lang_map["kas"] = kas_id
                         except TypeError:
                             pass
-                    print(f"[SeamlessASR] ks: own model instance loaded "
-                          f"(__kas__ id {kas_id}, vocab {len(tok)})")
+                    print(f"[SeamlessASR] ks: __kas__ embedding baked (id {kas_id}, "
+                          f"vocab {len(tok)}); LoRA loads via the shared-model path below")
                 else:
                     print(f"[SeamlessASR] WARN: adapter for 'ks' not loaded ({ks_p})")
 
             for vani_lang, rel in adapters_cfg.items():
-                if vani_lang == "ks":
-                    continue   # handled above, on its own model
                 sm = SEAMLESS_LANG.get(vani_lang)
-                p  = Path(rel)
-                if not p.is_absolute():
-                    p = repo_root / rel
+                p  = _resolve(rel)
                 if sm is None or not p.exists():
                     print(f"[SeamlessASR] WARN: adapter for '{vani_lang}' not loaded "
                           f"({'unknown language' if sm is None else p})")
                     continue
                 name = f"lora_{vani_lang}"
-                if not self._adapters:
-                    self.model = PeftModel.from_pretrained(self.model, str(p),
-                                                           adapter_name=name)
+                if vani_lang == "ks":
+                    # Filtered load: same LoRA hyperparameters as the checkpoint,
+                    # but WITHOUT trainable_token_indices (handled above), and
+                    # WITHOUT the token-adapter tensor in its state dict.
+                    cfg_dict = json.loads((p / "adapter_config.json").read_text(encoding="utf-8"))
+                    lora_cfg = LoraConfig(
+                        r=cfg_dict["r"], lora_alpha=cfg_dict["lora_alpha"],
+                        target_modules=cfg_dict["target_modules"],
+                        lora_dropout=cfg_dict.get("lora_dropout", 0.0),
+                        bias=cfg_dict.get("bias", "none"),
+                        task_type=cfg_dict.get("task_type", "SEQ_2_SEQ_LM"),
+                    )
+                    state_dict = load_safetensors(str(p / "adapter_model.safetensors"))
+                    state_dict = {k: v for k, v in state_dict.items()
+                                 if "token_adapter" not in k}
+                    if not self._adapters:
+                        self.model = get_peft_model(self.model, lora_cfg, adapter_name=name)
+                    else:
+                        self.model.add_adapter(name, lora_cfg)
+                    set_peft_model_state_dict(self.model, state_dict, adapter_name=name)
                 else:
-                    self.model.load_adapter(str(p), adapter_name=name)
+                    if not self._adapters:
+                        self.model = PeftModel.from_pretrained(self.model, str(p),
+                                                               adapter_name=name)
+                    else:
+                        self.model.load_adapter(str(p), adapter_name=name)
                 self._adapters[sm] = name
                 print(f"[SeamlessASR] LoRA adapter loaded for {vani_lang} ({name})")
             if self._adapters:
@@ -145,8 +179,6 @@ class SeamlessASR:
         device = "cpu" if device not in ("cpu", "cuda") else device
         if next(self.model.parameters()).device.type != device:
             self.model.to(device)
-        if self._ks_model is not None and next(self._ks_model.parameters()).device.type != device:
-            self._ks_model.to(device)
         self.device = device
 
     # Utterances shorter than this are skipped — SeamlessM4T hallucinates on
@@ -160,15 +192,6 @@ class SeamlessASR:
         the call; otherwise all adapters are disabled so non-adapter languages
         see the unmodified base model."""
         gen_kw = _gen_kwargs(sm_lang, len(audio_16k) / 16000.0)
-
-        # Kashmiri: separate model/processor entirely (see __init__ note).
-        if sm_lang == "kas" and self._ks_model is not None:
-            inputs = self._ks_processor(
-                audio=audio_16k, return_tensors="pt", sampling_rate=16000,
-            ).to(self.device)
-            with self._torch.no_grad():
-                toks = self._ks_model.generate(**inputs, tgt_lang=sm_lang, **gen_kw)
-            return self._ks_processor.decode(toks[0], skip_special_tokens=True).strip()
 
         # feature extraction only — "kas" is not a valid src_lang for the base
         # processor's text side, and ASR needs no source-text conditioning
