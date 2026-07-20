@@ -27,7 +27,7 @@ asr:
   beam_size: 5   # raised from 2 (2026-07-06) — beam 2 was a CPU-era speed compromise;
                  # published eval WERs were measured at beam 5, ASR now runs on GPU
   best_of: 1
-  seamless_langs: [pa, ne, hi, ur, zh, ps]   # route these to SeamlessM4T ASR.
+  seamless_langs: [pa, ne, hi, ur, zh, ps, ks]   # route these to SeamlessM4T ASR.
                              # Corrected n=100 eval (2026-07-11): zero-shot Seamless beats
                              # fine-tuned Whisper on WER for pa/ne/hi/ur/zh and holds under
                              # bandpass/noise (robustness sweep). Numbers (whisper_ft -> seamless):
@@ -55,6 +55,19 @@ asr:
                              # (n=100); wins 4/5 degradation conditions incl. 0 dB SNR
                              # 56.0 vs 64.8. whisper-medium-pashto-ct2 retained for
                              # rollback (remove this entry + drop ps from seamless_langs).
+    ks: finetune_runs_seamless/ks_max/adapter
+                             # ks_max (deployed 2026-07-20) — custom __kas__ token (SM4T has
+                             # no native Kashmiri), r=32 incl. MLP + a TRAINABLE __kas__
+                             # embedding row (every prior ks attempt ran with it frozen at
+                             # an urd-init copy). The clean-speech WER gate looked like a
+                             # loss (80.91 vs deployed Whisper-CT2's 79.29) until
+                             # ks_ruler_study showed the gap was a diacritic-scoring
+                             # artefact — normalised, ks_max already wins WER (64.31 vs
+                             # 65.19) and CER at every level. It then won the degradation
+                             # sweep 4/5 (loses only clean by 1.3; wins bandpass/10dB/0dB/
+                             # codec by 1.5-8.4 raw, up to 12.6 normalised) and CER 5/5,
+                             # with Whisper exceeding 100% CER at 0 dB. Whisper-ks
+                             # (whisper-large-v3-ks-ct2) retained for rollback.
     ne: finetune_runs_seamless/ne_iv/adapter
                              # ne_iv (deployed 2026-07-18, Nepali's FIRST adapter — the
                              # old ne adapter carried the label bug): FLEURS +

@@ -142,15 +142,22 @@ for l in ["pa","ps","ur","ne","zh","hi","ks"]:
     check(f"md summary {l}.heldout", num(ho), m["eval_wer"])
     if EVAL_RESULTS[l]["best"] == "seamless":
         mm = re.search(r"\((\d+\.?\d*)%\)", bk)
-        # "SeamlessM4T + LoRA (x%)" cells cite the deployed ADAPTER's WER (smft JSON;
-        # deployed adapter rows: hi_iv/ne_iv since 2026-07-18, ps_aug since 2026-07-19),
-        # plain "SeamlessM4T (x%)" cells cite zero-shot (comp JSON).
-        DEPLOYED_ADAPTER_ROW = {"hi": "hi_iv", "ne": "ne_iv", "ps": "ps_aug"}
-        if "LoRA" in bk:
-            row = smft.get(DEPLOYED_ADAPTER_ROW.get(l, "")) or smft[l]
-            truth = row["sm_ft_asr_wer"]
+        if l == "ks":
+            # ks never went through eval_seamless_ft.py (custom tokenizer, its own
+            # pipeline) — its "backend-wer" truth is the ks_ruler_study diacritic-
+            # normalised WER (the number the deployment decision actually rests on).
+            ks_ruler = json.load(open(REPO/"docs/ks_ruler_study.json", encoding="utf-8"))
+            truth = ks_ruler["indicvoices_test"]["L2 +no diacritics"]["ks_max"]["wer"]
         else:
-            truth = comp[l]["seamless_asr_wer"]
+            # "SeamlessM4T + LoRA (x%)" cells cite the deployed ADAPTER's WER (smft
+            # JSON; deployed adapter rows: hi_iv/ne_iv since 2026-07-18, ps_aug since
+            # 2026-07-19), plain "SeamlessM4T (x%)" cells cite zero-shot (comp JSON).
+            DEPLOYED_ADAPTER_ROW = {"hi": "hi_iv", "ne": "ne_iv", "ps": "ps_aug"}
+            if "LoRA" in bk:
+                row = smft.get(DEPLOYED_ADAPTER_ROW.get(l, "")) or smft[l]
+                truth = row["sm_ft_asr_wer"]
+            else:
+                truth = comp[l]["seamless_asr_wer"]
         check(f"md summary {l}.backend-wer", float(mm.group(1)) if mm else None, truth)
 
 # ── 7. Corrections section quotes vs PRE_FIX archives ────────────────────────

@@ -238,7 +238,18 @@ LANG_META = {
                 "script). Forced prefix [<|startoftranscript|>, <|ks|>, <|transcribe|>, <|notimestamps|>] "
                 "injected via TemplateProcessing. Trained on IndicVoices-R KS (20k samples, 3,000 steps). "
                 "Best WER 74.02% at step 2400 (-22.85 pp from baseline 96.87%). "
-                "faster-whisper patched at import time to accept 'ks' language code.",
+                "faster-whisper patched at import time to accept 'ks' language code. SeamlessM4T has no "
+                "native Kashmiri either, but the same custom-token trick (__kas__, r=32 LoRA incl. MLP, "
+                "PLUS a trainable embedding row via PEFT trainable_token_indices) was applied on top of it "
+                "2026-07-19/20 (ks_max). The clean-speech comparison against the actually-deployed "
+                "Whisper CT2 artefact (79.29% raw WER, not the training-eval's 74.02%) initially looked "
+                "like a loss (ks_max 80.91%) until a normalisation-ladder study showed both models' raw "
+                "WER is inflated by the densely-diacritised references: diacritic-stripped, ks_max already "
+                "wins WER (64.31% vs 65.19%) and wins CER at every normalisation level on both test sets. "
+                "It then won the 5-condition radio-degradation sweep 4/5 (loses only clean speech, by 1.3 "
+                "pp) and CER 5/5, with Whisper exceeding 100% CER at 0 dB SNR. Kashmiri is now routed to "
+                "SeamlessM4T with the ks_max adapter (deployed 2026-07-20) — this model is retained for "
+                "rollback (see §5.5).",
         "training_time": "~18 h (incl. 2 power outages, PD-charger recovery)",
     },
 }
@@ -270,7 +281,11 @@ EVAL_RESULTS = {
     "hi": {"baseline": 26.34, "ft": 19.78, "seamless": 15.44, "baseline_cer": 10.55, "ft_cer": 7.46,  "sm_cer": 9.12,
            "nllb_chrf": 53.71, "sm_chrf": 51.54, "best": "seamless"},
     "ks": {"baseline": 96.87, "ft": 74.02, "seamless": None,  "baseline_cer": None,  "ft_cer": None,  "sm_cer": None,
-           "nllb_chrf": None,  "sm_chrf": None,  "best": "whisper_ft"},
+           # "best" = deployed backend. Flipped 2026-07-20: the ks_max SeamlessM4T
+           # adapter (custom trainable __kas__ token, r=32+MLP) wins WER (64.31 vs
+           # 65.19) and CER at every diacritic-normalisation level once the ruler
+           # is corrected — see docs/ks_ruler_study.json + FINETUNE_REPORT.md.
+           "nllb_chrf": None,  "sm_chrf": None,  "best": "seamless"},
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1103,11 +1118,10 @@ def build():
              Paragraph("<b>SM4T + LoRA</b>", ParagraphStyle("Bhi", fontName="Helvetica-Bold",
                         fontSize=9, textColor=HDR_BLUE, alignment=TA_CENTER)), tc("53.71"), tc("51.54")],
             [tcl("Kashmiri (ks)‡"), tc("96.87 (—)"),
-             Paragraph("<b>74.02 (—)</b>", ParagraphStyle("FTks", fontName="Helvetica-Bold",
-                        fontSize=9, textColor=SUCCESS_GRN, alignment=TA_CENTER)),
+             tc("74.02 (—)"),
              tc("—§"),
-             Paragraph("<b>FT Whisper</b>", ParagraphStyle("Bks", fontName="Helvetica-Bold",
-                        fontSize=9, textColor=SUCCESS_GRN, alignment=TA_CENTER)), tc("—"), tc("—")],
+             Paragraph("<b>SM4T + LoRA</b>", ParagraphStyle("Bks", fontName="Helvetica-Bold",
+                        fontSize=9, textColor=HDR_BLUE, alignment=TA_CENTER)), tc("—"), tc("—")],
         ], colWidths=[2.5*cm, 2.9*cm, 2.7*cm, 2.7*cm, 2.2*cm, 1.4*cm, W-14.4*cm],
         style=std_ts(left_cols=(0,)), repeatRows=1),
         sp(4),
@@ -1117,35 +1131,55 @@ def build():
              "on the space-delimited languages, so comparisons are valid only within a metric."),
         note("Kashmiri CER was not recorded by the training-time eval (hence the dash). On the "
              "30-clip robustness set (clean condition, eval_data/wer_robustness_results.csv) the "
-             "deployed ks model scores 81.46% WER / 47.95% CER — the wide gap reflects Perso-Arabic "
-             "orthographic variation that WER over-penalises. Different sample set than the 74.02% "
-             "column, so the two must not be read as one WER (CER) pair."),
+             "then-deployed Whisper ks model scored 81.46% WER / 47.95% CER — the wide gap reflects "
+             "Perso-Arabic orthographic variation that WER over-penalises, which is exactly what later "
+             "motivated re-scoring the SeamlessM4T challenger under normalisation rather than trusting "
+             "raw WER alone (below)."),
         body(
-            "<b>Result: fine-tuned Whisper survives as the deployed backend for only one of seven "
-            "languages</b> — Kashmiri (SeamlessM4T has no Kashmiri support). For Punjabi, Nepali, "
-            "Hindi, Urdu and Mandarin, zero-shot SeamlessM4T wins outright, by margins from 1.4 pp "
-            "(Urdu) to 37.6 pp (Punjabi). Pashto was fine-tuned Whisper's stronghold (38.55% vs "
-            "zero-shot SeamlessM4T's 44.40%, and 4/5 degradation conditions) until 2026-07-19, when "
-            "a noise-augmented SeamlessM4T adapter overtook it (below). VANI routes ASR per language "
-            "accordingly: SeamlessM4T for pa/ne/hi/ur/zh/ps, fine-tuned Whisper for ks."
+            "<b>Result (updated 2026-07-20): fine-tuned Whisper is no longer the deployed backend for "
+            "any of the seven languages.</b> For Punjabi, Nepali, Hindi, Urdu and Mandarin, zero-shot "
+            "SeamlessM4T won outright from the start, by margins from 1.4 pp (Urdu) to 37.6 pp "
+            "(Punjabi). Pashto and Kashmiri were fine-tuned Whisper's last strongholds — Pashto fell "
+            "on 2026-07-19 to a noise-augmented SeamlessM4T adapter, and Kashmiri, initially thought "
+            "unwinnable, fell the following day once the scoring ruler itself was corrected (below). "
+            "VANI now routes all seven languages to SeamlessM4T; the retired Whisper models stay on "
+            "disk for rollback."
         ),
         sp(6),
         body(
-            "<b>SeamlessM4T LoRA adapters (deployed 2026-07-18/19).</b> On top of the routing, Hindi, "
-            "Nepali and Pashto run per-language LoRA adapters. Hindi and Nepali were trained on FLEURS "
-            "+ IndicVoices-R (cap 20k samples): Hindi 15.44% → <b>12.91%</b> and Nepali 28.46% → "
+            "<b>SeamlessM4T LoRA adapters (deployed 2026-07-18 to 20).</b> Hindi, Nepali, Pashto and "
+            "Kashmiri each run a per-language LoRA adapter. Hindi and Nepali were trained on FLEURS + "
+            "IndicVoices-R (cap 20k samples): Hindi 15.44% → <b>12.91%</b> and Nepali 28.46% → "
             "<b>24.34%</b> versus zero-shot on the same held-out test. Pashto required five attempts: "
             "more data alone regressed (CV domain drift), a larger adapter (r=32 incl. MLP layers) won "
             "clean speech (37.29% vs Whisper's 38.55%) but collapsed at 0 dB SNR (87.2% vs 64.8%), and "
-            "the final <b>noise-augmented</b> adapter — training audio degraded with the evaluation's "
+            "the fifth, <b>noise-augmented</b> adapter — training audio degraded with the evaluation's "
             "own bandpass/noise/codec pipeline — reached <b>36.91%</b> clean while fixing the collapse "
-            "(56.0% at 0 dB, beating Whisper's 64.8%). Every adapter passed the 30-clip, 5-condition "
-            "degradation sweep before deployment (Hindi 4/5, Nepali 5/5, Pashto 4/5), and each is "
-            "enabled only for its own language's decoding calls — other languages run the plain base "
-            "model. Kashmiri is the sole holdout: no attempt (epochs, decode fixes, doubled rank) got "
-            "a custom-token adapter closer than 88.42% vs Whisper's 74.02%. Where SeamlessM4T's "
-            "pretraining covers a language it can be pushed past Whisper; where the vocabulary itself "
-            "is missing, it cannot — which is exactly why the hybrid architecture remains."
+            "(56.0% at 0 dB, beating Whisper's 64.8%). Hindi/Nepali/Pashto each passed the 30-clip, "
+            "5-condition degradation sweep before deployment (4/5, 5/5, 4/5), and each is enabled only "
+            "for its own language's decoding calls — other languages run the plain base model."
+        ),
+        sp(6),
+        body(
+            "<b>Kashmiri (deployed 2026-07-20) needed a fourth attempt and a scoring correction, not "
+            "just a bigger adapter.</b> Three prior attempts (1 epoch: 129.29% WER; +decode fixes: "
+            "92.09%; r=16 LoRA, 3 epochs: 88.42%) all lost badly to Whisper's 74.02%. A fourth attempt "
+            "stacked the two remaining untried levers — r=32 LoRA incl. MLP layers, and, for the first "
+            "time, a <b>trainable __kas__ embedding row</b> (every earlier attempt had frozen it as a "
+            "copy of Urdu's, via PEFT's <font face='Courier'>trainable_token_indices</font>) — and "
+            "reached 80.91% clean, still nominally behind. But re-scoring the <i>actually deployed</i> "
+            "Whisper CT2 artefact on the same 372 clips found it scores 79.29%, not the published "
+            "74.02% (a training-time eval of the merged fp16 model, whose raw hypotheses were never "
+            "persisted) — narrowing the true gap to 1.6 pp. Stripping the Perso-Arabic diacritics that "
+            "saturate the references (which both models drop, so raw WER penalises both per-word) "
+            "flips the result: the new adapter already <b>wins WER</b> (64.31% vs 65.19%) and wins "
+            "<b>CER at every normalisation level on both test sets</b>. It then won the radio-"
+            "degradation sweep 4 of 5 conditions (losing only clean speech, by 1.3 pp) and CER 5 of 5, "
+            "with Whisper's CER exceeding 100% at 0 dB SNR. Kashmiri's lesson generalises beyond this "
+            "one language: a model-selection conclusion is only as good as the ruler behind it, and "
+            "this project has now found five independent scoring defects (turbo mislabelling, CJK "
+            "whitespace, a label-encoding bug, an adapter-override bug in the sweep harness, and this "
+            "training-eval-vs-deployed-artefact mismatch) — each one initially read as a real result."
         ),
         sp(4),
         note("† Mandarin: fine-tuning regressed the model (baseline 10.99% → fine-tuned 14.22%). The prior "

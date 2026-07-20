@@ -14,10 +14,23 @@ import numpy as np
 import soundfile as sf
 
 # ISO-639-1 -> SeamlessM4T v2 source-language code
+# ks/"kas" is NOT in the base model: it exists only via the ks_max adapter's
+# custom __kas__ token (added at fine-tune time, embedding row restored by the
+# adapter's trainable-token delta). It only works when that adapter is loaded.
 SEAMLESS_LANG = {
     "pa": "pan", "ne": "npi", "ur": "urd",
     "hi": "hin", "ps": "pbt", "zh": "cmn",
+    "ks": "kas",
 }
+
+# Per-language generate() kwargs, matching the configuration each deployed
+# adapter was EVALUATED with. Kashmiri needs the decode fixes from the
+# 2026-07-17 probe (early-EOS under-generation: 128->94 WER from these alone).
+def _gen_kwargs(sm_lang: str, dur_s: float) -> dict:
+    if sm_lang == "kas":
+        return {"min_new_tokens": min(180, max(5, int(dur_s * 2.5))),
+                "no_repeat_ngram_size": 3}
+    return {}
 
 
 class SeamlessASR:
@@ -45,12 +58,56 @@ class SeamlessASR:
         # which is numerically identical to the plain base model. Deployed for
         # hi 2026-07-13: 13.94 vs zero-shot 15.44 WER (n=100 clean), and wins
         # 4/5 radio-degradation conditions incl. bandpass (16.28 vs 18.96).
-        self._adapters = {}   # sm_lang code -> peft adapter name
+        self._adapters = {}   # sm_lang code -> peft adapter name, on self.model
+        self._ks_model = None       # Kashmiri gets its OWN model instance (see below)
+        self._ks_processor = None
         adapters_cfg = (cfg or {}).get("seamless_adapters") or {}
         if adapters_cfg:
             from peft import PeftModel
             repo_root = Path(__file__).resolve().parents[1]
+
+            # Kashmiri (deployed 2026-07-20) is deliberately kept OFF the
+            # shared multi-adapter model. Its adapter carries a trainable
+            # __kas__ embedding delta (PEFT trainable_token_indices) whose
+            # wrapper module is only built when that adapter is the sole/
+            # first one on a PeftModel; stacking any other adapter (hi/ne/ps)
+            # alongside it — in either load order — corrupts the shared
+            # state dict (KeyError on trainable_tokens_delta, confirmed by
+            # direct testing 2026-07-20). A second, fully independent
+            # SeamlessM4Tv2ForSpeechToText + PeftModel instance sidesteps the
+            # whole class of bug, matching how every ks eval script already
+            # validated this adapter (eval_ks_seamless.py, ks_ruler_study.py).
+            ks_rel = adapters_cfg.get("ks")
+            if ks_rel:
+                ks_p = Path(ks_rel)
+                if not ks_p.is_absolute():
+                    ks_p = repo_root / ks_rel
+                if ks_p.exists():
+                    self._ks_processor = AutoProcessor.from_pretrained(str(ks_p))
+                    ks_base = SeamlessM4Tv2ForSpeechToText.from_pretrained(
+                        self.model_path, torch_dtype=dtype)
+                    tok = self._ks_processor.tokenizer
+                    kas_id = tok.convert_tokens_to_ids("__kas__")
+                    if ks_base.get_input_embeddings().weight.shape[0] < len(tok):
+                        ks_base.resize_token_embeddings(len(tok))
+                    self._ks_model = PeftModel.from_pretrained(
+                        ks_base, str(ks_p)).to(self.device)
+                    self._ks_model.eval()
+                    lang_map = getattr(self._ks_model.generation_config,
+                                       "text_decoder_lang_to_code_id", None)
+                    if lang_map is not None:
+                        try:
+                            lang_map["kas"] = kas_id
+                        except TypeError:
+                            pass
+                    print(f"[SeamlessASR] ks: own model instance loaded "
+                          f"(__kas__ id {kas_id}, vocab {len(tok)})")
+                else:
+                    print(f"[SeamlessASR] WARN: adapter for 'ks' not loaded ({ks_p})")
+
             for vani_lang, rel in adapters_cfg.items():
+                if vani_lang == "ks":
+                    continue   # handled above, on its own model
                 sm = SEAMLESS_LANG.get(vani_lang)
                 p  = Path(rel)
                 if not p.is_absolute():
@@ -88,6 +145,8 @@ class SeamlessASR:
         device = "cpu" if device not in ("cpu", "cuda") else device
         if next(self.model.parameters()).device.type != device:
             self.model.to(device)
+        if self._ks_model is not None and next(self._ks_model.parameters()).device.type != device:
+            self._ks_model.to(device)
         self.device = device
 
     # Utterances shorter than this are skipped — SeamlessM4T hallucinates on
@@ -100,20 +159,32 @@ class SeamlessASR:
         If a LoRA adapter is registered for this language it is activated for
         the call; otherwise all adapters are disabled so non-adapter languages
         see the unmodified base model."""
+        gen_kw = _gen_kwargs(sm_lang, len(audio_16k) / 16000.0)
+
+        # Kashmiri: separate model/processor entirely (see __init__ note).
+        if sm_lang == "kas" and self._ks_model is not None:
+            inputs = self._ks_processor(
+                audio=audio_16k, return_tensors="pt", sampling_rate=16000,
+            ).to(self.device)
+            with self._torch.no_grad():
+                toks = self._ks_model.generate(**inputs, tgt_lang=sm_lang, **gen_kw)
+            return self._ks_processor.decode(toks[0], skip_special_tokens=True).strip()
+
+        # feature extraction only — "kas" is not a valid src_lang for the base
+        # processor's text side, and ASR needs no source-text conditioning
         inputs = self.processor(
-            audio=audio_16k, return_tensors="pt",
-            sampling_rate=16000, src_lang=sm_lang,
+            audio=audio_16k, return_tensors="pt", sampling_rate=16000,
         ).to(self.device)
         adapter = self._adapters.get(sm_lang)
         with self._torch.no_grad():
             if adapter is not None:
                 self.model.set_adapter(adapter)
-                toks = self.model.generate(**inputs, tgt_lang=sm_lang)
+                toks = self.model.generate(**inputs, tgt_lang=sm_lang, **gen_kw)
             elif self._adapters:
                 with self.model.disable_adapter():
-                    toks = self.model.generate(**inputs, tgt_lang=sm_lang)
+                    toks = self.model.generate(**inputs, tgt_lang=sm_lang, **gen_kw)
             else:
-                toks = self.model.generate(**inputs, tgt_lang=sm_lang)
+                toks = self.model.generate(**inputs, tgt_lang=sm_lang, **gen_kw)
         return self.processor.decode(toks[0], skip_special_tokens=True).strip()
 
     def transcribe(self, audio_path: str, language_hint: str = None,

@@ -393,8 +393,8 @@ def slide_05_wer_chart(prs, n=8):
         ("Hindi",    "19.8 → 13.9%", "SM4T + LoRA"),
         ("Urdu",     "19.8 → 16.9%", "SeamlessM4T"),
         ("Mandarin", "14.2 → 11.7%", "SeamlessM4T"),
-        ("Pashto",   "38.6 < 44.4%", "FT Whisper"),
-        ("Kashmiri", "74.0% (only)", "FT Whisper"),
+        ("Pashto",   "38.6 → 36.9%", "SM4T + LoRA"),
+        ("Kashmiri", "74.0 → 64.3%*","SM4T + LoRA"),
     ]
     y2 = 2.12
     for lang, prog, backend in selection:
@@ -402,7 +402,7 @@ def slide_05_wer_chart(prs, n=8):
         txbox(s, lang,  8.35, y2+0.05, 1.2, 0.26, font_size=11, bold=True, color=C_TEXT)
         txbox(s, prog,  9.55, y2+0.05, 1.6, 0.26, font_size=9.5, color=C_SUB)
         txbox(s, backend, 11.15, y2+0.05, 1.65, 0.26, font_size=10, bold=True,
-              color=(C_TEAL if backend=="SeamlessM4T" else C_GREEN), align=PP_ALIGN.RIGHT)
+              color=(C_TEAL if "SM4T" in backend or backend=="SeamlessM4T" else C_GREEN), align=PP_ALIGN.RIGHT)
         y2 += 0.61
 
 # ── Slide 6 — PA v3 Training Progress ────────────────────────────────────────
@@ -537,7 +537,7 @@ def slide_07_language_deep(prs, n=12):
 def slide_08_kashmiri(prs, n=20):
     s = blank_slide(prs)
     bg(s)
-    slide_header(s, "Kashmiri (ks) — Custom Token Fine-Tuning", n, "Kashmiri")
+    slide_header(s, "Kashmiri (ks) — Custom Token Fine-Tuning (Whisper, superseded)", n, "Kashmiri")
 
     # Challenge panel
     card(s, 0.4, 1.42, 5.85, 5.35, accent_color=C_RED)
@@ -584,6 +584,12 @@ def slide_08_kashmiri(prs, n=20):
         txbox(s, k, x, 6.92, 1.5, 0.18, font_size=9, color=C_SUB)
         txbox(s, v, x, 7.08, 1.9, 0.18, font_size=9.5, bold=True, color=C_GOLD)
         x += 2.48
+    txbox(s, "This model documents HOW the Whisper <|ks|> token was engineered. It was "
+             "superseded 2026-07-20 by ks_max — the analogous SeamlessM4T trick (custom "
+             "__kas__ token, r=32 LoRA + a trainable embedding row) which, once the WER "
+             "scoring ruler was corrected for Perso-Arabic diacritics, won CER at every "
+             "level and 4/5 radio-degradation conditions. This model is kept for rollback.",
+          0.4, 6.55, 12.5, 0.32, font_size=9, italic=True, color=C_GREEN)
 
 # ── Slide 9 — VANI Pipeline ───────────────────────────────────────────────────
 
@@ -782,9 +788,9 @@ def slide_12_conclusion(prs, n=24):
         (C_TEAL,   "7 Models Fine-Tuned\npa · ps · ur · ne · zh · hi · ks",
                    "All CT2 int8, fully offline"),
         (C_GOLD,   "Backend Selected\nper Language",
-                   "SeamlessM4T ×5  ·  FT Whisper ×2"),
-        (C_GREEN,  "FT Whisper wins ASR\non Pashto only",
-                   "+ Kashmiri (no SM4T support)"),
+                   "SeamlessM4T ×7  ·  FT Whisper ×0"),
+        (C_GREEN,  "All 7 Languages Now\nRun on SeamlessM4T",
+                   "Whisper models kept only for rollback"),
         (C_PURPLE, "0.25–0.51% Params\nLoRA r=8 / r=16",
                    "No full fine-tune needed"),
     ]
@@ -806,7 +812,7 @@ def slide_12_conclusion(prs, n=24):
         ("SeamlessM4T + ne LoRA",     "Nepali",   "24.34%", C_TEAL),
         ("SeamlessM4T (zero-shot)",   "Mandarin", "11.69%", C_TEAL),
         ("SeamlessM4T + hi LoRA",     "Hindi",    "12.91%", C_TEAL),
-        ("whisper-large-v3-ks-ct2",   "Kashmiri", "74.02%", C_GREEN),
+        ("SeamlessM4T + ks LoRA",     "Kashmiri", "80.91%*",C_TEAL),
     ]
     y = 3.04
     for i, (mname, lang, wer, col) in enumerate(models):
@@ -817,12 +823,15 @@ def slide_12_conclusion(prs, n=24):
         txbox(s, lang,  4.6,  y+0.06, 1.1, 0.25, font_size=10, bold=True, color=C_TEXT)
         txbox(s, wer,   5.8,  y+0.06, 1.6, 0.25, font_size=10.5, bold=True, color=col, align=PP_ALIGN.RIGHT)
         y += 0.37
+    txbox(s, "* ks: raw clean WER; diacritic-normalised, ks_max already WINS WER (64.31% vs "
+             "Whisper's 65.19%) and CER at every level — see notes.",
+          0.4, y+0.02, 7.1, 0.3, font_size=8, italic=True, color=C_SUB)
 
     # Next steps
     txbox(s, "Next Steps", 7.8, 2.65, 5.4, 0.35,
           font_size=13, bold=True, color=C_NAVY)
     nexts = [
-        (C_GREEN,  "Backend routing", "DEPLOYED — SeamlessM4T for pa/ne/hi/ur/zh, FT Whisper for ps/ks"),
+        (C_GREEN,  "Backend routing", "DEPLOYED — SeamlessM4T for all 7 languages (hi/ne/ps/ks w/ LoRA)"),
         (C_GREEN,  "Robustness",    "COMPLETE — 5 cond × 7 langs; SM4T lead holds under noise"),
         (C_GOLD,   "Seamless timing", "Per-utterance segments added; per-VAD-segment ASR live"),
         (C_PURPLE, "Reports",       "Regenerated from corrected n=100 scoring (this deck)"),
@@ -1014,9 +1023,11 @@ def slide_table_sm4t(prs, n):
                   font_size=8.5, bold=(c in (C_TEXT, C_BLUE, C_TEAL)), color=c)
         y += 0.45
 
-    txbox(s, "Zero-shot SeamlessM4T wins ASR for pa / ne / hi / ur / zh.  FT Whisper wins only "
-             "Pashto (38.55% vs 44.40%) and is the sole option for Kashmiri (no SM4T support).  "
-             "→ VANI routes ASR per language: SeamlessM4T for 5, FT Whisper for 2.",
+    txbox(s, "Zero-shot SeamlessM4T wins ASR for pa / ne / hi / ur / zh. Pashto and Kashmiri were "
+             "fine-tuned Whisper's last strongholds; both fell in 2026-07 to SeamlessM4T LoRA "
+             "adapters (ps: noise-augmented training; ks: r=32 LoRA + a trainable __kas__ embedding "
+             "row, plus a scoring-ruler correction — see notes). VANI now routes all 7 languages to "
+             "SeamlessM4T; FT Whisper models are retained on disk for rollback only.",
           0.35, y+0.06, 12.5, 0.32, font_size=10, italic=True, color=C_SUB)
 
 # ── Main ───────────────────────────────────────────────────────────────────────
