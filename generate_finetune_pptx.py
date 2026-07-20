@@ -951,10 +951,10 @@ def slide_table_version_history(prs, n):
         ("NE",  "v1",         "large-v3",       "FLEURS ne_np",          "3,332",  "2,000", "52.14%", "52.14%", "Superseded", C_SUB),
         ("NE",  "v2",         "large-v3",       "FLEURS+IV-R",           "13,332", "3,000", "50.82%", "50.92%", "SM4T serves", C_SUB),
         ("ZH",  "v1 (div.)", "large-v3",       "FLEURS cmn_hans_cn",    "3,246",  "400†",  "8.97%",  "14.22%", "SM4T serves", C_RED),
-        ("PS",  "v1 ★",      "medium-pashto",  "FLEURS ps_af",          "2,082",  "2,000", "38.55%", "38.55%", "Deployed",   C_TEAL),
+        ("PS",  "v1",         "medium-pashto",  "FLEURS ps_af",          "2,082",  "2,000", "38.55%", "38.55%", "SM4T serves", C_SUB),
         ("UR",  "v1",         "large-v3",       "FLEURS ur_pk",          "2,109",  "1,000", "22.27%", "19.82%", "SM4T serves", C_SUB),
         ("HI",  "v1",         "large-v3",       "FLEURS hi_in",          "2,120",  "600",   "23.13%", "19.78%", "SM4T serves", C_SUB),
-        ("KS",  "v1 ★",      "large-v3+<|ks|>","IndicVoices-R KS",     "20,000", "3,000", "74.02%", "74.02%", "Deployed",   C_TEAL),
+        ("KS",  "v1",         "large-v3+<|ks|>","IndicVoices-R KS",     "20,000", "3,000", "74.02%", "74.02%", "SM4T serves", C_SUB),
     ]
 
     y += 0.54
@@ -969,8 +969,10 @@ def slide_table_version_history(prs, n):
                   font_size=8.5, bold=(j <= 1 or j == 8), color=c)
         y += 0.35
 
-    txbox(s, "PA v3 deployed 2026-07-04, completed 4000 steps @ 49.31% (OOM at 2400 recovered via greedy eval)  ·  "
-             "† ZH diverged step ~820, ckpt-400 deployed  ·  ★ deployed  ·  IV-R = IndicVoices-R",
+    txbox(s, "† ZH diverged step ~820, ckpt-400 kept  ·  IV-R = IndicVoices-R  ·  "
+             "\"SM4T serves\" = this fine-tuned Whisper model was trained and evaluated, but SeamlessM4T "
+             "(zero-shot or + LoRA) is the deployed backend for this language; the Whisper model is "
+             "retained on disk for rollback only. As of 2026-07-20 this holds for ALL 7 languages.",
           0.35, y+0.08, 12.5, 0.28, font_size=9, italic=True, color=C_SUB)
 
 # ── Table slide — FT Whisper vs SeamlessM4T ───────────────────────────────────
