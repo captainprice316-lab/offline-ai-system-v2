@@ -961,6 +961,76 @@ tab_process, tab_isum, tab_search, tab_dashboard, tab_map, tab_history, tab_time
 
 
 # ------------------------------------------------------------------------------
+# CRITICAL-INTERCEPT ALERT POPUP
+# Fires a modal the moment a freshly-processed intercept comes back CRITICAL.
+# Scoped to new results (a flag set at processing completion), so it does NOT
+# nag on every app load when an old critical report is auto-loaded.
+# ------------------------------------------------------------------------------
+@st.experimental_dialog("\U0001F6A8  CRITICAL INTERCEPT", width="large")
+def _critical_alert_dialog(res):
+    isum = res.get("isum", {}) or {}
+    thr  = (res.get("threat_level") or "CRITICAL").upper()
+    tr   = res.get("translation") or {}
+    trans = tr.get("translated_text") if isinstance(tr, dict) else str(tr)
+    ka   = res.get("keyword_alerts") or {}
+    cats = [c.replace("_", " ").upper() for c in (ka.get("top_categories") or [])[:5]]
+    flagged = []
+    for a in (ka.get("alerts") or []):
+        w = a.get("matched_word")
+        if w and w not in flagged:
+            flagged.append(w)
+
+    st.markdown(
+        f'<div style="background:#2a0000;border:2px solid #ff3355;border-radius:6px;'
+        f'padding:0.7rem 1rem;text-align:center;margin-bottom:0.8rem">'
+        f'<span style="color:#ff5570;font-family:\'Share Tech Mono\',monospace;'
+        f'font-size:1.5rem;letter-spacing:0.15em;font-weight:700">THREAT LEVEL: {thr}</span></div>',
+        unsafe_allow_html=True,
+    )
+    if cats:
+        st.markdown(
+            "**Flagged categories:** " +
+            "  ".join(f'<span style="background:#3a0d12;color:#ff8095;'
+                     f'padding:2px 8px;border-radius:3px;font-size:0.8rem">{c}</span>'
+                     for c in cats),
+            unsafe_allow_html=True,
+        )
+    if flagged:
+        st.markdown("**Keywords:** " + ", ".join(f"`{w}`" for w in flagged[:8]))
+    st.markdown(f"**Report:** {isum.get('report_id', res.get('report_id','-'))}"
+                f"  ·  **Audio:** {isum.get('audio_file', '-')}")
+    st.divider()
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown("**Transcript**")
+        st.markdown(f"<div style='font-size:1.05rem'>{res.get('transcript','-')}</div>",
+                    unsafe_allow_html=True)
+    with c2:
+        st.markdown("**English translation**")
+        st.markdown(f"<div style='font-size:1.05rem;color:#ffd0d0'>{trans or '-'}</div>",
+                    unsafe_allow_html=True)
+    st.markdown(
+        f"**WHAT:** {isum.get('what','-')}  \n"
+        f"**WHERE:** {isum.get('where','-')}  \n"
+        f"**WHO:** {isum.get('who','-')}"
+    )
+    st.divider()
+    if st.button("✓  ACKNOWLEDGE", type="primary", use_container_width=True):
+        st.session_state["_crit_ack"] = res.get("report_id")
+        st.session_state.pop("_show_crit", None)
+        st.rerun()
+
+# Trigger: a fresh CRITICAL result was just processed and not yet acknowledged.
+_crit_id = st.session_state.get("_show_crit")
+if _crit_id and st.session_state.get("_crit_ack") != _crit_id:
+    _crit_res = st.session_state.get("last_result") or {}
+    if (_crit_res.get("report_id") == _crit_id
+            and (_crit_res.get("threat_level") or "").upper() == "CRITICAL"):
+        st.toast("\U0001F6A8 CRITICAL intercept detected", icon="\U0001F6A8")
+        _critical_alert_dialog(_crit_res)
+
+
+# ------------------------------------------------------------------------------
 # TAB 1 - PROCESS
 # ------------------------------------------------------------------------------
 with tab_process:
@@ -1271,6 +1341,9 @@ with tab_process:
                     db.save_result(_r)
                     db.save_metrics(_r.get("report_id",""), compute_auto_metrics(_r))
                     st.session_state["last_result"] = _r
+                    # arm the CRITICAL-intercept popup for this fresh result
+                    if (_r.get("threat_level") or "").upper() == "CRITICAL":
+                        st.session_state["_show_crit"] = _r.get("report_id")
                     st.rerun()
                 else:
                     st.warning(
