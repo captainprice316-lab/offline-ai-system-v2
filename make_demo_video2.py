@@ -79,12 +79,11 @@ def _load_intercept(sr_out=22050):
     wav, sr = sf.read(str(ROOT / "demo_clips/ps_pashto_1.wav"), dtype="float32")
     if wav.ndim > 1:
         wav = wav.mean(axis=1)
-    # bandpass 300-3400 Hz (telephone/radio band)
-    sos = butter(4, [300/(sr/2), 3400/(sr/2)], btype="band", output="sos")
+    # gentle radio band (keep speech intelligible — heavy clip/noise turned it
+    # into static in the first cut). Wider band, no added noise, no hard clip.
+    sos = butter(3, [280/(sr/2), 3600/(sr/2)], btype="band", output="sos")
     wav = sosfilt(sos, wav).astype("float32")
-    # light channel noise + mild clip (PTT feel)
-    wav += 0.012 * np.random.randn(len(wav)).astype("float32")
-    wav = np.tanh(wav * 1.6) * 0.85
+    wav = np.tanh(wav * 1.15).astype("float32")   # very mild PTT warmth only
     if sr != sr_out:
         wav = resample_poly(wav, sr_out, sr).astype("float32")
     wav /= (np.abs(wav).max() + 1e-9)
@@ -171,6 +170,18 @@ def footer(ax, t):
 
 def typed(full, prog):
     return full[:int(len(full)*max(0.0, min(1.0, prog)))]
+
+def wrap(s, maxc):
+    """Greedy word-wrap into lines of at most ~maxc chars (keeps text in-panel)."""
+    out, cur = [], ""
+    for w in s.split(" "):
+        if len(cur) + len(w) + 1 <= maxc or not cur:
+            cur = (cur + " " + w).strip()
+        else:
+            out.append(cur); cur = w
+    if cur:
+        out.append(cur)
+    return "\n".join(out)
 
 def draw_map(ax, x, y, w, h, prog, t):
     panel(ax, x, y, w, h, "TAC-MAP // PUNJAB SECTOR", AMBER)
@@ -287,13 +298,13 @@ def render(ax, t):
     if reached(t, "transcript"):
         panel(ax, TLx, TLy, PW, PH, "TRANSCRIPT // ps (SeamlessM4T)", GREEN)
         tp = p if name == "transcript" else 1.0
-        ax.text(TLx+0.25, TLy+PH-1.0, typed(TRANSCRIPT, tp*1.05), color=WHITE, fontproperties=DEVA,
-                fontsize=18, va="top", ha="left", wrap=True, zorder=3)
+        ax.text(TLx+0.25, TLy+PH-0.75, wrap(typed(TRANSCRIPT, tp*1.05), 40), color=WHITE,
+                fontproperties=DEVA, fontsize=15, va="top", ha="left", zorder=3, linespacing=1.6)
     if reached(t, "translate"):
         panel(ax, BLx, BLy, PW, 3.9, "ENGLISH TRANSLATION // NLLB-200", CYAN)
         tp = p if name == "translate" else 1.0
-        ax.text(BLx+0.25, BLy+3.9-1.0, typed(TRANSLATION, tp*1.05), color=WHITE, fontproperties=MONOB,
-                fontsize=14, va="top", ha="left", wrap=True, zorder=3)
+        ax.text(BLx+0.25, BLy+3.9-0.75, wrap(typed(TRANSLATION, tp*1.05), 46), color=WHITE,
+                fontproperties=MONOB, fontsize=13, va="top", ha="left", zorder=3, linespacing=1.6)
         if reached(t, "threat"):
             gp = ease(p) if name == "threat" else 1.0
             gx, gy = BLx+0.3, BLy+0.55
@@ -362,18 +373,18 @@ def build_audio(sr=22050):
         if lp:
             s = np.convolve(s, np.ones(20)/20, mode="same")
         return s*amp*np.hanning(n)
-    # ambience: low drone across whole clip
-    drone = (0.02*np.sin(2*np.pi*70*tt) + 0.014*np.sin(2*np.pi*110*tt)
-             + 0.02*np.random.randn(N)).astype("float32")
-    drone *= np.clip(np.linspace(0, 1, int(1.5*sr)).tolist() + [1.0]*(N-int(1.5*sr)), 0, 1)[:N]
-    trk += drone*0.5
+    # ambience: faint TONAL drone only (no broadband noise — that was the "static")
+    drone = (0.012*np.sin(2*np.pi*68*tt) + 0.008*np.sin(2*np.pi*102*tt)).astype("float32")
+    fadein = np.clip(np.linspace(0, 1, int(1.5*sr)).tolist() + [1.0]*(N-int(1.5*sr)), 0, 1)[:N]
+    trk += drone*fadein
     # FLASH klaxon (two-tone) 0.3..3.2
     for k in range(4):
         place(tone(660, 0.35, 0.22), 0.3+k*0.7)
         place(tone(440, 0.35, 0.22), 0.65+k*0.7)
-    # intercept speech placed at AUDIO_START (resampled to sr)
+    # intercept speech placed at AUDIO_START — the star of the soundtrack, kept loud & clear
     from scipy.signal import resample_poly
-    sp = resample_poly(INTERCEPT, sr, ASR).astype("float32") * 0.85
+    sp = resample_poly(INTERCEPT, sr, ASR).astype("float32")
+    sp = sp / (np.abs(sp).max() + 1e-9) * 0.95
     place(sp, AUDIO_START)
     # radar/UI beeps during lang lock
     place(sweep(300, 900, 0.25, 0.18), 18.5)
