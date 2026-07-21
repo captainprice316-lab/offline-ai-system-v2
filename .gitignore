@@ -70,3 +70,7 @@ scratchpad/
 
 # Keep the integration process-overview PDF despite the global *.pdf rule
 !integration/PROCESS_OVERVIEW.pdf
+
+# Keep the professor-facing deliverable PDFs despite the global *.pdf rule
+!docs/VANI_Finetune_Report.pdf
+!docs/VANI_Presentation_Companion.pdf
