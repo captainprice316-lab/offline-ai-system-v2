@@ -77,6 +77,20 @@ seamless_adapters:
 ## Cost
 ~6–15 GPU-hours for 1–2 epochs → **~$10–40** total. A day of wall-clock incl. setup.
 
+## Sequential run #2: `ps_cloud` (same pod, after ks_cloud finishes)
+The winning ps_aug recipe (CV cap-10k + FLEURS x8 + noise-aug) at r=128 — pure
+capacity probe. **No prep script**: FLEURS + CV pull straight from HF. On the pod:
+```bash
+cd /workspace/vani && git pull
+source /workspace/ks_data/env.sh     # reuses VANI_SEAMLESS_DIR + batch env
+nohup python finetune_seamless.py ps_cloud --steps 4000 > /workspace/ps_cloud_train.log 2>&1 &
+tail -f /workspace/ps_cloud_train.log
+```
+Val = FLEURS ps_af → comparable to ps_aug (deployed, WER 36.91). ~4000 steps at
+eff batch 16 ≈ 2.4 epochs. Bring back finetune_runs_seamless/ps_cloud/adapter and
+eval with `eval_seamless_ft.py --lang ps_cloud`. Honest expectation: ~34-36
+(capacity isn't Pashto's known bottleneck — this is the cheap falsification).
+
 ## Going bigger (true full fine-tune) — not wired, notes only
 For maximum capacity: in `train()`, skip `get_peft_model`, unfreeze the model,
 drop LR to ~1e-5, add 8-bit AdamW (`bitsandbytes`), use an A100-80GB. Produces a

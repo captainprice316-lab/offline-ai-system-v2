@@ -183,6 +183,22 @@ LANG_CFG = {
         "lora_targets": ["q_proj", "k_proj", "v_proj", "out_proj", "fc1", "fc2"],
         "augment": True,
     },
+    "ps_cloud": {
+        # CLOUD high-capacity Pashto (sequential on the ks_cloud pod, 2026-07-26).
+        # The WINNING ps_aug recipe untouched (v20 CV cap-10k + FLEURS ps_af x8 +
+        # noise-aug; adding data proved harmful: ps_cv 42.47, ps_aug2 37.46) —
+        # the ONLY change is capacity: r=128 (alpha 256), the lever the 8 GB
+        # laptop couldn't lift. Honest expectation: ~34-36 (capacity is not the
+        # known bottleneck; data/domain is) — this is the cheap falsification.
+        # Data pulls straight from HF on the box (no prep script needed).
+        # Val = FLEURS ps_af (unchanged ruler, comparable to ps_aug's 36.91).
+        "fleurs": "ps_af", "sm_lang": "pbt", "name": "Pashto (CLOUD r128+MLP, noise-aug)",
+        "cv_dataset": "SherwinDesouza/pashto-common-voice-20",
+        "cv_cap": 10000, "fleurs_repeat": 8,
+        "lora_r": 128, "lora_alpha": 256,
+        "lora_targets": ["q_proj", "k_proj", "v_proj", "out_proj", "fc1", "fc2"],
+        "augment": True,
+    },
     "hi_iv": {
         # Experimental: Hindi with IndicVoices-R added (cap 20k) on top of FLEURS
         # hi_in (2,120). The deployed hi adapter (13.94) is FLEURS-only — this
@@ -961,7 +977,7 @@ def main():
 
     # "all" = the six FLEURS languages; ks (custom token) and the extra-data
     # experiments run only when named explicitly
-    EXPERIMENTS = {"ks", "ks_r16", "ks_max", "ks_max2", "ks_cloud", "ps_cv", "ps_bal", "ps_bal2", "ps_aug", "ps_aug2", "hi_iv", "ne_iv"}
+    EXPERIMENTS = {"ks", "ks_r16", "ks_max", "ks_max2", "ks_cloud", "ps_cv", "ps_bal", "ps_bal2", "ps_aug", "ps_aug2", "ps_cloud", "hi_iv", "ne_iv"}
     langs = [l for l in LANG_CFG if l not in EXPERIMENTS] if args.lang == "all" else [args.lang]
     for lang in langs:
         train(lang, args)

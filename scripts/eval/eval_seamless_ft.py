@@ -45,6 +45,7 @@ LANG_CFG = {
     "ps_bal2": {"fleurs": "ps_af",  "sm_lang": "pbt", "name": "Pashto (bal+r32+MLP)"},
     "ps_aug": {"fleurs": "ps_af",   "sm_lang": "pbt", "name": "Pashto (r32+MLP, noise-aug)"},
     "ps_aug2": {"fleurs": "ps_af",  "sm_lang": "pbt", "name": "Pashto (r32+MLP, noise-aug, combined CV 122h)"},
+    "ps_cloud": {"fleurs": "ps_af", "sm_lang": "pbt", "name": "Pashto (CLOUD r128+MLP, noise-aug)"},
     "hi_iv": {"fleurs": "hi_in",    "sm_lang": "hin", "name": "Hindi (FLEURS+IV)"},
     "ne_iv": {"fleurs": "ne_np",    "sm_lang": "npi", "name": "Nepali (FLEURS+IV)"},
 }
