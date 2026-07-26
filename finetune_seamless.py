@@ -151,6 +151,21 @@ LANG_CFG = {
         "lora_targets": ["q_proj", "k_proj", "v_proj", "out_proj", "fc1", "fc2"],
         "trainable_kas_token": True,
     },
+    "ks_cloud2": {
+        # ks_cloud rerun #2 (2026-07-26 night): identical recipe, TWO fixes to the
+        # early exit — ks_cloud early-stopped at step 7200 = epoch 0.8, i.e. it
+        # never saw 20% of the corpus and its eval curve was still descending
+        # (best 0.9268, monotonic). This run: 18000 steps (~2 epochs) and
+        # patience 5 via VANI_ES_PATIENCE. Own run dir; ks_cloud adapter kept.
+        "sm_lang": "kas", "name": "Kashmiri (CLOUD r128, 2-epoch, patience 5)",
+        "combined_manifest_dir": os.environ.get("KS_COMBINED_DIR", "ks_data"),
+        "indicvoices_parquet_dir": os.environ.get(
+            "KS_IVR_DIR", "ks_data/indicvoices_r/Kashmiri"),
+        "train_cap": None,
+        "lora_r": 128, "lora_alpha": 256,
+        "lora_targets": ["q_proj", "k_proj", "v_proj", "out_proj", "fc1", "fc2"],
+        "trainable_kas_token": True,
+    },
     "ps_aug": {
         # Pashto attempt #5 — targets ps_bal2's robustness-gate failure (37.29
         # clean but 87.2 @ 0 dB vs Whisper 64.8). Same data and capacity as
@@ -925,7 +940,10 @@ def train(lang: str, args):
         train_dataset=train_ds,
         eval_dataset=val_ds,
         data_collator=collator,
-        callbacks=[EarlyStoppingCallback(early_stopping_patience=3)],
+        callbacks=[EarlyStoppingCallback(
+            # ks_cloud stopped at epoch 0.8 with the curve still falling; cloud
+            # runs can afford more patience (VANI_ES_PATIENCE, default 3).
+            early_stopping_patience=int(os.environ.get("VANI_ES_PATIENCE", "3")))],
     )
 
     # ── Resume logic (same fix as finetune_whisper.py) ────────────────────────
@@ -977,7 +995,7 @@ def main():
 
     # "all" = the six FLEURS languages; ks (custom token) and the extra-data
     # experiments run only when named explicitly
-    EXPERIMENTS = {"ks", "ks_r16", "ks_max", "ks_max2", "ks_cloud", "ps_cv", "ps_bal", "ps_bal2", "ps_aug", "ps_aug2", "ps_cloud", "hi_iv", "ne_iv"}
+    EXPERIMENTS = {"ks", "ks_r16", "ks_max", "ks_max2", "ks_cloud", "ks_cloud2", "ps_cv", "ps_bal", "ps_bal2", "ps_aug", "ps_aug2", "ps_cloud", "hi_iv", "ne_iv"}
     langs = [l for l in LANG_CFG if l not in EXPERIMENTS] if args.lang == "all" else [args.lang]
     for lang in langs:
         train(lang, args)
