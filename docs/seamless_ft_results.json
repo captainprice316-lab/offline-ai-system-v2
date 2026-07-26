@@ -115,5 +115,14 @@
     "sm_ft_asr_cer": 19.28,
     "sm_ft_s2tt_chrf": 29.36,
     "time": 193.8
+  },
+  {
+    "lang": "ps_cloud",
+    "name": "Pashto (CLOUD r128+MLP, noise-aug)",
+    "n": 100,
+    "sm_ft_asr_wer": 36.16,
+    "sm_ft_asr_cer": 18.75,
+    "sm_ft_s2tt_chrf": 36.39,
+    "time": 343.3
   }
 ]

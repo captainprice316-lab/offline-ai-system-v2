@@ -1,0 +1,205 @@
+{
+  "clean": {
+    "L0 raw": {
+      "ks_cloud": {
+        "wer": 75.66,
+        "cer": 33.13,
+        "n": 30
+      },
+      "whisper": {
+        "wer": 81.46,
+        "cer": 44.64,
+        "n": 30
+      },
+      "wer_gap_ks2_minus_whisper": -5.8,
+      "ks_max": {
+        "wer": 82.78,
+        "cer": 38.96,
+        "n": 30
+      },
+      "wer_gap_ks2_minus_ksmax": -7.12
+    },
+    "L2 nodiac": {
+      "ks_cloud": {
+        "wer": 55.96,
+        "cer": 25.7,
+        "n": 30
+      },
+      "whisper": {
+        "wer": 64.74,
+        "cer": 38.86,
+        "n": 30
+      },
+      "wer_gap_ks2_minus_whisper": -8.78,
+      "ks_max": {
+        "wer": 65.89,
+        "cer": 31.6,
+        "n": 30
+      },
+      "wer_gap_ks2_minus_ksmax": -9.93
+    }
+  },
+  "bandpass": {
+    "L0 raw": {
+      "ks_cloud": {
+        "wer": 76.82,
+        "cer": 35.8,
+        "n": 30
+      },
+      "whisper": {
+        "wer": 85.1,
+        "cer": 59.36,
+        "n": 30
+      },
+      "wer_gap_ks2_minus_whisper": -8.28,
+      "ks_max": {
+        "wer": 83.61,
+        "cer": 40.86,
+        "n": 30
+      },
+      "wer_gap_ks2_minus_ksmax": -6.79
+    },
+    "L2 nodiac": {
+      "ks_cloud": {
+        "wer": 60.1,
+        "cer": 29.01,
+        "n": 30
+      },
+      "whisper": {
+        "wer": 71.85,
+        "cer": 55.21,
+        "n": 30
+      },
+      "wer_gap_ks2_minus_whisper": -11.75,
+      "ks_max": {
+        "wer": 67.22,
+        "cer": 33.57,
+        "n": 30
+      },
+      "wer_gap_ks2_minus_ksmax": -7.12
+    }
+  },
+  "awgn_10": {
+    "L0 raw": {
+      "ks_cloud": {
+        "wer": 83.77,
+        "cer": 43.12,
+        "n": 30
+      },
+      "whisper": {
+        "wer": 93.87,
+        "cer": 67.84,
+        "n": 30
+      },
+      "wer_gap_ks2_minus_whisper": -10.1,
+      "ks_max": {
+        "wer": 85.43,
+        "cer": 46.23,
+        "n": 30
+      },
+      "wer_gap_ks2_minus_ksmax": -1.66
+    },
+    "L2 nodiac": {
+      "ks_cloud": {
+        "wer": 69.37,
+        "cer": 36.62,
+        "n": 30
+      },
+      "whisper": {
+        "wer": 85.43,
+        "cer": 64.49,
+        "n": 30
+      },
+      "wer_gap_ks2_minus_whisper": -16.06,
+      "ks_max": {
+        "wer": 72.85,
+        "cer": 39.77,
+        "n": 30
+      },
+      "wer_gap_ks2_minus_ksmax": -3.48
+    }
+  },
+  "awgn_0": {
+    "L0 raw": {
+      "ks_cloud": {
+        "wer": 90.89,
+        "cer": 55.11,
+        "n": 30
+      },
+      "whisper": {
+        "wer": 101.16,
+        "cer": 108.41,
+        "n": 30
+      },
+      "wer_gap_ks2_minus_whisper": -10.27,
+      "ks_max": {
+        "wer": 94.7,
+        "cer": 60.32,
+        "n": 30
+      },
+      "wer_gap_ks2_minus_ksmax": -3.81
+    },
+    "L2 nodiac": {
+      "ks_cloud": {
+        "wer": 81.29,
+        "cer": 49.47,
+        "n": 30
+      },
+      "whisper": {
+        "wer": 99.5,
+        "cer": 112.36,
+        "n": 30
+      },
+      "wer_gap_ks2_minus_whisper": -18.21,
+      "ks_max": {
+        "wer": 87.42,
+        "cer": 55.06,
+        "n": 30
+      },
+      "wer_gap_ks2_minus_ksmax": -6.13
+    }
+  },
+  "codec_mp3": {
+    "L0 raw": {
+      "ks_cloud": {
+        "wer": 79.47,
+        "cer": 37.44,
+        "n": 30
+      },
+      "whisper": {
+        "wer": 87.58,
+        "cer": 52.56,
+        "n": 30
+      },
+      "wer_gap_ks2_minus_whisper": -8.11,
+      "ks_max": {
+        "wer": 83.11,
+        "cer": 43.4,
+        "n": 30
+      },
+      "wer_gap_ks2_minus_ksmax": -3.64
+    },
+    "L2 nodiac": {
+      "ks_cloud": {
+        "wer": 61.26,
+        "cer": 29.92,
+        "n": 30
+      },
+      "whisper": {
+        "wer": 71.52,
+        "cer": 48.4,
+        "n": 30
+      },
+      "wer_gap_ks2_minus_whisper": -10.26,
+      "ks_max": {
+        "wer": 68.87,
+        "cer": 36.43,
+        "n": 30
+      },
+      "wer_gap_ks2_minus_ksmax": -7.61
+    }
+  },
+  "_summary": {
+    "ks_cloud_beats_whisper_L2_conditions": "5/5"
+  }
+}
