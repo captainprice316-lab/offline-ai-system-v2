@@ -2,7 +2,9 @@
 # torch is assumed preinstalled by the provider's PyTorch image (CUDA build).
 # transformers must have SeamlessM4Tv2ForSpeechToText; peft must support
 # trainable_token_indices (>=0.13). Pin loosely to avoid clashing with the box torch.
-transformers>=4.44
+transformers>=4.44,<5   # v5 (out since ~2026-06) breaks the 4.x training API — keep 4.x
+protobuf                # SeamlessM4T slow tokenizer needs it (import_protobuf)
+hf_transfer             # RunPod images set HF_HUB_ENABLE_HF_TRANSFER=1; downloads fail without it
 peft>=0.15
 accelerate>=0.34
 datasets>=2.20
