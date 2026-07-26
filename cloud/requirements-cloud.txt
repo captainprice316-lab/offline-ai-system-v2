@@ -1,0 +1,17 @@
+# Cloud GPU box deps for the ks_cloud high-capacity Kashmiri run.
+# torch is assumed preinstalled by the provider's PyTorch image (CUDA build).
+# transformers must have SeamlessM4Tv2ForSpeechToText; peft must support
+# trainable_token_indices (>=0.13). Pin loosely to avoid clashing with the box torch.
+transformers>=4.44
+peft>=0.15
+accelerate>=0.34
+datasets>=2.20
+huggingface_hub>=0.24
+sentencepiece
+pyarrow>=15
+soundfile
+librosa
+scipy
+numpy
+jiwer            # only needed for the bring-back local eval
+# bitsandbytes   # optional: 8-bit AdamW if you switch to true full fine-tune

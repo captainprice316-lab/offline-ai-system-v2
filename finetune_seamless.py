@@ -24,7 +24,10 @@ import torch
 ROOT         = pathlib.Path(__file__).resolve().parent
 DATA_DIR     = ROOT / "data"
 MODELS_DIR   = ROOT / "models"
-SEAMLESS_DIR = MODELS_DIR / "seamless-m4t-v2-large"
+SEAMLESS_DIR = pathlib.Path(os.environ.get(
+    "VANI_SEAMLESS_DIR", str(MODELS_DIR / "seamless-m4t-v2-large")))
+# ^ cloud runs (ks_cloud) set VANI_SEAMLESS_DIR=facebook/seamless-m4t-v2-large to
+#   pull the base from HF; local default is unchanged.
 RUNS_DIR     = ROOT / "finetune_runs_seamless"
 
 LANG_CFG = {
@@ -111,6 +114,43 @@ LANG_CFG = {
         "lora_targets": ["q_proj", "k_proj", "v_proj", "out_proj", "fc1", "fc2"],
         "trainable_kas_token": True,
     },
+    "ks_max2": {
+        # Kashmiri attempt #5 (2026-07-25) — the WINNING ks_max recipe (r=32+MLP,
+        # trainable __kas__ token) retrained on the COMBINED corpus built by
+        # scratchpad/build_ks_combined.py: 97,456 clips / 239.9 h (humair025
+        # IndicVoices 72,810 + IndicVoices-R 23,364 + OpenSLR-122 1,282), ~4x the
+        # 24k ks_max saw. dur>=2 s; every train row whose text is in the IVR-R
+        # TEST set was dropped (eval-leak guard). Val = the SAME IVR-R test split
+        # as ks_max, so eval_loss/WER are directly comparable (ks_max: 80.91 raw /
+        # 64.31 diacritic-normalised). Gate the result on the ruler study + the
+        # 5-condition degradation sweep, not clean WER alone.
+        "sm_lang": "kas", "name": "Kashmiri (r32+MLP, trainable __kas__, combined 240 h)",
+        "combined_manifest_dir": r"E:\VANI\datasets\ks_combined",
+        "indicvoices_parquet_dir": r"E:\VANI\datasets\hf_ks_temp\hub\datasets--ai4bharat--indicvoices_r\snapshots\5f4495c91d500742a58d1be2ab07d77f73c0acf8\Kashmiri",
+        "train_cap": None,     # use all ~97k (ks_max was capped at 24000)
+        "lora_r": 32, "lora_alpha": 64,
+        "lora_targets": ["q_proj", "k_proj", "v_proj", "out_proj", "fc1", "fc2"],
+        "trainable_kas_token": True,
+    },
+    "ks_cloud": {
+        # CLOUD high-capacity Kashmiri run (rent a 24-48 GB GPU) — the lever the
+        # 8 GB laptop can't reach. Same ks_max2 recipe + combined 97k/240h corpus,
+        # but HIGH-RANK: r=128 (alpha 256) on all attn+MLP + trainable __kas__,
+        # and a bigger batch via env (VANI_TRAIN_BS/VANI_GRAD_ACCUM). Data is
+        # rebuilt cloud-side by cloud/prep_ks_data.py (pulls humair025 +
+        # IndicVoices-R + OpenSLR-122 from source); paths come from env so the
+        # same code runs on any box. Val = IVR-R test (== ks_max2 → eval_loss
+        # directly comparable to 1.040). To sweep rank, edit lora_r/lora_alpha.
+        # See cloud/README.md for the full workflow.
+        "sm_lang": "kas", "name": "Kashmiri (CLOUD r128+MLP, trainable __kas__)",
+        "combined_manifest_dir": os.environ.get("KS_COMBINED_DIR", "ks_data"),
+        "indicvoices_parquet_dir": os.environ.get(
+            "KS_IVR_DIR", "ks_data/indicvoices_r/Kashmiri"),
+        "train_cap": None,
+        "lora_r": 128, "lora_alpha": 256,
+        "lora_targets": ["q_proj", "k_proj", "v_proj", "out_proj", "fc1", "fc2"],
+        "trainable_kas_token": True,
+    },
     "ps_aug": {
         # Pashto attempt #5 — targets ps_bal2's robustness-gate failure (37.29
         # clean but 87.2 @ 0 dB vs Whisper 64.8). Same data and capacity as
@@ -122,6 +162,23 @@ LANG_CFG = {
         "fleurs": "ps_af", "sm_lang": "pbt", "name": "Pashto (bal, r32+MLP, noise-aug)",
         "cv_dataset": "SherwinDesouza/pashto-common-voice-20",
         "cv_cap": 10000, "fleurs_repeat": 8,
+        "lora_r": 32, "lora_alpha": 64,
+        "lora_targets": ["q_proj", "k_proj", "v_proj", "out_proj", "fc1", "fc2"],
+        "augment": True,
+    },
+    "ps_aug2": {
+        # Pashto attempt #6 (2026-07-25) — the WINNING ps_aug recipe (r=32+MLP,
+        # noise-augmented) with SCALED, all-on-disk CV data: the pre-built
+        # ps_combined pool (90,808 clips / 122 h = v20 validated 46,417 + CV22
+        # 'other' quality-filtered 39,945 + CV22 new-clean 4,446) instead of
+        # ps_aug's v20 cap-10k. FLEURS ps_af x8 anchor kept. cv_cap balances CV
+        # vs FLEURS — ps_cv's 95%-CV dump drifted (42.47), ps_aug's cap-10k won
+        # (36.91), so scale moderately (30k). Val = FLEURS ps_af (unchanged);
+        # final eval = FLEURS ps_af test (compare_all_models) → comparable to
+        # ps_aug 36.91%. Gate on the 5-condition degradation sweep, not clean WER.
+        "fleurs": "ps_af", "sm_lang": "pbt", "name": "Pashto (r32+MLP, noise-aug, combined CV 122h)",
+        "combined_ps_manifest_dir": r"E:\VANI\datasets\ps_combined",
+        "cv_cap": 30000, "fleurs_repeat": 8,
         "lora_r": 32, "lora_alpha": 64,
         "lora_targets": ["q_proj", "k_proj", "v_proj", "out_proj", "fc1", "fc2"],
         "augment": True,
@@ -233,6 +290,78 @@ def load_fleurs_plus_cv(lang: str):
     print(f"\n  [data] Combined train: {total:,} samples "
           f"(FLEURS {len(fleurs_train):,} x{fleurs_repeat} + CV {len(cv_train):,}, "
           f"streaming, pre-shuffled)  Val: {len(fleurs_val)} (FLEURS only)")
+    return train_ds, fleurs_val
+
+
+def load_fleurs_plus_cv_manifest(lang: str):
+    """FLEURS + the pre-built Pashto combined CV pool (scratchpad/build_ps_combined.py:
+    v20 validated + CV22 'other' quality-filtered + CV22 new-clean splits). Same
+    streaming/generator pattern as load_fleurs_plus_cv, but CV audio is pulled from the
+    manifest's `path::row_idx` locators (v20 in place, CV22 from materialized shards)
+    instead of load_dataset. Capped to cv_cap and held in memory. Val is FLEURS-only
+    (unchanged ruler) so ps_aug2 stays comparable to ps_aug (36.91%)."""
+    import random
+    import pyarrow.parquet as pq
+    from collections import defaultdict
+    from datasets import IterableDataset as HFIterableDataset, Features, Value
+
+    cfg = LANG_CFG[lang]
+    fleurs_train, fleurs_val = load_fleurs(lang)
+
+    comb = pathlib.Path(cfg["combined_ps_manifest_dir"])
+    man  = pq.read_table(comb / "train_manifest.parquet").to_pydict()
+    rows = list(zip(man["locator"], man["normalized"]))
+    random.Random(42).shuffle(rows)
+    cv_cap = cfg.get("cv_cap")
+    if cv_cap and len(rows) > cv_cap:
+        rows = rows[:cv_cap]
+        print(f"  [data] CV pool capped to {cv_cap:,} of manifest")
+
+    # Load the selected CV clips' audio into memory (grouped per source file).
+    by_file = defaultdict(list)     # path -> [(row_idx, out_pos, text)]
+    for pos, (loc, txt) in enumerate(rows):
+        path, idx = loc.rsplit("::", 1)
+        by_file[path].append((int(idx), pos, txt))
+    cv_rows = [None] * len(rows)
+    for path, items in by_file.items():
+        names = pq.ParquetFile(path).schema_arrow.names
+        acol  = "audio" if "audio" in names else ("path" if "path" in names else "audio_filepath")
+        col   = pq.read_table(path, columns=[acol]).column(acol).to_pylist()
+        for idx, pos, txt in items:
+            if idx < len(col):
+                a = col[idx]
+                cv_rows[pos] = ({"bytes": a.get("bytes"), "path": a.get("path")}, txt)
+        del col
+    cv_rows = [r for r in cv_rows if r is not None]
+
+    feats = Features({
+        "audio":         {"bytes": Value("binary"), "path": Value("string")},
+        "transcription": Value("string"),
+    })
+    fleurs_repeat = cfg.get("fleurs_repeat", 1)
+
+    def _gen(n_fleurs, n_cv, n_repeat):
+        order = ([("f", i) for i in range(n_fleurs)] * n_repeat
+                 + [("c", i) for i in range(n_cv)])
+        random.Random(42).shuffle(order)
+        for src, i in order:
+            if src == "f":
+                row = fleurs_train[i]; audio = row["audio"]
+                yield {"audio": {"bytes": audio.get("bytes"), "path": audio.get("path")},
+                       "transcription": row["transcription"]}
+            else:
+                audio, txt = cv_rows[i]
+                yield {"audio": audio, "transcription": txt}
+
+    train_ds = HFIterableDataset.from_generator(
+        _gen, gen_kwargs={"n_fleurs": len(fleurs_train), "n_cv": len(cv_rows),
+                          "n_repeat": fleurs_repeat},
+        features=feats,
+    )
+    total = len(fleurs_train) * fleurs_repeat + len(cv_rows)
+    print(f"\n  [data] Combined train: {total:,} samples "
+          f"(FLEURS {len(fleurs_train):,} x{fleurs_repeat} + CV {len(cv_rows):,} from manifest, "
+          f"streaming)  Val: {len(fleurs_val)} (FLEURS only)")
     return train_ds, fleurs_val
 
 
@@ -376,6 +505,86 @@ def load_indicvoices_ks(cfg: dict):
         {"audio": val_audio, "transcription": val_text}, features=feats,
     )
     print(f"\n  [data] IndicVoices-R KS train: {train_cap} samples (streaming)  Val: {len(val_ds)}")
+    return train_ds, val_ds
+
+
+def load_ks_combined(cfg: dict):
+    """Kashmiri from the pre-built COMBINED corpus (scratchpad/build_ks_combined.py):
+    humair025 IndicVoices + IndicVoices-R train + OpenSLR-122, filtered to dur>=2 s
+    and deduped against the IVR-R TEST set. Train streams audio for the exact rows
+    named in train_manifest.parquet — audio is pulled per source file via the
+    `path::row_idx` locators, so the big embedded-audio sources are NOT copied.
+    Val is the canonical IVR-R test split (identical to load_indicvoices_ks) so
+    eval_loss/WER stay directly comparable to ks_max."""
+    import random
+    import pyarrow.parquet as pq
+    from collections import defaultdict
+    from datasets import Dataset, IterableDataset as HFIterableDataset, Features, Value
+
+    comb = pathlib.Path(cfg["combined_manifest_dir"])
+    man  = pq.read_table(comb / "train_manifest.parquet").to_pydict()
+    min_dur, max_dur = 2.0, 20.0
+
+    # Group manifest rows by their source parquet file (preserving the text),
+    # dropping >max_dur (load_indicvoices_ks does the same; preprocessing also
+    # hard-truncates at 20 s).
+    by_file = defaultdict(list)      # path -> [(row_idx, text), ...]
+    for loc, txt, dur in zip(man["locator"], man["normalized"], man["duration"]):
+        if dur is None or dur > max_dur or not txt:
+            continue
+        path, idx = loc.rsplit("::", 1)
+        by_file[path].append((int(idx), txt))
+    files = list(by_file.keys())
+    random.Random(42).shuffle(files)      # interleave sources so early steps mix
+    n_train = sum(len(v) for v in by_file.values())
+
+    feats = Features({
+        "audio":         {"bytes": Value("binary"), "path": Value("string")},
+        "transcription": Value("string"),
+    })
+    train_cap = cfg.get("train_cap")      # None -> use all
+
+    def _gen(files, by_file, cap):
+        count = 0
+        for path in files:
+            names = pq.ParquetFile(path).schema_arrow.names
+            acol  = "audio" if "audio" in names else "audio_filepath"
+            audio = pq.read_table(path, columns=[acol]).column(acol).to_pylist()
+            for idx, txt in by_file[path]:
+                if cap and count >= cap:
+                    del audio
+                    return
+                if idx < len(audio):
+                    yield {"audio": audio[idx], "transcription": txt}
+                    count += 1
+            del audio
+
+    train_ds = HFIterableDataset.from_generator(
+        _gen, gen_kwargs={"files": files, "by_file": dict(by_file), "cap": train_cap},
+        features=feats,
+    ).shuffle(seed=42, buffer_size=5000)
+
+    # Val = canonical IVR-R test (identical construction to load_indicvoices_ks).
+    ivr = pathlib.Path(cfg["indicvoices_parquet_dir"])
+    val_audio, val_text = [], []
+    for pq_file in sorted(ivr.glob("test-*.parquet")):
+        if len(val_text) >= 400:
+            break
+        raw = pq.read_table(pq_file, columns=["audio", "normalized", "duration"]).to_pydict()
+        for audio, text, dur in zip(raw["audio"], raw["normalized"], raw["duration"]):
+            if len(val_text) >= 400:
+                break
+            if dur is None or not (min_dur <= dur <= max_dur) or not text:
+                continue
+            val_audio.append(audio)
+            val_text.append(text)
+    val_ds = Dataset.from_dict(
+        {"audio": val_audio, "transcription": val_text}, features=feats,
+    )
+
+    cap_note = f"{train_cap:,}" if train_cap else f"all {n_train:,}"
+    print(f"\n  [data] KS COMBINED train: {cap_note} clips (<=20 s) from {len(files)} "
+          f"source files (streaming)  Val: {len(val_ds)}")
     return train_ds, val_ds
 
 
@@ -615,7 +824,11 @@ def train(lang: str, args):
     model.print_trainable_parameters()
 
     # ── Data ──────────────────────────────────────────────────────────────────
-    if cfg.get("indicvoices_parquet_dir"):
+    if cfg.get("combined_manifest_dir"):
+        train_raw, val_raw = load_ks_combined(cfg)
+    elif cfg.get("combined_ps_manifest_dir"):
+        train_raw, val_raw = load_fleurs_plus_cv_manifest(lang)
+    elif cfg.get("indicvoices_parquet_dir"):
         train_raw, val_raw = load_indicvoices_ks(cfg)
     elif cfg.get("cv_dataset"):
         train_raw, val_raw = load_fleurs_plus_cv(lang)
@@ -669,8 +882,8 @@ def train(lang: str, args):
     training_args = TrainingArguments(
         output_dir=str(adapter_dir),
         max_steps=args.steps,
-        per_device_train_batch_size=1,
-        gradient_accumulation_steps=8,      # effective batch = 8
+        per_device_train_batch_size=int(os.environ.get("VANI_TRAIN_BS", "1")),
+        gradient_accumulation_steps=int(os.environ.get("VANI_GRAD_ACCUM", "8")),  # eff batch = BS*accum; cloud can raise VANI_TRAIN_BS on a big GPU
         per_device_eval_batch_size=1,
         learning_rate=1e-4,
         warmup_steps=50,
@@ -748,7 +961,7 @@ def main():
 
     # "all" = the six FLEURS languages; ks (custom token) and the extra-data
     # experiments run only when named explicitly
-    EXPERIMENTS = {"ks", "ks_r16", "ks_max", "ps_cv", "ps_bal", "ps_bal2", "ps_aug", "hi_iv", "ne_iv"}
+    EXPERIMENTS = {"ks", "ks_r16", "ks_max", "ks_max2", "ks_cloud", "ps_cv", "ps_bal", "ps_bal2", "ps_aug", "ps_aug2", "hi_iv", "ne_iv"}
     langs = [l for l in LANG_CFG if l not in EXPERIMENTS] if args.lang == "all" else [args.lang]
     for lang in langs:
         train(lang, args)

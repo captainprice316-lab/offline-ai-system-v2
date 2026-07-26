@@ -55,7 +55,16 @@ asr:
                              # (n=100); wins 4/5 degradation conditions incl. 0 dB SNR
                              # 56.0 vs 64.8. whisper-medium-pashto-ct2 retained for
                              # rollback (remove this entry + drop ps from seamless_langs).
-    ks: finetune_runs_seamless/ks_max/adapter
+    ks: finetune_runs_seamless/ks_max2/adapter
+                             # ks_max2 (deployed 2026-07-26) — the ks_max recipe (r=32+MLP,
+                             # trainable __kas__) retrained on the COMBINED corpus: 97,456
+                             # clips / 240 h (humair025 IndicVoices + IndicVoices-R +
+                             # OpenSLR-122, ~4x ks_max's 24k). Wins ks_max on EVERY metric:
+                             # eval_loss 1.040<1.079; ruler L2 WER 61.88<64.31, CER 30.1<32.2
+                             # (wins WER+CER at all levels + boundary-free); degradation 5/5
+                             # vs Whisper-ks (ks_max was 4/5, up to -15pp at 0 dB). ks_max
+                             # (finetune_runs_seamless/ks_max/adapter) retained for rollback.
+                             # ── prior ks_max notes ──────────────────────────────────────
                              # ks_max (deployed 2026-07-20) — custom __kas__ token (SM4T has
                              # no native Kashmiri), r=32 incl. MLP + a TRAINABLE __kas__
                              # embedding row (every prior ks attempt ran with it frozen at
