@@ -396,7 +396,7 @@ def slide_05_wer_chart(prs, n=8):
         ("Urdu",     "19.8 → 16.9%", "SeamlessM4T"),
         ("Mandarin", "14.2 → 11.7%", "SeamlessM4T"),
         ("Pashto",   "38.6 → 36.2%", "SM4T + LoRA"),
-        ("Kashmiri", "74.0 → 52.6%*","SM4T + LoRA"),
+        ("Kashmiri", "74.0 → 50.3%*","SM4T + LoRA"),
     ]
     y2 = 2.12
     for lang, prog, backend in selection:
@@ -592,8 +592,9 @@ def slide_08_kashmiri(prs, n=20):
              "__kas__ token, r=32 LoRA + a trainable embedding row) — and the line kept "
              "improving: ks_max2 (4x combined corpus, 61.88%), ks_cloud (r=128 on a rented "
              "A6000, 56.44%), and ks_cloud2 — the same run allowed to converge instead of "
-             "early-stopping at 0.8 epochs — at 52.60% diacritic-normalised, sweep 5/5, now "
-             "DEPLOYED. Rollback only.",
+             "early-stopping at 0.8 epochs — at 52.60%, and finally ks_cloud3, which repaired 20 "
+             "Kashmiri characters that had no token in the model vocabulary, at 50.26% "
+             "diacritic-normalised — now DEPLOYED. Rollback only.",
           0.4, 6.55, 12.5, 0.32, font_size=9, italic=True, color=C_GREEN)
 
 # ── Slide 9 — VANI Pipeline ───────────────────────────────────────────────────
@@ -817,7 +818,7 @@ def slide_12_conclusion(prs, n=24):
         ("SeamlessM4T + ne LoRA",     "Nepali",   "24.34%", C_TEAL),
         ("SeamlessM4T (zero-shot)",   "Mandarin", "11.69%", C_TEAL),
         ("SeamlessM4T + hi LoRA",     "Hindi",    "12.91%", C_TEAL),
-        ("SeamlessM4T + ks LoRA",     "Kashmiri", "52.60%*",C_TEAL),
+        ("SeamlessM4T + ks LoRA",     "Kashmiri", "50.26%*",C_TEAL),
     ]
     y = 3.04
     for i, (mname, lang, wer, col) in enumerate(models):
@@ -829,7 +830,7 @@ def slide_12_conclusion(prs, n=24):
         txbox(s, wer,   5.8,  y+0.06, 1.6, 0.25, font_size=10.5, bold=True, color=col, align=PP_ALIGN.RIGHT)
         y += 0.37
     txbox(s, "* ks: diacritic-normalised WER (raw is inflated by dense Perso-Arabic marks for BOTH "
-             "systems). Deployed ks_cloud2 (r=128) vs Whisper-ks 65.19; sweep 5/5 — see notes.",
+             "systems). Deployed ks_cloud3 (r=128 + 20 repaired vocab chars) vs Whisper-ks 65.19 — see notes.",
           0.4, y+0.02, 7.1, 0.3, font_size=8, italic=True, color=C_SUB)
 
     # Next steps
@@ -1208,7 +1209,7 @@ def slide_results_ks_ruler(prs, n):
         report_charts.ks_ruler_bars(),
         caption="Raw word-error rate once made Whisper look ahead of the first adapter, but Perso-Arabic references are densely "
                 "diacritised and BOTH systems drop the marks — the gap was the ruler. Corrected, every successive adapter widens "
-                "the win: the deployed r=128 ks_cloud2 (trained on a rented cloud GPU) leads on all three measures and "
+                "the win: the deployed r=128 ks_cloud3 (rented cloud GPU, plus a repaired vocabulary) leads on all three measures and "
                 "won the 5-condition degradation sweep 5/5.",
         img_width=8.8, aspect=1.87,
     )
@@ -1234,7 +1235,8 @@ def slide_campaign_hours(prs, n):
         ("ks_max2",  "Kashmiri", "97,456 / 240 h — humair025 + IV-R + OpenSLR-122",   "32",  "RTX 5060 8 GB",  "~19 h",    "61.88%", "Rollback",  C_SUB),
         ("ps_aug2",  "Pashto",   "32,656 / ~55 h — CV 30k + FLEURS ps_af x8",          "32",  "RTX 5060 8 GB",  "~5 h",     "37.46%", "Negative",  C_RED),
         ("ks_cloud", "Kashmiri", "144,749 / 335 h — same 3 sources, rebuilt (grown)",  "128", "A6000 48 GB ☁",  "6 h 35 m", "56.44%", "Rollback",  C_SUB),
-        ("ks_cloud2","Kashmiri", "144,749 / 335 h — as ks_cloud, 2 epochs (patience 5)", "128", "A6000 48 GB ☁",  "~9 h",     "52.60%", "DEPLOYED",  C_GREEN),
+        ("ks_cloud2","Kashmiri", "144,749 / 335 h — as ks_cloud, 2 epochs (patience 5)", "128", "A6000 48 GB ☁",  "~9 h",     "52.60%", "Rollback",  C_SUB),
+        ("ks_cloud3","Kashmiri", "144,942 / 336 h — as ks_cloud2 + 20 vocab chars repaired","128", "A6000 48 GB ☁",  "~8 h",     "50.26%", "DEPLOYED",  C_GREEN),
         ("ps_cloud", "Pashto",   "18,656 / ~30 h — CV 10k + FLEURS ps_af x8",          "128", "A6000 48 GB ☁",  "1 h 32 m", "36.16%", "DEPLOYED",  C_GREEN),
     ]
     y += 0.52
@@ -1250,7 +1252,7 @@ def slide_campaign_hours(prs, n):
     y += 0.15
     for line in [
         "Kashmiri result = diacritic-normalised WER, 372-clip IndicVoices-R test  ·  Pashto result = clean FLEURS ps_af, n=100.",
-        "Cloud runs: one rented RTX A6000 at $0.53/hr → ks_cloud ≈ $4, ks_cloud2 ≈ $5, ps_cloud ≈ $2. Corpus rebuilt from source on the box;",
+        "Cloud runs: rented RTX A6000s at $0.53/hr — ks_cloud ≈ $4, ks_cloud2 ≈ $5, ks_cloud3 ≈ $4, ps_cloud ≈ $2. Corpus rebuilt from source on the box;",
         "humair025 had grown upstream → 144,749 clips / 335.4 h (131,868 unique sentences), 2–20 s filter, eval-leak blocklist applied.",
         "The decisive lever was CAPACITY (r=128 = 6.6% trainable vs r=32 = 1.75%) — more data at unchanged capacity regressed (ps_aug2).",
     ]:
@@ -1271,7 +1273,7 @@ def slide_finetune_summary(prs, n):
         ("2 · Correct the scoring", "Found the baseline was mislabelled turbo, and Mandarin WER was a whitespace artefact. Re-scored with one CJK-aware normaliser.", C_RED),
         ("3 · Head-to-head + robustness", "Zero-shot SeamlessM4T beat fine-tuned Whisper on 5/6 languages and held under bandpass/noise/codec.", C_TEAL),
         ("4 · Adapter campaign", "hi/ne gained from IndicVoices data; Pashto fell to noise-augmented training; Kashmiri to a trainable __kas__ token + a ruler correction.", C_BLUE),
-        ("5 · Cloud capacity push", "Rented A6000s (~$11) retrained ps+ks at r=128 — beyond the 8 GB laptop: Pashto 36.91→36.16, Kashmiri 61.88→52.60 (the last 3.84 pp came from simply letting the run converge). Both passed their gates and deployed.", C_TEAL),
+        ("5 · Cloud capacity push", "Rented A6000s (~$11) retrained ps+ks at r=128 — beyond the 8 GB laptop: Pashto 36.91→36.16, Kashmiri 61.88→50.26 (3.84 pp from simply letting the run converge, then 2.34 pp from repairing the vocabulary). Both passed their gates and deployed.", C_TEAL),
         ("6 · Outcome", "All 7 languages route to SeamlessM4T. Fine-tuned Whisper is retained for rollback only. Five scoring defects caught in total.", C_GREEN),
     ]
     y = 2.1

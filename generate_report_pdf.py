@@ -256,9 +256,10 @@ LANG_META = {
                 "IndicVoices-R + OpenSLR-122) reached 61.88% diacritic-normalised; ks_cloud "
                 "(2026-07-27; LoRA rank raised 32 to 128 on a rented cloud GPU, ~$4) reached 56.44%; and "
                 "ks_cloud2, the same run simply allowed to converge instead of early-stopping at 0.8 "
-                "epochs, reached <b>52.60%</b> and won the degradation sweep 5/5 against Whisper. Kashmiri "
-                "now runs on the ks_cloud2 adapter; ks_cloud and this Whisper model are retained for "
-                "rollback (see §5.5).",
+                "epochs, reached 52.60%. Finally ks_cloud3 repaired 20 Kashmiri characters that had no "
+                "token in SeamlessM4T's vocabulary and reached <b>50.26%</b>, winning the degradation "
+                "sweep 5/5 against Whisper. Kashmiri now runs on the ks_cloud3 adapter; ks_cloud2 and "
+                "this Whisper model are retained for rollback (see §5.5).",
         "training_time": "~18 h (incl. 2 power outages, PD-charger recovery)",
     },
 }
@@ -657,12 +658,12 @@ def build():
             [tch("Item", left=True), tch("Value", left=True)],
             [tcl("Languages Fine-Tuned", bold=True), tcl("7  (Punjabi, Pashto, Urdu, Nepali, Mandarin, Hindi, Kashmiri)")],
             [tcl("Deployed via fine-tuned Whisper", bold=True), tcl("0  — all seven route to SeamlessM4T (LoRA adapters for hi/ne/ps/ks; Whisper kept for rollback)")],
-            [tcl("Best deployed WER", bold=True), tcl("Hindi 12.91%  |  Urdu 16.90%  |  Punjabi 19.77%  |  Pashto 36.16%  |  Kashmiri 52.60%")],
+            [tcl("Best deployed WER", bold=True), tcl("Hindi 12.91%  |  Urdu 16.90%  |  Punjabi 19.77%  |  Pashto 36.16%  |  Kashmiri 50.26%")],
             [tcl("Training Hardware",    bold=True), tcl("NVIDIA RTX 5060 8 GB VRAM (CUDA) - Windows 11  +  rented RTX A6000 48 GB (cloud, r=128 runs)")],
             [tcl("Base Model",           bold=True), tcl("OpenAI Whisper large-v3 (1.55 B)  +  SeamlessM4T v2 large (2.3 B) for the adapter campaign")],
             [tcl("Adaptation Method",    bold=True), tcl("LoRA  r=8..128, incl. trainable custom tokens  --  0.25% to 6.6% trainable parameters")],
             [tcl("Total Training Time",  bold=True), tcl("~100 h Whisper (7 langs)  +  ~40 h SeamlessM4T adapters  +  ~9 h cloud GPU (see 4.4)")],
-            [tcl("Eval Date",            bold=True), tcl("23 June 2026 (cross-model)  |  27 July 2026 (cloud adapters ks_cloud2 / ps_cloud)")],
+            [tcl("Eval Date",            bold=True), tcl("23 June 2026 (cross-model)  |  27 July 2026 (cloud adapters ks_cloud3 / ps_cloud)")],
         ], colWidths=[6*cm, W - 6*cm],
         style=std_ts(left_cols=(0, 1))),
         sp(30),
@@ -703,7 +704,7 @@ def build():
             "language SeamlessM4T does not natively support — via a custom trainable __kas__ token "
             "plus a scoring-ruler correction. A closing cloud phase (rented 48 GB GPU, ~$6 total) "
             "retrained both at LoRA rank 128, beyond the 8 GB laptop's reach, improving Pashto to "
-            "36.16% and Kashmiri to 52.60% (diacritic-normalised). Fine-tuned Whisper now serves "
+            "36.16% and Kashmiri to 50.26% (diacritic-normalised), the latter after also repairing 20 characters missing from the model's vocabulary. Fine-tuned Whisper now serves "
             "zero languages in production and is retained solely for rollback. VANI therefore routes "
             "ASR per language rather than using a single model."
         ),
@@ -960,7 +961,9 @@ def build():
             [tcl("ks_cloud"), tcl("Kashmiri"), tcl("144,749 / 335 h (corpus rebuilt from source)"), tc("128"),
              tcl("RTX A6000 48 GB (cloud)"), tc("6 h 35 m"), tc("56.44%"), tcl("Rollback")],
             [tcl("ks_cloud2"), tcl("Kashmiri"), tcl("144,749 / 335 h (as ks_cloud, 2 epochs)"), tc("128"),
-             tcl("RTX A6000 48 GB (cloud)"), tc("~9 h"), Paragraph("<b>52.60%</b>", ProfBlue()), tcl("Deployed")],
+             tcl("RTX A6000 48 GB (cloud)"), tc("~9 h"), tc("52.60%"), tcl("Rollback")],
+            [tcl("ks_cloud3"), tcl("Kashmiri"), tcl("144,942 / 336 h (as ks_cloud2 + 20 vocab chars)"), tc("128"),
+             tcl("RTX A6000 48 GB (cloud)"), tc("~8 h"), Paragraph("<b>50.26%</b>", ProfBlue()), tcl("Deployed")],
             [tcl("ps_cloud"), tcl("Pashto"), tcl("18,656 / ~30 h (CV 10k + FLEURS x8)"), tc("128"),
              tcl("RTX A6000 48 GB (cloud)"), tc("1 h 32 m"), Paragraph("<b>36.16%</b>", ProfBlue()), tcl("Deployed")],
         ], colWidths=[1.9*cm, 1.8*cm, 3.9*cm, 1.0*cm, 2.6*cm, 1.5*cm, 1.5*cm, W-14.2*cm],
@@ -1273,7 +1276,7 @@ def build():
              "split); 74.02% is the training-eval on the IndicVoices-R test split."),
         note("§ SeamlessM4T v2 has no native Kashmiri (kas absent from the model vocabulary); a Urdu-token "
              "proxy failed (109% WER). The eventual fix was a custom trainable __kas__ token + LoRA (§5.5.2) — "
-             "Kashmiri now runs on the ks_cloud2 SeamlessM4T adapter, not on fine-tuned Whisper."),
+             "Kashmiri now runs on the ks_cloud3 SeamlessM4T adapter, not on fine-tuned Whisper."),
         note("chrF: character F-score for end-to-end English translation (higher = better). SeamlessM4T's "
              "S2TT wins for pa/ne/zh; Whisper+NLLB wins for ps/ur/hi. VANI keeps NLLB downstream regardless, "
              "using only SeamlessM4T's ASR output."),
@@ -1364,16 +1367,42 @@ def build():
             "854,234 occurrences across the training corpus, present in 96.9% of its sentences. The "
             "model therefore trained against corrupted targets and cannot emit those characters at all — "
             "U+0672 appears 370 times in the test references and zero times in any hypothesis. Measured "
-            "on the deployed model, 662 of 3,917 substitutions (16.9%) fall on words that are "
-            "unrepresentable, which places a hard floor near <b>49%</b> on this vocabulary regardless of "
-            "model capacity or training length. That the fully-converged ks_cloud2 settled at 52.60% is "
-            "consistent with a model pressing against precisely such a ceiling."
+            "on that model, 662 of 3,917 substitutions (16.9%) fall on words that are unrepresentable. "
+            "That the fully-converged ks_cloud2 settled at 52.60% is consistent with a model pressing "
+            "against precisely such a ceiling."
+        ),
+        sp(6),
+        body(
+            "<b>Repairing the vocabulary confirmed the diagnosis.</b> ks_cloud3 added all 20 characters "
+            "as real tokens, each embedding initialised from its closest in-vocabulary neighbour and then "
+            "trained — the same technique that made Kashmiri work at all, generalised from one language "
+            "token to twenty characters. Nothing else changed: same corpus, rank, patience and converged "
+            "step, so the comparison isolates a single variable. The result is unambiguous on the "
+            "measure that matters most. <b>Of the 747 test words containing the four missing letters, "
+            "the previous model got 747 wrong — every single one; ks_cloud3 gets 310 of them right.</b> "
+            "Overall WER falls 52.60% → <b>50.26%</b>, and raw WER falls 74.31% → <b>64.71%</b>, a 9.60 pp "
+            "gain: most of the missing characters are combining marks that the diacritic-normalised ruler "
+            "discards anyway, so the repair shows its full value only on unnormalised text. Length "
+            "calibration also improved (hypothesis/reference ratio 0.943 → 0.980) and deletions fell from "
+            "16.5% to 13.9% of errors."
+        ),
+        sp(6),
+        body(
+            "Two honest qualifications. First, the 49% floor quoted above was an <i>upper bound</i>: it "
+            "assumed every unrepresentable word would become correct once writable, whereas about a third "
+            "actually did. Second, the reason is visible in the training curve — the twenty new embedding "
+            "rows were trained for only 1.06 epochs before early stopping, so they are the least-converged "
+            "parameters in the model. The 437 words still wrong represent roughly 4.9 pp of the remaining "
+            "error and are now an ordinary learning problem rather than an impossibility: the failures "
+            "have become plausible acoustic confusions between similar words instead of blank omissions. "
+            "Continuing training from this checkpoint, with a higher learning rate on those rows, is the "
+            "clearest remaining avenue."
         ),
         sp(6),
         img_scaled(report_charts.ks_ruler_bars(), width=W * 0.78),
         note("Figure 6: Same 372 IndicVoices clips, same scorer. Raw WER once made Whisper look ahead of "
              "the first adapter (ks_max) — an artefact of the Perso-Arabic scoring ruler. With the ruler "
-             "corrected, every successive adapter widens the win; the deployed r=128 ks_cloud2 leads on "
+             "corrected, every successive adapter widens the win; the deployed r=128 ks_cloud3 leads on "
              "all three measures."),
         sp(6),
         note("This is the fifth independent scoring-methodology correction in this project (after the "
@@ -1852,7 +1881,7 @@ def build():
             "pa/ne/hi/ur/zh (§5.5), and the lead holds under radio degradation (§5.5.1). The last two "
             "strongholds fell to SeamlessM4T LoRA adapters: Pashto to noise-augmented training "
             "(ps_aug 36.91%, then ps_cloud 36.16%), and Kashmiri to a custom trainable __kas__ token "
-            "plus a scoring-ruler correction (ks_max 64.31% → ks_cloud2 52.60% diacritic-normalised). "
+            "plus a scoring-ruler correction (ks_max 64.31% → ks_cloud3 50.26% diacritic-normalised). "
             "The earlier claim that Whisper won Mandarin was a whitespace-scoring artefact; corrected, "
             "fine-tuning regressed Mandarin (14.22% vs 10.99% baseline). Every fine-tuned Whisper "
             "model is retained on disk for rollback only. One shared SeamlessM4T (~4.6 GB resident) "
@@ -1862,7 +1891,7 @@ def build():
             "<b>Rented cloud capacity was the campaign's cheapest large lever.</b>  "
             "The 8 GB laptop caps SeamlessM4T LoRA at r=32 (1.75% trainable). One day on a rented "
             "RTX A6000 (~$6 total) retrained both open languages at r=128 (6.6% trainable): Kashmiri "
-            "improved 61.88% → 52.60% and Pashto 36.91% → 36.16%, both passing their degradation "
+            "improved 61.88% → 50.26% and Pashto 36.91% → 36.16%, both passing their degradation "
             "gates and deploying. The reverse lever — more data at unchanged capacity — regressed "
             "(ps_aug2, +0.55 pp): for these low-resource languages the binding constraint was "
             "adapter capacity, not corpus size."

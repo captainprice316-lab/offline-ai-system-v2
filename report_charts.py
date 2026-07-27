@@ -138,11 +138,14 @@ def robustness_heatmap():
 # ── 3. Kashmiri: ruler correction + the cloud capacity win ───────────────────
 # docs/ks_cloud_ruler_compare.json, 372-clip IndicVoices test, one scorer.
 # whisper = rollback CT2; ks_max = first adapter (r=32, 2026-07-20);
-# ks_cloud2 = DEPLOYED (r=128 trained to convergence, RunPod A6000, 2026-07-27).
+# ks_cloud3 = DEPLOYED (r=128 + 20 repaired vocabulary characters, 2026-07-27).
+# Note the raw-WER column: repairing the vocabulary is worth 9.60 pp there
+# (74.31 -> 64.71) because most of the missing characters are combining marks
+# that the diacritic-normalised ruler strips anyway.
 KS_GROUPS  = ["Raw WER", "Diacritic-\nnormalised WER", "CER (raw)"]
 KS_WHISPER = [79.29, 65.19, 44.23]
 KS_KSMAX   = [80.91, 64.31, 39.33]
-KS_KSCLOUD = [74.31, 52.60, 31.23]
+KS_KSCLOUD = [64.71, 50.26, 29.76]
 
 
 def ks_ruler_bars():
@@ -153,7 +156,7 @@ def ks_ruler_bars():
                 color=C_WHISPER, edgecolor="white")
     b2 = ax.bar(x, KS_KSMAX, w, label="ks_max (first SM4T adapter, r=32)",
                 color="#6FA8AC", edgecolor="white")
-    b3 = ax.bar(x + w, KS_KSCLOUD, w, label="ks_cloud2 (deployed, r=128 cloud)",
+    b3 = ax.bar(x + w, KS_KSCLOUD, w, label="ks_cloud3 (deployed, r=128 + vocab fix)",
                 color=C_SM4T, edgecolor="white")
     for bars in (b1, b2, b3):
         for b in bars:
@@ -172,8 +175,8 @@ def ks_ruler_bars():
     ax.set_xticklabels(KS_GROUPS, fontsize=10)
     ax.set_ylabel("Error rate (%)  —  lower is better", fontsize=10)
     ax.set_ylim(0, 100)
-    ax.set_title("Kashmiri: scoring-ruler correction + high-rank cloud training\n"
-                 "(same 372 IndicVoices clips, same scorer; deployed = r=128 ks_cloud2)",
+    ax.set_title("Kashmiri: scoring-ruler correction, high-rank training, vocabulary repair\n"
+                 "(same 372 IndicVoices clips, same scorer; deployed = r=128 ks_cloud3)",
                  fontsize=12, fontweight="bold", pad=10)
     ax.legend(fontsize=9, frameon=False, loc="upper right")
     for sp in ("top", "right"):

@@ -64,7 +64,31 @@ asr:
                              # (n=100); wins 4/5 degradation conditions incl. 0 dB SNR
                              # 56.0 vs 64.8. whisper-medium-pashto-ct2 retained for
                              # rollback (remove this entry + drop ps from seamless_langs).
-    ks: finetune_runs_seamless/ks_cloud2/adapter
+    ks: finetune_runs_seamless/ks_cloud3/adapter
+                             # ks_cloud3 (deployed 2026-07-27) — ks_cloud2's recipe plus a
+                             # VOCABULARY REPAIR. 20 characters used in written Kashmiri have no
+                             # token in SeamlessM4T's sentencepiece and resolved to <unk>:
+                             # 854,234 occurrences, present in 96.9% of training sentences, so
+                             # the model trained on corrupted targets and could never emit them.
+                             # add_ks_chars() adds all 20 with neighbour-initialised TRAINABLE
+                             # embedding rows (the __kas__ trick generalised; 21 rows total).
+                             # Ruler L2 WER 50.26 < 52.60, CER 23.34 < 23.67, boundary-free CER
+                             # 24.94 < 25.69; RAW L0 WER 64.71 < 74.31 (−9.60 pp — most of the
+                             # missing chars are combining marks the L2 ruler strips anyway).
+                             # Decisive evidence: of 747 test words containing the 4 missing
+                             # LETTERS, ks_cloud2 got 747/747 wrong; ks_cloud3 gets 310 right.
+                             # Degradation 5/5 vs Whisper-ks; 3/5 vs ks_cloud2 (wins 0 dB by
+                             # 2.48 pp, loses bandpass +0.17 = noise and codec +1.66 at n=30) —
+                             # deployed on the 372-clip primary ruler, which is 12x the sample.
+                             # Kashmiri arc: 74.02 → 61.88 → 56.44 → 52.60 → 50.26.
+                             # SIZE: 1.48 GB, not 428 MB — extending the vocabulary forces the
+                             # full 256120x1024 fp32 embedding matrix into the adapter. Saving
+                             # fp16, or only the 21 trained rows, would shrink it a lot.
+                             # HEADROOM: the 21 new rows trained only 1.06 epochs (early-stop
+                             # @9200); 437 of those 747 words are still wrong ≈ 4.9 pp left on
+                             # the table. Next run = warm-start from here and train them longer.
+                             # ks_cloud2 retained for rollback.
+                             # ── prior ks_cloud2 notes ───────────────────────────────────
                              # ks_cloud2 (deployed 2026-07-27) — the ks_cloud recipe run for
                              # TWO epochs with early-stopping patience raised 3→5: ks_cloud had
                              # stopped at epoch 0.8 with its eval curve still descending, so the

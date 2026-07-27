@@ -1,6 +1,6 @@
 # VANI — Cross-Model Evaluation Report
 **Whisper baseline vs Fine-tuned Whisper vs SeamlessM4T v2**
-**Date:** 12 July 2026  ·  **Hardware:** RTX 5060 8 GB CUDA
+**Date:** 26 July 2026  ·  **Hardware:** RTX 5060 8 GB CUDA
 
 ---
 
@@ -48,4 +48,4 @@
 
 ---
 
-*Generated: 12 July 2026 14:37  ·  VANI v2  ·  RTX 5060 8 GB*
+*Generated: 26 July 2026 17:31  ·  VANI v2  ·  RTX 5060 8 GB*
