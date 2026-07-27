@@ -17,10 +17,12 @@ from ks_ruler_study import norm, score, load_jsonl, LEVELS  # noqa: E402
 
 ED = ROOT / "eval_data"
 SRC = {
-    "ks_cloud": ED / "ks_cloud_seamless_hyps.jsonl",
-    "ks_max2":  ED / "ks_max2_seamless_hyps.jsonl",
-    "ks_max":   ED / "ks_max_seamless_hyps.jsonl",
-    "whisper":  ED / "ks_whisper_test_hyps.jsonl",
+    "ks_cloud3": ED / "ks_cloud3_seamless_hyps.jsonl",   # vocabulary repaired
+    "ks_cloud2": ED / "ks_cloud2_seamless_hyps.jsonl",   # 2-epoch, old vocab
+    "ks_cloud":  ED / "ks_cloud_seamless_hyps.jsonl",    # deployed
+    "ks_max2":   ED / "ks_max2_seamless_hyps.jsonl",
+    "ks_max":    ED / "ks_max_seamless_hyps.jsonl",
+    "whisper":   ED / "ks_whisper_test_hyps.jsonl",
 }
 
 def pairs_for(path, is_whisper=False):
@@ -41,7 +43,9 @@ for name, path in SRC.items():
     else:
         print(f"[skip] {name}: {path.name} missing")
 
-order = [s for s in ("ks_cloud", "ks_max2", "ks_max", "whisper") if s in systems]
+order = [s for s in ("ks_cloud3", "ks_cloud2", "ks_cloud", "ks_max2", "ks_max", "whisper")
+         if s in systems]
+BEST = order[0] if order else None
 results = {}
 print(f"\n{'level':22} " + "".join(f"{s+' WER':>14}{s+' CER':>14}" for s in order))
 for lvl in sorted(LEVELS):
@@ -63,18 +67,17 @@ for s in order:
     print(f"  {s:10} CER={sc['cer']}")
 results["L2_boundary_free_cer"] = bf
 
-# verdict at L2 (the decisive diacritic-normalised level)
-if "ks_cloud" in systems:
-    print("\n=== VERDICT (L2 = diacritic-normalised, the deciding ruler) ===")
-    kc = results["L2"]["ks_cloud"]
-    for opp in ("ks_max2", "ks_max", "whisper"):
-        if opp in results["L2"]:
-            o = results["L2"][opp]
-            dw = round(kc["wer"] - o["wer"], 2)
-            dc = round(kc["cer"] - o["cer"], 2)
-            print(f"  ks_cloud vs {opp:8}: WER {kc['wer']} vs {o['wer']} ({'+' if dw>0 else ''}{dw})"
-                  f"  | CER {kc['cer']} vs {o['cer']} ({'+' if dc>0 else ''}{dc})  "
-                  f"({'ks_cloud WINS' if dw<0 else 'ks_cloud loses' if dw>0 else 'tie'} on WER)")
+# verdict at L2 (the decisive diacritic-normalised level): newest system vs all others
+if BEST:
+    print(f"\n=== VERDICT (L2 = diacritic-normalised, the deciding ruler) — {BEST} vs all ===")
+    kc = results["L2"][BEST]
+    for opp in order[1:]:
+        o = results["L2"][opp]
+        dw = round(kc["wer"] - o["wer"], 2)
+        dc = round(kc["cer"] - o["cer"], 2)
+        print(f"  {BEST} vs {opp:10}: WER {kc['wer']} vs {o['wer']} ({'+' if dw>0 else ''}{dw})"
+              f"  | CER {kc['cer']} vs {o['cer']} ({'+' if dc>0 else ''}{dc})  "
+              f"({BEST+' WINS' if dw<0 else BEST+' loses' if dw>0 else 'tie'} on WER)")
 
 (ROOT / "docs" / "ks_cloud_ruler_compare.json").write_text(
     json.dumps(results, indent=2, ensure_ascii=False), encoding="utf-8")

@@ -64,7 +64,22 @@ asr:
                              # (n=100); wins 4/5 degradation conditions incl. 0 dB SNR
                              # 56.0 vs 64.8. whisper-medium-pashto-ct2 retained for
                              # rollback (remove this entry + drop ps from seamless_langs).
-    ks: finetune_runs_seamless/ks_cloud/adapter
+    ks: finetune_runs_seamless/ks_cloud2/adapter
+                             # ks_cloud2 (deployed 2026-07-27) — the ks_cloud recipe run for
+                             # TWO epochs with early-stopping patience raised 3→5: ks_cloud had
+                             # stopped at epoch 0.8 with its eval curve still descending, so the
+                             # run was simply cut short. Best checkpoint-9200, eval_loss 0.8249
+                             # (vs ks_cloud 0.9268), then 3 straight worse evals = converged.
+                             # Ruler L2 WER 52.60 < 56.44, CER 23.67 < 26.19 — wins WER+CER at
+                             # EVERY level and boundary-free (25.69 vs 28.13). Degradation:
+                             # 5/5 vs Whisper-ks, 4/5 vs ks_cloud itself (loses only 0 dB by
+                             # 0.99 pp, within n=30 noise). Kashmiri arc: 74.02 → 61.88 →
+                             # 56.44 → 52.60. ks_cloud retained for rollback.
+                             # NOTE a hard ~49% floor remains for this vocabulary: 20 Kashmiri
+                             # characters are absent from SeamlessM4T's sentencepiece and
+                             # become <unk> (854k occurrences; 96.9% of training sentences),
+                             # costing ~7.4 pp. ks_cloud3 tests the repair (KS_EXTRA_CHARS).
+                             # ── prior ks_cloud notes ────────────────────────────────────
                              # ks_cloud (deployed 2026-07-27) — the ks_max2 recipe scaled to
                              # the capacity the 8 GB laptop couldn't reach: r=128 (α=256) all
                              # attn+MLP + trainable __kas__, trained on a RunPod A6000 48GB

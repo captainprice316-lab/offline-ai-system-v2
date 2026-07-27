@@ -1,0 +1,205 @@
+{
+  "clean": {
+    "L0 raw": {
+      "ks_cloud2": {
+        "wer": 73.18,
+        "cer": 30.8,
+        "n": 30
+      },
+      "whisper": {
+        "wer": 81.46,
+        "cer": 44.64,
+        "n": 30
+      },
+      "wer_gap_ks2_minus_whisper": -8.28,
+      "ks_max": {
+        "wer": 82.78,
+        "cer": 38.96,
+        "n": 30
+      },
+      "wer_gap_ks2_minus_ksmax": -9.6
+    },
+    "L2 nodiac": {
+      "ks_cloud2": {
+        "wer": 52.48,
+        "cer": 23.08,
+        "n": 30
+      },
+      "whisper": {
+        "wer": 64.74,
+        "cer": 38.86,
+        "n": 30
+      },
+      "wer_gap_ks2_minus_whisper": -12.26,
+      "ks_max": {
+        "wer": 65.89,
+        "cer": 31.6,
+        "n": 30
+      },
+      "wer_gap_ks2_minus_ksmax": -13.41
+    }
+  },
+  "bandpass": {
+    "L0 raw": {
+      "ks_cloud2": {
+        "wer": 74.01,
+        "cer": 33.31,
+        "n": 30
+      },
+      "whisper": {
+        "wer": 85.1,
+        "cer": 59.36,
+        "n": 30
+      },
+      "wer_gap_ks2_minus_whisper": -11.09,
+      "ks_max": {
+        "wer": 83.61,
+        "cer": 40.86,
+        "n": 30
+      },
+      "wer_gap_ks2_minus_ksmax": -9.6
+    },
+    "L2 nodiac": {
+      "ks_cloud2": {
+        "wer": 54.47,
+        "cer": 25.86,
+        "n": 30
+      },
+      "whisper": {
+        "wer": 71.85,
+        "cer": 55.21,
+        "n": 30
+      },
+      "wer_gap_ks2_minus_whisper": -17.38,
+      "ks_max": {
+        "wer": 67.22,
+        "cer": 33.57,
+        "n": 30
+      },
+      "wer_gap_ks2_minus_ksmax": -12.75
+    }
+  },
+  "awgn_10": {
+    "L0 raw": {
+      "ks_cloud2": {
+        "wer": 81.13,
+        "cer": 40.76,
+        "n": 30
+      },
+      "whisper": {
+        "wer": 93.87,
+        "cer": 67.84,
+        "n": 30
+      },
+      "wer_gap_ks2_minus_whisper": -12.74,
+      "ks_max": {
+        "wer": 85.43,
+        "cer": 46.23,
+        "n": 30
+      },
+      "wer_gap_ks2_minus_ksmax": -4.3
+    },
+    "L2 nodiac": {
+      "ks_cloud2": {
+        "wer": 65.89,
+        "cer": 34.07,
+        "n": 30
+      },
+      "whisper": {
+        "wer": 85.43,
+        "cer": 64.49,
+        "n": 30
+      },
+      "wer_gap_ks2_minus_whisper": -19.54,
+      "ks_max": {
+        "wer": 72.85,
+        "cer": 39.77,
+        "n": 30
+      },
+      "wer_gap_ks2_minus_ksmax": -6.96
+    }
+  },
+  "awgn_0": {
+    "L0 raw": {
+      "ks_cloud2": {
+        "wer": 91.89,
+        "cer": 55.54,
+        "n": 30
+      },
+      "whisper": {
+        "wer": 101.16,
+        "cer": 108.41,
+        "n": 30
+      },
+      "wer_gap_ks2_minus_whisper": -9.27,
+      "ks_max": {
+        "wer": 94.7,
+        "cer": 60.32,
+        "n": 30
+      },
+      "wer_gap_ks2_minus_ksmax": -2.81
+    },
+    "L2 nodiac": {
+      "ks_cloud2": {
+        "wer": 82.28,
+        "cer": 49.39,
+        "n": 30
+      },
+      "whisper": {
+        "wer": 99.5,
+        "cer": 112.36,
+        "n": 30
+      },
+      "wer_gap_ks2_minus_whisper": -17.22,
+      "ks_max": {
+        "wer": 87.42,
+        "cer": 55.06,
+        "n": 30
+      },
+      "wer_gap_ks2_minus_ksmax": -5.14
+    }
+  },
+  "codec_mp3": {
+    "L0 raw": {
+      "ks_cloud2": {
+        "wer": 75.66,
+        "cer": 34.65,
+        "n": 30
+      },
+      "whisper": {
+        "wer": 87.58,
+        "cer": 52.56,
+        "n": 30
+      },
+      "wer_gap_ks2_minus_whisper": -11.92,
+      "ks_max": {
+        "wer": 83.11,
+        "cer": 43.4,
+        "n": 30
+      },
+      "wer_gap_ks2_minus_ksmax": -7.45
+    },
+    "L2 nodiac": {
+      "ks_cloud2": {
+        "wer": 54.8,
+        "cer": 26.73,
+        "n": 30
+      },
+      "whisper": {
+        "wer": 71.52,
+        "cer": 48.4,
+        "n": 30
+      },
+      "wer_gap_ks2_minus_whisper": -16.72,
+      "ks_max": {
+        "wer": 68.87,
+        "cer": 36.43,
+        "n": 30
+      },
+      "wer_gap_ks2_minus_ksmax": -14.07
+    }
+  },
+  "_summary": {
+    "ks_cloud2_beats_whisper_L2_conditions": "5/5"
+  }
+}
