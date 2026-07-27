@@ -39,7 +39,7 @@ def _save(fig, dpi=150):
 # ── 1. HERO: deployed SM4T vs FT-Whisper WER (dumbbell) ──────────────────────
 # n=100 FLEURS held-out, same scorer. ft_whisper: model_comparison_results.json
 # whisper_ft_wer. deployed: zero-shot = seamless_asr_wer (pa/ur/zh); LoRA =
-# seamless_ft_results.json <lang>_iv / ps_aug (hi/ne/ps). Kashmiri is excluded
+# seamless_ft_results.json <lang>_iv / ps_cloud (hi/ne/ps). Kashmiri is excluded
 # on purpose — different corpus + ruler; it has its own chart (#3).
 HERO_DATA = [
     # (name, ft_whisper, deployed_sm4t, backend_tag)
@@ -48,7 +48,7 @@ HERO_DATA = [
     ("Hindi (hi)",    19.78, 12.91, "+ LoRA"),
     ("Urdu (ur)",     19.82, 16.90, "zero-shot"),
     ("Mandarin (zh)", 14.22, 11.69, "zero-shot"),
-    ("Pashto (ps)",   38.55, 36.91, "+ LoRA"),
+    ("Pashto (ps)",   38.55, 36.16, "+ LoRA"),
 ]
 
 
@@ -135,40 +135,47 @@ def robustness_heatmap():
     return _save(fig)
 
 
-# ── 3. Kashmiri ruler correction: the verdict flips ──────────────────────────
-# ks_ruler_study.json indicvoices_test. Whisper = deployed CT2; ks_max = adapter.
+# ── 3. Kashmiri: ruler correction + the cloud capacity win ───────────────────
+# docs/ks_cloud_ruler_compare.json, 372-clip IndicVoices test, one scorer.
+# whisper = rollback CT2; ks_max = first adapter (r=32, 2026-07-20);
+# ks_cloud2 = DEPLOYED (r=128 trained to convergence, RunPod A6000, 2026-07-27).
 KS_GROUPS  = ["Raw WER", "Diacritic-\nnormalised WER", "CER (raw)"]
 KS_WHISPER = [79.29, 65.19, 44.23]
 KS_KSMAX   = [80.91, 64.31, 39.33]
+KS_KSCLOUD = [74.31, 52.60, 31.23]
 
 
 def ks_ruler_bars():
     x = np.arange(len(KS_GROUPS))
-    w = 0.36
-    fig, ax = plt.subplots(figsize=(8.6, 4.6))
-    b1 = ax.bar(x - w/2, KS_WHISPER, w, label="Whisper-ks (deployed CT2)",
+    w = 0.26
+    fig, ax = plt.subplots(figsize=(8.9, 4.6))
+    b1 = ax.bar(x - w, KS_WHISPER, w, label="Whisper-ks (rollback CT2)",
                 color=C_WHISPER, edgecolor="white")
-    b2 = ax.bar(x + w/2, KS_KSMAX, w, label="ks_max (SeamlessM4T adapter)",
+    b2 = ax.bar(x, KS_KSMAX, w, label="ks_max (first SM4T adapter, r=32)",
+                color="#6FA8AC", edgecolor="white")
+    b3 = ax.bar(x + w, KS_KSCLOUD, w, label="ks_cloud2 (deployed, r=128 cloud)",
                 color=C_SM4T, edgecolor="white")
-    for bars in (b1, b2):
+    for bars in (b1, b2, b3):
         for b in bars:
             ax.text(b.get_x() + b.get_width()/2, b.get_height() + 0.8,
                     f"{b.get_height():.1f}", ha="center", va="bottom",
-                    fontsize=9, fontweight="bold", color=INK)
-    ax.annotate("Whisper\nappears ahead", xy=(0, 80), xytext=(0, 92),
-                ha="center", fontsize=8, color=C_BAD, fontweight="bold")
+                    fontsize=8, fontweight="bold", color=INK)
+    ax.annotate("raw ruler once made\nWhisper look ahead", xy=(0 - 0.0, 82),
+                xytext=(0, 92), ha="center", fontsize=8, color=C_BAD,
+                fontweight="bold")
     for gi in (1, 2):
-        ax.annotate("SM4T wins", xy=(gi, KS_KSMAX[gi] + 1), xytext=(gi, KS_KSMAX[gi] + 14),
+        ax.annotate("deployed wins", xy=(gi + w, KS_KSCLOUD[gi] + 6.5),
+                    xytext=(gi + w, KS_KSCLOUD[gi] + 17),
                     ha="center", fontsize=8.5, color=C_GOOD, fontweight="bold",
                     arrowprops=dict(arrowstyle="->", color=C_GOOD))
     ax.set_xticks(x)
     ax.set_xticklabels(KS_GROUPS, fontsize=10)
     ax.set_ylabel("Error rate (%)  —  lower is better", fontsize=10)
     ax.set_ylim(0, 100)
-    ax.set_title("Kashmiri: correcting the Perso-Arabic scoring ruler reverses the verdict\n"
-                 "(same 372 IndicVoices clips, same scorer)",
+    ax.set_title("Kashmiri: scoring-ruler correction + high-rank cloud training\n"
+                 "(same 372 IndicVoices clips, same scorer; deployed = r=128 ks_cloud2)",
                  fontsize=12, fontweight="bold", pad=10)
-    ax.legend(fontsize=9.5, frameon=False, loc="upper right")
+    ax.legend(fontsize=9, frameon=False, loc="upper right")
     for sp in ("top", "right"):
         ax.spines[sp].set_visible(False)
     ax.grid(True, axis="y", alpha=0.25, linestyle="--")

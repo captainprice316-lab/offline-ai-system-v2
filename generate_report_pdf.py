@@ -105,8 +105,10 @@ LANG_META = {
                 "acoustic domain. For a year this was the one language where fine-tuned Whisper beat SeamlessM4T; "
                 "on 2026-07-19 a noise-augmented SeamlessM4T LoRA adapter (ps_aug: r=32 incl. MLP, balanced "
                 "FLEURS+Common Voice data, training audio degraded with the evaluation's own bandpass/noise/codec "
-                "pipeline) reached 36.91% clean and won 4/5 degradation conditions (0 dB SNR: 56.0 vs 64.8) — "
-                "Pashto is now routed to SeamlessM4T with that adapter; this model is retained for rollback (see §5.5).",
+                "pipeline) reached 36.91% clean and won 4/5 degradation conditions (0 dB SNR: 56.0 vs 64.8). "
+                "On 2026-07-27 the same recipe retrained at rank 128 on a rented cloud GPU (ps_cloud) improved this "
+                "to 36.16% clean and won 4/5 conditions against ps_aug itself (0 dB: 53.8) — Pashto now runs on "
+                "the ps_cloud adapter; ps_aug and this Whisper model are retained for rollback (see §5.5).",
         "training_time": "~3.5 h",
     },
     "ur": {
@@ -248,9 +250,14 @@ LANG_META = {
                 "like a loss (ks_max 80.91%) until a normalisation-ladder study showed both models' raw "
                 "WER is inflated by the densely-diacritised references: diacritic-stripped, ks_max already "
                 "wins WER (64.31% vs 65.19%) and wins CER at every normalisation level on both test sets. "
-                "It then won the 5-condition radio-degradation sweep 4/5 (loses only clean speech, by 1.3 "
-                "pp) and CER 5/5, with Whisper exceeding 100% CER at 0 dB SNR. Kashmiri is now routed to "
-                "SeamlessM4T with the ks_max adapter (deployed 2026-07-20) — this model is retained for "
+                "It then won the 5-condition radio-degradation sweep 4/5 and CER 5/5, with Whisper "
+                "exceeding 100% CER at 0 dB SNR (ks_max deployed 2026-07-20). Two successors improved it: "
+                "ks_max2 (2026-07-26; same recipe on a 4x combined corpus — humair025 IndicVoices + "
+                "IndicVoices-R + OpenSLR-122) reached 61.88% diacritic-normalised; ks_cloud "
+                "(2026-07-27; LoRA rank raised 32 to 128 on a rented cloud GPU, ~$4) reached 56.44%; and "
+                "ks_cloud2, the same run simply allowed to converge instead of early-stopping at 0.8 "
+                "epochs, reached <b>52.60%</b> and won the degradation sweep 5/5 against Whisper. Kashmiri "
+                "now runs on the ks_cloud2 adapter; ks_cloud and this Whisper model are retained for "
                 "rollback (see §5.5).",
         "training_time": "~18 h (incl. 2 power outages, PD-charger recovery)",
     },
@@ -271,8 +278,9 @@ EVAL_RESULTS = {
     "pa": {"baseline": 77.60, "ft": 57.39, "seamless": 19.77, "baseline_cer": 39.73, "ft_cer": 32.52, "sm_cer": 9.97,
            "nllb_chrf": 40.15, "sm_chrf": 54.53, "best": "seamless"},
     "ps": {"baseline": 89.76, "ft": 38.55, "seamless": 44.40, "baseline_cer": 37.60, "ft_cer": 17.65, "sm_cer": 22.92,
-           # "best" = deployed backend. Flipped 2026-07-19: the noise-augmented ps_aug
-           # SeamlessM4T adapter (36.91) beats FT Whisper (38.55) + 4/5 sweep conditions.
+           # "best" = deployed backend. Flipped 2026-07-19 (ps_aug 36.91 beat FT
+           # Whisper 38.55 + 4/5 sweep); upgraded 2026-07-27 to ps_cloud (r=128
+           # cloud retrain of the same recipe): 36.16 clean + 4/5 sweep vs ps_aug.
            "nllb_chrf": 44.48, "sm_chrf": 40.15, "best": "seamless"},
     "ur": {"baseline": 21.23, "ft": 19.82, "seamless": 16.90, "baseline_cer": 8.12,  "ft_cer": 7.29,  "sm_cer": 7.00,
            "nllb_chrf": 51.34, "sm_chrf": 50.73, "best": "seamless"},
@@ -283,10 +291,13 @@ EVAL_RESULTS = {
     "hi": {"baseline": 26.34, "ft": 19.78, "seamless": 15.44, "baseline_cer": 10.55, "ft_cer": 7.46,  "sm_cer": 9.12,
            "nllb_chrf": 53.71, "sm_chrf": 51.54, "best": "seamless"},
     "ks": {"baseline": 96.87, "ft": 74.02, "seamless": None,  "baseline_cer": None,  "ft_cer": None,  "sm_cer": None,
-           # "best" = deployed backend. Flipped 2026-07-20: the ks_max SeamlessM4T
-           # adapter (custom trainable __kas__ token, r=32+MLP) wins WER (64.31 vs
-           # 65.19) and CER at every diacritic-normalisation level once the ruler
-           # is corrected — see docs/ks_ruler_study.json + FINETUNE_REPORT.md.
+           # "best" = deployed backend. Flipped 2026-07-20 (ks_max wins the
+           # corrected diacritic ruler 64.31 vs 65.19 — docs/ks_ruler_study.json);
+           # upgraded 2026-07-26 to ks_max2 (61.88, 4x combined corpus) and
+           # 2026-07-27 to ks_cloud (56.44, r=128 cloud retrain) then ks_cloud2
+           # (52.60, same recipe trained to convergence; sweep 5/5 vs Whisper,
+           # 4/5 vs ks_cloud) — see docs/ks_cloud_ruler_compare.json +
+           # ks_cloud2_degradation.json.
            "nllb_chrf": None,  "sm_chrf": None,  "best": "seamless"},
 }
 
@@ -645,13 +656,13 @@ def build():
         Table([
             [tch("Item", left=True), tch("Value", left=True)],
             [tcl("Languages Fine-Tuned", bold=True), tcl("7  (Punjabi, Pashto, Urdu, Nepali, Mandarin, Hindi, Kashmiri)")],
-            [tcl("Deployed via fine-tuned Whisper", bold=True), tcl("1  (Kashmiri) — the rest route to SeamlessM4T (LoRA adapters for hi/ne/ps)")],
-            [tcl("Best held-out test WER (FT)", bold=True), tcl("Pashto 38.55%  |  Hindi 19.78%  |  Urdu 19.82%  (n=100 FLEURS test)")],
-            [tcl("Training Hardware",    bold=True), tcl("NVIDIA RTX 5060 8 GB VRAM (CUDA) - Windows 11")],
-            [tcl("Base Model",           bold=True), tcl("OpenAI Whisper large-v3 (1.55 B parameters)")],
-            [tcl("Adaptation Method",    bold=True), tcl("LoRA  r=8, alpha=16  --  0.25% trainable parameters")],
-            [tcl("Total Training Time",  bold=True), tcl("~100 hours across all 7 languages (PA v2 ~33 h, NE v2 ~30 h)")],
-            [tcl("Eval Date",            bold=True), tcl("23 June 2026 (cross-model eval)  |  29 June 2026 (PA v2 / NE v2 eval)")],
+            [tcl("Deployed via fine-tuned Whisper", bold=True), tcl("0  — all seven route to SeamlessM4T (LoRA adapters for hi/ne/ps/ks; Whisper kept for rollback)")],
+            [tcl("Best deployed WER", bold=True), tcl("Hindi 12.91%  |  Urdu 16.90%  |  Punjabi 19.77%  |  Pashto 36.16%  |  Kashmiri 52.60%")],
+            [tcl("Training Hardware",    bold=True), tcl("NVIDIA RTX 5060 8 GB VRAM (CUDA) - Windows 11  +  rented RTX A6000 48 GB (cloud, r=128 runs)")],
+            [tcl("Base Model",           bold=True), tcl("OpenAI Whisper large-v3 (1.55 B)  +  SeamlessM4T v2 large (2.3 B) for the adapter campaign")],
+            [tcl("Adaptation Method",    bold=True), tcl("LoRA  r=8..128, incl. trainable custom tokens  --  0.25% to 6.6% trainable parameters")],
+            [tcl("Total Training Time",  bold=True), tcl("~100 h Whisper (7 langs)  +  ~40 h SeamlessM4T adapters  +  ~9 h cloud GPU (see 4.4)")],
+            [tcl("Eval Date",            bold=True), tcl("23 June 2026 (cross-model)  |  27 July 2026 (cloud adapters ks_cloud2 / ps_cloud)")],
         ], colWidths=[6*cm, W - 6*cm],
         style=std_ts(left_cols=(0, 1))),
         sp(30),
@@ -688,9 +699,13 @@ def build():
             "(pa 19.8%, ne 28.5%, hi 15.4%, ur 16.9%, zh 11.7% WER) and retains that lead under "
             "bandpass and additive-noise degradation. A follow-up campaign of SeamlessM4T LoRA "
             "adapters then also captured <b>Pashto</b> (noise-augmented training: 36.9% vs fine-tuned "
-            "Whisper's 38.6%, winning 4/5 degradation conditions), leaving fine-tuned Whisper in "
-            "production only for <b>Kashmiri</b> (SeamlessM4T has no Kashmiri support). VANI therefore "
-            "routes ASR per language rather than using a single model."
+            "Whisper's 38.6%, winning 4/5 degradation conditions) and finally <b>Kashmiri</b> — a "
+            "language SeamlessM4T does not natively support — via a custom trainable __kas__ token "
+            "plus a scoring-ruler correction. A closing cloud phase (rented 48 GB GPU, ~$6 total) "
+            "retrained both at LoRA rank 128, beyond the 8 GB laptop's reach, improving Pashto to "
+            "36.16% and Kashmiri to 52.60% (diacritic-normalised). Fine-tuned Whisper now serves "
+            "zero languages in production and is retained solely for rollback. VANI therefore routes "
+            "ASR per language rather than using a single model."
         ),
         body(
             "A correction is documented in full: the previously reported Mandarin baseline of 100.03% WER "
@@ -873,11 +888,11 @@ def build():
         style=std_ts(left_cols=(0, 6)), repeatRows=1),
         sp(6),
         note(
-            "Note: Kashmiri (ks) was investigated but no suitable public training data was found. "
-            "FLEURS has no Kashmiri config; Common Voice has no Kashmiri corpus. "
-            "AI4Bharat Kathbath (1,684 hours, 12 Indian languages including Kashmiri) is the most "
-            "promising dataset but requires institutional access. OpenSLR SLR122 is a small public "
-            "Kashmiri corpus (394 MB)."
+            "Note: Kashmiri (ks) has no FLEURS config and no Common Voice corpus; the initial Whisper "
+            "run used AI4Bharat IndicVoices-R Kashmiri (24.7k clips). The later SeamlessM4T campaign "
+            "assembled a combined corpus from three public sources — humair025 KashmiriSpeech-"
+            "IndicVoices, IndicVoices-R, and OpenSLR SLR122 — reaching 335 hours by the final cloud "
+            "run (§4.4)."
         ),
         sp(10),
         h2("4.3 Training Version History — All Retraining Runs"),
@@ -894,36 +909,82 @@ def build():
             [tcl("Punjabi"), tcl("v1"), tc("8 / 16"),
              tcl("FLEURS pa_in"), tc("2,516"), tc("3,000"), tc("56.67%"), tc("—"), tcl("Superseded")],
             [tcl("Punjabi"), tcl("v2"), tc("8 / 16"),
-             tcl("FLEURS + IV-R"), tc("11,923"), tc("3,000"), tc("52.55%"), tc("−4.1 pp"), tcl("Superseded")],
+             tcl("FLEURS + IV-R"), tc("11,923"), tc("3,000"), tc("52.55%"), tc("-4.1 pp"), tcl("Superseded")],
             [tcl("Punjabi"), tcl("v3★"), tc("16 / 32"),
-             tcl("FLEURS + IV-R 20k"), tc("21,923"), tc("4,000"), tc("49.31%"), tc("−3.2 pp"), tcl("Deployed")],
+             tcl("FLEURS + IV-R 20k"), tc("21,923"), tc("4,000"), tc("49.31%"), tc("-3.2 pp"), tcl("Rollback")],
             # NE
             [tcl("Nepali"), tcl("v1"), tc("8 / 16"),
              tcl("FLEURS ne_np"), tc("3,332"), tc("2,000"), tc("52.14%"), tc("—"), tcl("Superseded")],
             [tcl("Nepali"), tcl("v2"), tc("8 / 16"),
-             tcl("FLEURS + IV-R"), tc("13,332"), tc("3,000"), tc("50.82%"), tc("−1.3 pp"), tcl("Deployed")],
+             tcl("FLEURS + IV-R"), tc("13,332"), tc("3,000"), tc("50.82%"), tc("-1.3 pp"), tcl("Rollback")],
             # ZH
             [tcl("Mandarin"), tcl("v1‡"), tc("8 / 16"),
-             tcl("FLEURS cmn_hans_cn"), tc("3,246"), tc("400 (†div.)"), tc("8.97% train"), tc("—"), tcl("Deployed (ckpt-400)")],
+             tcl("FLEURS cmn_hans_cn"), tc("3,246"), tc("400 (†div.)"), tc("8.97% train"), tc("—"), tcl("Not served‡")],
             # PS/UR/HI/KS — single runs
             [tcl("Pashto"), tcl("v1"), tc("8 / 16"),
-             tcl("FLEURS ps_af"), tc("2,082"), tc("2,000"), tc("38.55%"), tc("—"), tcl("Deployed")],
+             tcl("FLEURS ps_af"), tc("2,082"), tc("2,000"), tc("38.55%"), tc("—"), tcl("Rollback")],
             [tcl("Urdu"), tcl("v1"), tc("8 / 16"),
-             tcl("FLEURS ur_pk"), tc("2,109"), tc("1,000"), tc("19.82%"), tc("—"), tcl("Deployed")],
+             tcl("FLEURS ur_pk"), tc("2,109"), tc("1,000"), tc("19.82%"), tc("—"), tcl("Rollback")],
             [tcl("Hindi"), tcl("v1"), tc("8 / 16"),
-             tcl("FLEURS hi_in"), tc("2,120"), tc("600"), tc("19.78%"), tc("—"), tcl("Deployed")],
+             tcl("FLEURS hi_in"), tc("2,120"), tc("600"), tc("19.78%"), tc("—"), tcl("Rollback")],
             [tcl("Kashmiri"), tcl("v1"), tc("8 / 16"),
-             tcl("IV-R KS (custom ⟨ks⟩ token)"), tc("20,000"), tc("3,000"), tc("74.02%"), tc("—"), tcl("Deployed")],
+             tcl("IV-R KS (custom ⟨ks⟩ token)"), tc("20,000"), tc("3,000"), tc("74.02%"), tc("—"), tcl("Rollback")],
         ], colWidths=[1.8*cm, 1.0*cm, 1.6*cm, 3.0*cm, 1.6*cm, 1.6*cm, 1.9*cm, 1.6*cm, W-14.1*cm],
         style=std_ts(left_cols=(0, 1, 3, 8)), repeatRows=1),
         sp(4),
         note("★ PA v3: built and CT2-deployed 2026-07-04; best training-val WER 49.31% at step 4000 "
-             "(−3.24 pp vs v2's 52.55%), held-out test 57.39%. Since 2026-07-11 Punjabi ASR routes to "
+             "(-3.24 pp vs v2's 52.55%), held-out test 57.39%. Since 2026-07-11 Punjabi ASR routes to "
              "SeamlessM4T (19.77%); the v3 model is retained on disk but not served."),
         note("‡ Mandarin training diverged at step ~820 (fp16 gradient explosion, grad_norm=12.9). "
              "Checkpoint-400 (train WER 8.97%, held-out test WER 14.22%) was the best checkpoint, but "
              "fine-tuning regressed Mandarin vs the 10.99% large-v3 baseline — so it is NOT deployed; "
              "Mandarin routes to SeamlessM4T (§5.5). Single run."),
+        sp(10),
+
+        h2("4.4 Training Hours and Dataset Sizes — the SeamlessM4T Adapter Campaign"),
+        body(
+            "The Whisper phase above consumed roughly 100 GPU-hours on the project laptop (RTX 5060, "
+            "8 GB). The SeamlessM4T adapter phase that ultimately replaced it was far cheaper per win, "
+            "because LoRA adapters train in hours and the final capacity push rented cloud hardware by "
+            "the hour instead of scaling the laptop. The final two production adapters cost about $6 "
+            "of cloud compute combined. Key runs of the closing campaign:"
+        ),
+        sp(4),
+        Table([
+            [tch("Run"), tch("Language"), tch("Data (clips / hours)"), tch("Rank"),
+             tch("Hardware"), tch("Wall time"), tch("Result"), tch("Status")],
+            [tcl("ks_max2"), tcl("Kashmiri"), tcl("97,456 / 240 h (3-source combined)"), tc("32"),
+             tcl("RTX 5060 8 GB"), tc("~19 h"), tc("61.88%"), tcl("Rollback")],
+            [tcl("ps_aug2"), tcl("Pashto"), tcl("32,656 / ~55 h (CV 30k + FLEURS x8)"), tc("32"),
+             tcl("RTX 5060 8 GB"), tc("~5 h"), tc("37.46%"), tcl("Negative result")],
+            [tcl("ks_cloud"), tcl("Kashmiri"), tcl("144,749 / 335 h (corpus rebuilt from source)"), tc("128"),
+             tcl("RTX A6000 48 GB (cloud)"), tc("6 h 35 m"), tc("56.44%"), tcl("Rollback")],
+            [tcl("ks_cloud2"), tcl("Kashmiri"), tcl("144,749 / 335 h (as ks_cloud, 2 epochs)"), tc("128"),
+             tcl("RTX A6000 48 GB (cloud)"), tc("~9 h"), Paragraph("<b>52.60%</b>", ProfBlue()), tcl("Deployed")],
+            [tcl("ps_cloud"), tcl("Pashto"), tcl("18,656 / ~30 h (CV 10k + FLEURS x8)"), tc("128"),
+             tcl("RTX A6000 48 GB (cloud)"), tc("1 h 32 m"), Paragraph("<b>36.16%</b>", ProfBlue()), tcl("Deployed")],
+        ], colWidths=[1.9*cm, 1.8*cm, 3.9*cm, 1.0*cm, 2.6*cm, 1.5*cm, 1.5*cm, W-14.2*cm],
+        style=std_ts(left_cols=(0, 1, 2, 4, 7)), repeatRows=1),
+        sp(4),
+        note("Kashmiri WER is diacritic-normalised (L2) on the 372-clip IndicVoices-R test; Pashto WER is "
+             "clean FLEURS ps_af (n=100). Wall times include periodic evaluation. Cloud runs used one "
+             "rented RTX A6000 at $0.53/hr — ks_cloud ~$4, ks_cloud2 ~$5, ps_cloud ~$2 including "
+             "data-preparation time."),
+        note("ks_cloud2 is the cheapest result in this table: an identical rerun of ks_cloud that was "
+             "simply allowed to finish. ks_cloud had early-stopped at 0.8 epochs with its validation "
+             "loss still descending — patience 3 was too tight for a corpus this size — so raising it "
+             "to 5 and training a second epoch bought a further 3.84 pp. A training run that halts "
+             "while still improving is a silent and easily missed loss."),
+        note("The ks_cloud corpus (rebuilt on the cloud box from the same three public sources) came out "
+             "half again larger than ks_max2's because the humair025 dataset had grown upstream: "
+             "humair025 120,845 clips / 275.6 h + IndicVoices-R train 22,824 / 58.3 h + OpenSLR-122 "
+             "1,080 / 1.6 h = 144,749 clips / 335.4 h (131,868 unique sentences), duration-filtered to "
+             "2–20 s with the 403-sentence IndicVoices-R test blocklist removed as an evaluation-leak "
+             "guard (cloud/prep_ks_data.py, composition.json)."),
+        note("Capacity, not data, was the decisive lever at the end: r=128 trains 6.6% of model "
+             "parameters (~107 M) vs r=32's 1.75% — beyond the 8 GB laptop, trivial for a 48 GB card. "
+             "The same lesson read in the other direction for data alone: ps_aug2 (3x the Common Voice "
+             "data at unchanged capacity) regressed."),
         sp(10),
     ]
 
@@ -1164,7 +1225,7 @@ def build():
         ),
         sp(6),
         body(
-            "<b>SeamlessM4T LoRA adapters (deployed 2026-07-18 to 20).</b> Hindi, Nepali, Pashto and "
+            "<b>SeamlessM4T LoRA adapters (deployed 2026-07-18 to 27).</b> Hindi, Nepali, Pashto and "
             "Kashmiri each run a per-language LoRA adapter. Hindi and Nepali were trained on FLEURS + "
             "IndicVoices-R (cap 20k samples): Hindi 15.44% → <b>12.91%</b> and Nepali 28.46% → "
             "<b>24.34%</b> versus zero-shot on the same held-out test. Pashto required five attempts: "
@@ -1172,9 +1233,14 @@ def build():
             "clean speech (37.29% vs Whisper's 38.55%) but collapsed at 0 dB SNR (87.2% vs 64.8%), and "
             "the fifth, <b>noise-augmented</b> adapter — training audio degraded with the evaluation's "
             "own bandpass/noise/codec pipeline — reached <b>36.91%</b> clean while fixing the collapse "
-            "(56.0% at 0 dB, beating Whisper's 64.8%). Hindi/Nepali/Pashto each passed the 30-clip, "
-            "5-condition degradation sweep before deployment (4/5, 5/5, 4/5), and each is enabled only "
-            "for its own language's decoding calls — other languages run the plain base model."
+            "(56.0% at 0 dB, beating Whisper's 64.8%). A sixth attempt that scaled the Common Voice "
+            "data 10k → 30k regressed (37.46% — the CV-drift lesson again); the winning lever was "
+            "instead <b>capacity</b>: the same noise-augmented recipe retrained at LoRA rank 128 on a "
+            "rented cloud GPU (ps_cloud, ~$2 of compute) reached <b>36.16%</b> clean and beat ps_aug in "
+            "4/5 degradation conditions (0 dB: 53.8%), becoming the deployed Pashto adapter on "
+            "2026-07-27. Every adapter passed the 30-clip, 5-condition degradation sweep before "
+            "deployment, and each is enabled only for its own language's decoding calls — other "
+            "languages run the plain base model."
         ),
         sp(6),
         body(
@@ -1205,8 +1271,9 @@ def build():
         note("‡ Kashmiri: custom <|ks|> token (ID 51866) on large-v3, best checkpoint step 2400. The n=100 "
              "cross-model re-run was not repeated for ks (its loader pulls the full 18 GB IndicVoices train "
              "split); 74.02% is the training-eval on the IndicVoices-R test split."),
-        note("§ SeamlessM4T v2 has no Kashmiri (kas absent from the model vocabulary). A Urdu-token proxy was "
-             "tested and failed (109% WER), so Kashmiri necessarily stays on fine-tuned Whisper."),
+        note("§ SeamlessM4T v2 has no native Kashmiri (kas absent from the model vocabulary); a Urdu-token "
+             "proxy failed (109% WER). The eventual fix was a custom trainable __kas__ token + LoRA (§5.5.2) — "
+             "Kashmiri now runs on the ks_cloud2 SeamlessM4T adapter, not on fine-tuned Whisper."),
         note("chrF: character F-score for end-to-end English translation (higher = better). SeamlessM4T's "
              "S2TT wins for pa/ne/zh; Whisper+NLLB wins for ps/ur/hi. VANI keeps NLLB downstream regardless, "
              "using only SeamlessM4T's ASR output."),
@@ -1215,7 +1282,7 @@ def build():
         body(
             "Because VANI processes degraded radio rather than clean speech, the backend choice must "
             "survive channel effects. The table gives SeamlessM4T's WER advantage over fine-tuned "
-            "Whisper (FT WER − SeamlessM4T WER, in points; positive = SeamlessM4T better) on the same "
+            "Whisper (FT WER - SeamlessM4T WER, in points; positive = SeamlessM4T better) on the same "
             "30 FLEURS clips per language under five conditions: clean, 300–3400 Hz telephony bandpass, "
             "additive white noise at 10 dB and 0 dB SNR, and a 16 kbit/s MP3 codec pass."
         ),
@@ -1252,11 +1319,12 @@ def build():
             "it 4/5 (winning only at 0 dB). That was fine-tuned Whisper's last stronghold — but a later "
             "<b>noise-augmented SeamlessM4T adapter</b> (ps_aug: training audio degraded with the "
             "evaluation's own bandpass/noise/codec pipeline) overturned it, winning 4/5 conditions and "
-            "clean speech (36.91% vs 38.55%). Pashto now runs on SeamlessM4T."
+            "clean speech (36.91% vs 38.55%), and its r=128 cloud retrain (ps_cloud, 36.16% clean, "
+            "53.8% at 0 dB) extended the margin. Pashto now runs on SeamlessM4T."
         ),
-        note("* This table's ps 'winner' column reflects the historical zero-shot comparison. As of "
-             "2026-07-19, Pashto is deployed on the noise-augmented SeamlessM4T adapter (ps_aug, described "
-             "above), so fine-tuned Whisper is retained for rollback only."),
+        note("* This table's ps 'winner' column reflects the historical zero-shot comparison. Since "
+             "2026-07-19 Pashto has been deployed on a noise-augmented SeamlessM4T adapter — ps_cloud "
+             "(r=128) as of 2026-07-27 — so fine-tuned Whisper is retained for rollback only."),
         sp(10),
 
         # ── 5.5.2 Kashmiri ruler correction ──────────────────────────────────
@@ -1270,14 +1338,43 @@ def build():
             "diacritised and BOTH systems drop the marks, so raw WER over-penalises both symmetrically. "
             "Once the diacritics are normalised, the verdict flips: the SeamlessM4T adapter wins WER "
             "(64.31% vs 65.19%) and wins CER at every normalisation level. It also won the radio-degradation "
-            "sweep 4/5 conditions, with Whisper's CER exceeding 100% at 0 dB SNR. Kashmiri now runs on "
-            "SeamlessM4T; fine-tuned Whisper is retained for rollback."
+            "sweep 4/5 conditions, with Whisper's CER exceeding 100% at 0 dB SNR. Three successive retrains "
+            "then compounded the win on the identical 372-clip ruler: <b>ks_max2</b> (2026-07-26) kept the "
+            "recipe but rebuilt the corpus 4x larger (97k clips / 240 h: humair025 IndicVoices + "
+            "IndicVoices-R + OpenSLR-122) and reached <b>61.88%</b>; then <b>ks_cloud</b> (2026-07-27) raised "
+            "LoRA rank 32 to 128 — beyond the 8 GB laptop's VRAM, so trained on a rented A6000 for ~$4 — "
+            "on a 145k-clip / 335 h rebuild of the same corpus and reached <b>56.44%</b> (CER 26.19%), "
+            "winning the degradation sweep 5/5 with the 0 dB condition at 81.3% vs Whisper's 99.5%. "
+            "Finally <b>ks_cloud2</b> re-ran that exact recipe with early-stopping patience raised from 3 "
+            "to 5: ks_cloud had halted at 0.8 epochs while its validation loss was still falling, so a "
+            "second epoch alone reached <b>52.60%</b> (CER 23.67%) — winning WER and CER at every "
+            "normalisation level, boundary-free CER 25.69% vs 28.13%, and the degradation sweep 5/5 "
+            "against Whisper and 4/5 against ks_cloud itself. Kashmiri's deployed WER has fallen "
+            "74.02 → 61.88 → 56.44 → 52.60 over the campaign. Kashmiri now runs on the ks_cloud2 "
+            "adapter; ks_cloud and fine-tuned Whisper are retained for rollback."
+        ),
+        sp(6),
+        body(
+            "<b>A hard floor remains, and it is a vocabulary defect rather than an acoustic one.</b> An "
+            "error analysis of the deployed model found that 77% of its remaining errors are word "
+            "substitutions, with a hypothesis-to-reference length ratio of 0.943 and no truncated "
+            "outputs — so the earlier under-generation pathology is gone and little is recoverable by "
+            "decoding changes. The dominant cause is that <b>20 characters used in written Kashmiri have "
+            "no token in SeamlessM4T's sentencepiece vocabulary</b> and resolve to the unknown-token id: "
+            "854,234 occurrences across the training corpus, present in 96.9% of its sentences. The "
+            "model therefore trained against corrupted targets and cannot emit those characters at all — "
+            "U+0672 appears 370 times in the test references and zero times in any hypothesis. Measured "
+            "on the deployed model, 662 of 3,917 substitutions (16.9%) fall on words that are "
+            "unrepresentable, which places a hard floor near <b>49%</b> on this vocabulary regardless of "
+            "model capacity or training length. That the fully-converged ks_cloud2 settled at 52.60% is "
+            "consistent with a model pressing against precisely such a ceiling."
         ),
         sp(6),
         img_scaled(report_charts.ks_ruler_bars(), width=W * 0.78),
-        note("Figure 6: Same 372 IndicVoices clips, same scorer. Raw WER makes Whisper look ahead; "
-             "diacritic-normalised WER and CER both put the SeamlessM4T adapter ahead — the gap was an "
-             "artefact of the Perso-Arabic scoring ruler, not a real model deficit."),
+        note("Figure 6: Same 372 IndicVoices clips, same scorer. Raw WER once made Whisper look ahead of "
+             "the first adapter (ks_max) — an artefact of the Perso-Arabic scoring ruler. With the ruler "
+             "corrected, every successive adapter widens the win; the deployed r=128 ks_cloud2 leads on "
+             "all three measures."),
         sp(6),
         note("This is the fifth independent scoring-methodology correction in this project (after the "
              "turbo-baseline mislabel, the CJK whitespace artefact, the S2TT label-encoding bug, and the "
@@ -1396,7 +1493,7 @@ def build():
         style=std_ts(left_cols=(3,)), repeatRows=1),
         sp(4),
         note("★ v3 best: 49.31% at step 4000 (eval loss 0.1662) — DEPLOYED. v2 best: 52.55% at step 3000. "
-             "v3 final result is −3.24 pp ahead of v2."),
+             "v3 final result is -3.24 pp ahead of v2."),
         note("Key pattern: WER oscillates mid-training (regression at steps 600, 1400, 2000) while eval loss "
              "decreases monotonically. Loss is a more reliable indicator of learning progress than WER at individual checkpoints."),
         note("OOM recovery: the initial run crashed at step 2400 (CUDA out-of-memory during beam-search eval on 8 GB "
@@ -1528,7 +1625,7 @@ def build():
             "decreases monotonically. The most clear example is PA v3:"
         ),
         bullet("Steps 1200→1400: WER regresses 54.48% → 55.68% (+1.2 pp) while loss drops 0.2101 → 0.2100"),
-        bullet("Steps 1400→1600: WER recovers 55.68% → 52.99% (−2.7 pp) — new 2nd best"),
+        bullet("Steps 1400→1600: WER recovers 55.68% → 52.99% (-2.7 pp) — new 2nd best"),
         bullet("Steps 1800→2000: WER oscillates 52.06% → 52.75% while loss reaches new low 0.1892"),
         body(
             "The same pattern appeared in PA v2 (regression at step 1000, recovery by step 1600) "
@@ -1732,7 +1829,7 @@ def build():
         ),
         bullet(
             "<b>LoRA r=16 (PA v3) consistently outperforms r=8 (PA v2) by 1–3 pp at matching steps.</b>  "
-            "At step 1800, v3 achieves 52.06% vs v2's 54.65% at the same step (−2.59 pp). "
+            "At step 1800, v3 achieves 52.06% vs v2's 54.65% at the same step (-2.59 pp). "
             "v3 completed 4,000 steps at a final best of 49.31% — 3.24 pp below v2's 52.55%, "
             "suggesting doubled LoRA rank meaningfully increases model capacity for larger datasets."
         ),
@@ -1750,20 +1847,32 @@ def build():
             "Now fixed with explicit cache_file_name= in finetune_whisper.py."
         ),
         bullet(
-            "<b>SeamlessM4T v2 wins ASR for 5 of 7 languages once scoring is corrected.</b>  "
+            "<b>SeamlessM4T v2 now serves ASR for all 7 of 7 languages.</b>  "
             "On the n=100 held-out test, zero-shot SeamlessM4T beats fine-tuned Whisper for "
-            "pa/ne/hi/ur/zh (§5.5), and the lead holds under radio degradation (§5.5.1). Fine-tuned "
-            "Whisper is retained only for Pashto (38.55% vs 44.40%) and Kashmiri (no SeamlessM4T "
-            "support). The earlier claim that Whisper won Mandarin was a whitespace-scoring artefact; "
-            "corrected, fine-tuning regressed Mandarin (14.22% vs 10.99% baseline). SeamlessM4T costs "
-            "~4.6 GB resident but is shared across five languages, so per-language footprint is lower "
-            "than five fine-tuned Whisper models."
+            "pa/ne/hi/ur/zh (§5.5), and the lead holds under radio degradation (§5.5.1). The last two "
+            "strongholds fell to SeamlessM4T LoRA adapters: Pashto to noise-augmented training "
+            "(ps_aug 36.91%, then ps_cloud 36.16%), and Kashmiri to a custom trainable __kas__ token "
+            "plus a scoring-ruler correction (ks_max 64.31% → ks_cloud2 52.60% diacritic-normalised). "
+            "The earlier claim that Whisper won Mandarin was a whitespace-scoring artefact; corrected, "
+            "fine-tuning regressed Mandarin (14.22% vs 10.99% baseline). Every fine-tuned Whisper "
+            "model is retained on disk for rollback only. One shared SeamlessM4T (~4.6 GB resident) "
+            "plus per-language LoRA adapters has a smaller footprint than seven fine-tuned Whispers."
         ),
         bullet(
-            "<b>Kashmiri is deployable with the IndicVoices dataset and a Nastaliq proxy token.</b>  "
-            "20k samples with whisper_lang='ur' proxy achieved eval_loss 0.936 at checkpoint-1500. "
-            "The pipeline (MMS-LID → ur-proxy ASR → NLLB-200 kas_Arab → English) is functional; "
-            "qualitative evaluation with native Kashmiri audio is the remaining step."
+            "<b>Rented cloud capacity was the campaign's cheapest large lever.</b>  "
+            "The 8 GB laptop caps SeamlessM4T LoRA at r=32 (1.75% trainable). One day on a rented "
+            "RTX A6000 (~$6 total) retrained both open languages at r=128 (6.6% trainable): Kashmiri "
+            "improved 61.88% → 52.60% and Pashto 36.91% → 36.16%, both passing their degradation "
+            "gates and deploying. The reverse lever — more data at unchanged capacity — regressed "
+            "(ps_aug2, +0.55 pp): for these low-resource languages the binding constraint was "
+            "adapter capacity, not corpus size."
+        ),
+        bullet(
+            "<b>Training-signal caution: eval_loss and WER diverge in both directions.</b>  "
+            "This project logged four loss/WER divergences. The latest: ps_cloud's eval_loss (1.134) "
+            "was clearly worse than ps_aug2's (1.048), yet ps_cloud wins WER by 1.3 pp and chrF by 7 "
+            "points. Model selection must gate on task metrics (WER/CER ladders + degradation "
+            "sweeps), never on validation loss alone."
         ),
         sp(10),
     ]

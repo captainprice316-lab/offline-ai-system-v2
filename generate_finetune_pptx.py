@@ -395,8 +395,8 @@ def slide_05_wer_chart(prs, n=8):
         ("Hindi",    "19.8 → 13.9%", "SM4T + LoRA"),
         ("Urdu",     "19.8 → 16.9%", "SeamlessM4T"),
         ("Mandarin", "14.2 → 11.7%", "SeamlessM4T"),
-        ("Pashto",   "38.6 → 36.9%", "SM4T + LoRA"),
-        ("Kashmiri", "74.0 → 64.3%*","SM4T + LoRA"),
+        ("Pashto",   "38.6 → 36.2%", "SM4T + LoRA"),
+        ("Kashmiri", "74.0 → 52.6%*","SM4T + LoRA"),
     ]
     y2 = 2.12
     for lang, prog, backend in selection:
@@ -505,7 +505,8 @@ def slide_07_language_deep(prs, n=12):
           "Train: FLEURS ps_af  (2,082 samples)",
           "Baseline 89.76%  →  FT test 38.55%  (−51 pp)",
           "Beat zero-shot SM4T for a year — finally lost to a",
-          "noise-augmented SM4T LoRA (36.91%) → DEPLOYED"]),
+          "noise-aug SM4T LoRA (36.91%), then its r=128 cloud",
+          "retrain ps_cloud (36.16%) → DEPLOYED"]),
         ("Mandarin (zh)", "→ SM4T", C_RED,
          ["Base: whisper-large-v3  |  LoRA r=8",
           "Baseline 10.99%  →  FT test 14.22%  (+3.2 pp ✗)",
@@ -588,9 +589,11 @@ def slide_08_kashmiri(prs, n=20):
         x += 2.48
     txbox(s, "This model documents HOW the Whisper <|ks|> token was engineered. It was "
              "superseded 2026-07-20 by ks_max — the analogous SeamlessM4T trick (custom "
-             "__kas__ token, r=32 LoRA + a trainable embedding row) which, once the WER "
-             "scoring ruler was corrected for Perso-Arabic diacritics, won CER at every "
-             "level and 4/5 radio-degradation conditions. This model is kept for rollback.",
+             "__kas__ token, r=32 LoRA + a trainable embedding row) — and the line kept "
+             "improving: ks_max2 (4x combined corpus, 61.88%), ks_cloud (r=128 on a rented "
+             "A6000, 56.44%), and ks_cloud2 — the same run allowed to converge instead of "
+             "early-stopping at 0.8 epochs — at 52.60% diacritic-normalised, sweep 5/5, now "
+             "DEPLOYED. Rollback only.",
           0.4, 6.55, 12.5, 0.32, font_size=9, italic=True, color=C_GREEN)
 
 # ── Slide 9 — VANI Pipeline ───────────────────────────────────────────────────
@@ -809,12 +812,12 @@ def slide_12_conclusion(prs, n=24):
           font_size=13, bold=True, color=C_NAVY)
     models = [
         ("SeamlessM4T (zero-shot)",   "Punjabi",  "19.77%", C_TEAL),
-        ("SeamlessM4T + ps LoRA",     "Pashto",   "36.91%", C_TEAL),
+        ("SeamlessM4T + ps LoRA",     "Pashto",   "36.16%", C_TEAL),
         ("SeamlessM4T (zero-shot)",   "Urdu",     "16.90%", C_TEAL),
         ("SeamlessM4T + ne LoRA",     "Nepali",   "24.34%", C_TEAL),
         ("SeamlessM4T (zero-shot)",   "Mandarin", "11.69%", C_TEAL),
         ("SeamlessM4T + hi LoRA",     "Hindi",    "12.91%", C_TEAL),
-        ("SeamlessM4T + ks LoRA",     "Kashmiri", "80.91%*",C_TEAL),
+        ("SeamlessM4T + ks LoRA",     "Kashmiri", "52.60%*",C_TEAL),
     ]
     y = 3.04
     for i, (mname, lang, wer, col) in enumerate(models):
@@ -825,8 +828,8 @@ def slide_12_conclusion(prs, n=24):
         txbox(s, lang,  4.6,  y+0.06, 1.1, 0.25, font_size=10, bold=True, color=C_TEXT)
         txbox(s, wer,   5.8,  y+0.06, 1.6, 0.25, font_size=10.5, bold=True, color=col, align=PP_ALIGN.RIGHT)
         y += 0.37
-    txbox(s, "* ks: raw clean WER; diacritic-normalised, ks_max already WINS WER (64.31% vs "
-             "Whisper's 65.19%) and CER at every level — see notes.",
+    txbox(s, "* ks: diacritic-normalised WER (raw is inflated by dense Perso-Arabic marks for BOTH "
+             "systems). Deployed ks_cloud2 (r=128) vs Whisper-ks 65.19; sweep 5/5 — see notes.",
           0.4, y+0.02, 7.1, 0.3, font_size=8, italic=True, color=C_SUB)
 
     # Next steps
@@ -1203,11 +1206,56 @@ def slide_results_ks_ruler(prs, n):
     chart_slide(
         prs, "Result: Kashmiri — the WER gap was the scoring ruler, not the model", n, "Results",
         report_charts.ks_ruler_bars(),
-        caption="Raw word-error rate makes Whisper look ahead, but Perso-Arabic references are densely diacritised and BOTH "
-                "systems drop the marks — so raw WER over-penalises both. Diacritic-normalised, the SeamlessM4T adapter wins WER; "
-                "it wins CER at every level. It also won the 5-condition degradation sweep 4/5.",
+        caption="Raw word-error rate once made Whisper look ahead of the first adapter, but Perso-Arabic references are densely "
+                "diacritised and BOTH systems drop the marks — the gap was the ruler. Corrected, every successive adapter widens "
+                "the win: the deployed r=128 ks_cloud2 (trained on a rented cloud GPU) leads on all three measures and "
+                "won the 5-condition degradation sweep 5/5.",
         img_width=8.8, aspect=1.87,
     )
+
+
+def slide_campaign_hours(prs, n):
+    """Training hours + dataset sizes for the closing SM4T campaign (§4.4 of the PDF)."""
+    s = blank_slide(prs)
+    bg(s)
+    slide_header(s, "Training hours & dataset sizes — the closing adapter campaign", n, "Results")
+    txbox(s, "The Whisper phase cost ~100 laptop GPU-hours. The adapter campaign that replaced it was cheaper per win — "
+             "the two production adapters that closed it cost ~$6 of rented cloud compute, total.",
+          0.4, 1.42, 12.5, 0.55, font_size=12.5, italic=True, color=C_NAVY)
+
+    cols_x  = [0.30, 1.60, 3.05, 7.15, 8.05, 9.75, 10.95, 12.05]
+    headers = ["Run", "Language", "Training data (clips / hours)", "LoRA r",
+               "Hardware", "Wall time", "Result", "Status"]
+    y = 2.15
+    box(s, 0.28, y, 12.77, 0.5, fill_color=C_NAVY)
+    for x, h in zip(cols_x, headers):
+        txbox(s, h, x, y+0.12, 1.4, 0.3, font_size=9, bold=True, color=RGBColor(0xFF,0xFF,0xFF))
+    rows = [
+        ("ks_max2",  "Kashmiri", "97,456 / 240 h — humair025 + IV-R + OpenSLR-122",   "32",  "RTX 5060 8 GB",  "~19 h",    "61.88%", "Rollback",  C_SUB),
+        ("ps_aug2",  "Pashto",   "32,656 / ~55 h — CV 30k + FLEURS ps_af x8",          "32",  "RTX 5060 8 GB",  "~5 h",     "37.46%", "Negative",  C_RED),
+        ("ks_cloud", "Kashmiri", "144,749 / 335 h — same 3 sources, rebuilt (grown)",  "128", "A6000 48 GB ☁",  "6 h 35 m", "56.44%", "Rollback",  C_SUB),
+        ("ks_cloud2","Kashmiri", "144,749 / 335 h — as ks_cloud, 2 epochs (patience 5)", "128", "A6000 48 GB ☁",  "~9 h",     "52.60%", "DEPLOYED",  C_GREEN),
+        ("ps_cloud", "Pashto",   "18,656 / ~30 h — CV 10k + FLEURS ps_af x8",          "128", "A6000 48 GB ☁",  "1 h 32 m", "36.16%", "DEPLOYED",  C_GREEN),
+    ]
+    y += 0.52
+    for i, (run, lang, data, r, hw, wt, res, status, col) in enumerate(rows):
+        bg_col = C_CARD if i % 2 == 0 else C_CARD2
+        box(s, 0.28, y, 12.77, 0.44, fill_color=bg_col)
+        box(s, 0.28, y, 0.055, 0.44, fill_color=col)
+        for x, v, bold in zip(cols_x, (run, lang, data, r, hw, wt, res, status),
+                              (True, False, False, False, False, False, True, True)):
+            txbox(s, v, x, y+0.10, 4.0 if x == 3.05 else 1.5, 0.28, font_size=9.5,
+                  bold=bold, color=col if bold and x >= 10.9 else (C_TEXT if bold else C_SUB))
+        y += 0.46
+    y += 0.15
+    for line in [
+        "Kashmiri result = diacritic-normalised WER, 372-clip IndicVoices-R test  ·  Pashto result = clean FLEURS ps_af, n=100.",
+        "Cloud runs: one rented RTX A6000 at $0.53/hr → ks_cloud ≈ $4, ks_cloud2 ≈ $5, ps_cloud ≈ $2. Corpus rebuilt from source on the box;",
+        "humair025 had grown upstream → 144,749 clips / 335.4 h (131,868 unique sentences), 2–20 s filter, eval-leak blocklist applied.",
+        "The decisive lever was CAPACITY (r=128 = 6.6% trainable vs r=32 = 1.75%) — more data at unchanged capacity regressed (ps_aug2).",
+    ]:
+        txbox(s, line, 0.4, y, 12.5, 0.3, font_size=9.5, italic=True, color=C_SUB)
+        y += 0.28
 
 
 def slide_finetune_summary(prs, n):
@@ -1223,15 +1271,16 @@ def slide_finetune_summary(prs, n):
         ("2 · Correct the scoring", "Found the baseline was mislabelled turbo, and Mandarin WER was a whitespace artefact. Re-scored with one CJK-aware normaliser.", C_RED),
         ("3 · Head-to-head + robustness", "Zero-shot SeamlessM4T beat fine-tuned Whisper on 5/6 languages and held under bandpass/noise/codec.", C_TEAL),
         ("4 · Adapter campaign", "hi/ne gained from IndicVoices data; Pashto fell to noise-augmented training; Kashmiri to a trainable __kas__ token + a ruler correction.", C_BLUE),
-        ("5 · Outcome", "All 7 languages route to SeamlessM4T. Fine-tuned Whisper is retained for rollback only. Five scoring defects caught in total.", C_GREEN),
+        ("5 · Cloud capacity push", "Rented A6000s (~$11) retrained ps+ks at r=128 — beyond the 8 GB laptop: Pashto 36.91→36.16, Kashmiri 61.88→52.60 (the last 3.84 pp came from simply letting the run converge). Both passed their gates and deployed.", C_TEAL),
+        ("6 · Outcome", "All 7 languages route to SeamlessM4T. Fine-tuned Whisper is retained for rollback only. Five scoring defects caught in total.", C_GREEN),
     ]
     y = 2.1
     for title, desc, col in stages:
-        box(s, 0.4, y, 12.5, 0.92, fill_color=C_CARD, line_color=C_BORDER)
-        box(s, 0.4, y, 0.08, 0.92, fill_color=col)
-        txbox(s, title, 0.62, y + 0.10, 3.7, 0.7, font_size=13, bold=True, color=col)
-        txbox(s, desc, 4.35, y + 0.12, 8.4, 0.72, font_size=11, color=C_SUB)
-        y += 0.98
+        box(s, 0.4, y, 12.5, 0.76, fill_color=C_CARD, line_color=C_BORDER)
+        box(s, 0.4, y, 0.08, 0.76, fill_color=col)
+        txbox(s, title, 0.62, y + 0.08, 3.7, 0.6, font_size=12.5, bold=True, color=col)
+        txbox(s, desc, 4.35, y + 0.06, 8.4, 0.64, font_size=10, color=C_SUB)
+        y += 0.84
 
 
 # ── Main ───────────────────────────────────────────────────────────────────────
@@ -1268,12 +1317,13 @@ def main():
     slide_11_robustness(prs, n=16)                                       # 16  robustness (LangID) table
     slide_results_ks_ruler(prs, 17)                                      # 17  Kashmiri ruler
     slide_finetune_summary(prs, 18)                                     # 18  training campaign (one slide)
-    slide_10_key_findings(prs, n=19)                                     # 19  key findings
+    slide_campaign_hours(prs, 19)                                       # 19  training hours + dataset sizes
+    slide_10_key_findings(prs, n=20)                                     # 20  key findings
 
     slide_section_divider(prs, 7, "Future Work",
-                          "Where VANI goes next", 20)
-    slide_next_steps_accuracy(prs, 21)                                   # 21
-    slide_12_conclusion(prs, n=22)                                       # 22
+                          "Where VANI goes next", 21)
+    slide_next_steps_accuracy(prs, 22)                                   # 22
+    slide_12_conclusion(prs, n=23)                                       # 23
 
     OUT_PATH.parent.mkdir(exist_ok=True)
     prs.save(str(OUT_PATH))
