@@ -188,6 +188,29 @@ LANG_CFG = {
         "trainable_kas_token": True,
         "ks_extra_chars": True,
     },
+    "ks_cloud4": {
+        # WARM START from ks_cloud3 (deployed, 50.26 L2 WER). Diagnosis: the 21
+        # trainable token rows (__kas__ + the 20 repaired characters) saw only
+        # 1.06 epochs before early-stopping, and they are measurably the weak
+        # part — of the 747 test words containing the 4 previously-missing
+        # LETTERS, ks_cloud3 still gets 437 wrong (~4.9 pp of WER), and those
+        # failures are now ordinary acoustic confusions rather than
+        # impossibilities. So: reload those exact weights, give them a FRESH LR
+        # schedule (the old run ended on a decayed tail), run the LoRA gently at
+        # 3e-5 while driving the token rows 5x faster, and train ~2 more epochs.
+        # Everything else matches ks_cloud3 so the delta is attributable.
+        "sm_lang": "kas", "name": "Kashmiri (warm-start from ks_cloud3, fast token rows)",
+        "combined_manifest_dir": os.environ.get("KS_COMBINED_DIR", "ks_data"),
+        "indicvoices_parquet_dir": os.environ.get(
+            "KS_IVR_DIR", "ks_data/indicvoices_r/Kashmiri"),
+        "train_cap": None,
+        "init_adapter": os.environ.get(
+            "KS_INIT_ADAPTER", "finetune_runs_seamless/ks_cloud3/adapter"),
+        "learning_rate": 3e-5,
+        "token_lr_mult": 5.0,
+        "trainable_kas_token": True,
+        "ks_extra_chars": True,
+    },
     "ps_aug": {
         # Pashto attempt #5 — targets ps_bal2's robustness-gate failure (37.29
         # clean but 87.2 @ 0 dB vs Whisper 64.8). Same data and capacity as
@@ -969,16 +992,30 @@ def train(lang: str, args):
         print(f"  [ks-chars] {len(ks_char_ids)} character rows set TRAINABLE")
     if trainable_ids:
         lora_kwargs["trainable_token_indices"] = {"embed_tokens": trainable_ids}
-    lora_cfg = LoraConfig(
-        r=cfg.get("lora_r", 8),
-        lora_alpha=cfg.get("lora_alpha", 16),
-        target_modules=cfg.get("lora_targets", ["q_proj", "v_proj"]),
-        lora_dropout=0.05,
-        task_type=TaskType.SEQ_2_SEQ_LM,
-        bias="none",
-        **lora_kwargs,
-    )
-    model = get_peft_model(model, lora_cfg)
+    init_adapter = cfg.get("init_adapter")
+    if init_adapter:
+        # WARM START: continue from an existing adapter instead of random LoRA.
+        # Its adapter_config.json supplies r/alpha/targets/trainable_token_indices,
+        # so the config's own lora_* keys are ignored here by design — the point is
+        # to resume those exact weights, with a fresh LR schedule (see cfg
+        # learning_rate) rather than the decayed tail of the previous run.
+        from peft import PeftModel
+        p = pathlib.Path(init_adapter)
+        if not (p / "adapter_model.safetensors").exists():
+            raise FileNotFoundError(f"init_adapter has no weights: {p}")
+        model = PeftModel.from_pretrained(model, str(p), is_trainable=True)
+        print(f"  [warm-start] loaded adapter weights from {p}")
+    else:
+        lora_cfg = LoraConfig(
+            r=cfg.get("lora_r", 8),
+            lora_alpha=cfg.get("lora_alpha", 16),
+            target_modules=cfg.get("lora_targets", ["q_proj", "v_proj"]),
+            lora_dropout=0.05,
+            task_type=TaskType.SEQ_2_SEQ_LM,
+            bias="none",
+            **lora_kwargs,
+        )
+        model = get_peft_model(model, lora_cfg)
     model.print_trainable_parameters()
 
     # ── Data ──────────────────────────────────────────────────────────────────
@@ -1043,7 +1080,7 @@ def train(lang: str, args):
         per_device_train_batch_size=int(os.environ.get("VANI_TRAIN_BS", "1")),
         gradient_accumulation_steps=int(os.environ.get("VANI_GRAD_ACCUM", "8")),  # eff batch = BS*accum; cloud can raise VANI_TRAIN_BS on a big GPU
         per_device_eval_batch_size=1,
-        learning_rate=1e-4,
+        learning_rate=float(cfg.get("learning_rate", 1e-4)),
         warmup_steps=50,
         fp16=use_fp16,
         eval_strategy="steps",
@@ -1061,9 +1098,33 @@ def train(lang: str, args):
         remove_unused_columns=False,        # our collator expects named fields
     )
 
+    # Optional: train the added-token embedding rows FASTER than the LoRA weights.
+    # They are the least-converged parameters in a warm-started run — ks_cloud3's
+    # 21 rows saw only 1.06 epochs and still account for ~4.9 pp of WER — so the
+    # LoRA can be nudged gently while the rows keep learning.
+    optimizers = (None, None)
+    tok_mult = float(cfg.get("token_lr_mult", 1.0))
+    if tok_mult != 1.0:
+        base_lr = float(cfg.get("learning_rate", 1e-4))
+        tok_p = [p for n, p in model.named_parameters()
+                 if p.requires_grad and "trainable_tokens" in n]
+        rest_p = [p for n, p in model.named_parameters()
+                  if p.requires_grad and "trainable_tokens" not in n]
+        if not tok_p:
+            raise RuntimeError("token_lr_mult set but no trainable_tokens parameters found")
+        opt = torch.optim.AdamW(
+            [{"params": rest_p, "lr": base_lr},
+             {"params": tok_p,  "lr": base_lr * tok_mult}],
+            weight_decay=training_args.weight_decay)
+        optimizers = (opt, None)          # Trainer builds the scheduler on top
+        print(f"  [lr] token rows {base_lr * tok_mult:.2e} ({tok_mult}x) | "
+              f"LoRA {base_lr:.2e}  ({sum(p.numel() for p in tok_p):,} vs "
+              f"{sum(p.numel() for p in rest_p):,} params)")
+
     trainer = Trainer(
         model=model,
         args=training_args,
+        optimizers=optimizers,
         train_dataset=train_ds,
         eval_dataset=val_ds,
         data_collator=collator,
@@ -1122,7 +1183,7 @@ def main():
 
     # "all" = the six FLEURS languages; ks (custom token) and the extra-data
     # experiments run only when named explicitly
-    EXPERIMENTS = {"ks", "ks_r16", "ks_max", "ks_max2", "ks_cloud", "ks_cloud2", "ks_cloud3", "ps_cv", "ps_bal", "ps_bal2", "ps_aug", "ps_aug2", "ps_cloud", "hi_iv", "ne_iv"}
+    EXPERIMENTS = {"ks", "ks_r16", "ks_max", "ks_max2", "ks_cloud", "ks_cloud2", "ks_cloud3", "ks_cloud4", "ps_cv", "ps_bal", "ps_bal2", "ps_aug", "ps_aug2", "ps_cloud", "hi_iv", "ne_iv"}
     langs = [l for l in LANG_CFG if l not in EXPERIMENTS] if args.lang == "all" else [args.lang]
     for lang in langs:
         train(lang, args)
