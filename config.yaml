@@ -47,7 +47,16 @@ asr:
                              # the prior adapter in 4/5 degradation conditions (30-clip
                              # sweep, e.g. bandpass 15.0 vs 16.3). Previous adapter kept
                              # at finetune_runs_seamless/hi/adapter for rollback.
-    ps: finetune_runs_seamless/ps_aug/adapter
+    ps: finetune_runs_seamless/ps_cloud/adapter
+                             # ps_cloud (deployed 2026-07-27) — the ps_aug recipe at r=128
+                             # (α=256), trained on a RunPod A6000 (~$2, early-stop 1600/4000).
+                             # 4th (favorable) loss/WER divergence: eval_loss 1.134 > ps_aug's
+                             # 1.048 yet WER 36.16 < 36.91 (n=100) and chrF 36.39 > 31.12.
+                             # Sweep: wins 4/5 vs ps_aug (clean 41.6<43.0, bandpass 39.5<40.8,
+                             # awgn_0 53.8<56.0 — new best, codec 39.4<40.0; loses awgn_10
+                             # 42.7 vs 41.5, within n=30 noise). ps_aug
+                             # (finetune_runs_seamless/ps_aug/adapter) retained for rollback.
+                             # ── prior ps_aug notes ──────────────────────────────────────
                              # ps_aug (deployed 2026-07-19, Pashto's first Seamless win —
                              # attempt #5): balanced FLEURS+CV data, LoRA r=32 on
                              # q/k/v/out+MLP, NOISE-AUGMENTED training (the sweep's own
