@@ -17,6 +17,7 @@ from ks_ruler_study import norm, score, load_jsonl, LEVELS  # noqa: E402
 
 ED = ROOT / "eval_data"
 SRC = {
+    "ks_cloud4": ED / "ks_cloud4_seamless_hyps.jsonl",   # warm start from ks_cloud3
     "ks_cloud3": ED / "ks_cloud3_seamless_hyps.jsonl",   # vocabulary repaired
     "ks_cloud2": ED / "ks_cloud2_seamless_hyps.jsonl",   # 2-epoch, old vocab
     "ks_cloud":  ED / "ks_cloud_seamless_hyps.jsonl",    # deployed
@@ -43,7 +44,7 @@ for name, path in SRC.items():
     else:
         print(f"[skip] {name}: {path.name} missing")
 
-order = [s for s in ("ks_cloud3", "ks_cloud2", "ks_cloud", "ks_max2", "ks_max", "whisper")
+order = [s for s in ("ks_cloud4", "ks_cloud3", "ks_cloud2", "ks_cloud", "ks_max2", "ks_max", "whisper")
          if s in systems]
 BEST = order[0] if order else None
 results = {}
