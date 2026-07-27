@@ -55,7 +55,18 @@ asr:
                              # (n=100); wins 4/5 degradation conditions incl. 0 dB SNR
                              # 56.0 vs 64.8. whisper-medium-pashto-ct2 retained for
                              # rollback (remove this entry + drop ps from seamless_langs).
-    ks: finetune_runs_seamless/ks_max2/adapter
+    ks: finetune_runs_seamless/ks_cloud/adapter
+                             # ks_cloud (deployed 2026-07-27) — the ks_max2 recipe scaled to
+                             # the capacity the 8 GB laptop couldn't reach: r=128 (α=256) all
+                             # attn+MLP + trainable __kas__, trained on a RunPod A6000 48GB
+                             # (~$4, 6h35m, early-stop step 7200/8000) on the rebuilt combined
+                             # corpus grown upstream to 144,749 clips / 335 h. Wins ks_max2 on
+                             # EVERY metric: eval_loss 0.9268<1.040 (same IVR-R 372 val);
+                             # ruler L2 WER 56.44<61.88, CER 26.19<30.1 (all levels +
+                             # boundary-free); degradation 5/5 vs Whisper-ks incl. 0 dB 81.3
+                             # vs 99.5. Kashmiri arc: 74.02 → 61.88 → 56.44. ks_max2
+                             # (finetune_runs_seamless/ks_max2/adapter) retained for rollback.
+                             # ── prior ks_max2 notes ─────────────────────────────────────
                              # ks_max2 (deployed 2026-07-26) — the ks_max recipe (r=32+MLP,
                              # trainable __kas__) retrained on the COMBINED corpus: 97,456
                              # clips / 240 h (humair025 IndicVoices + IndicVoices-R +
