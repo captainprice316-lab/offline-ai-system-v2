@@ -1237,6 +1237,7 @@ def slide_campaign_hours(prs, n):
         ("ks_cloud", "Kashmiri", "144,749 / 335 h — same 3 sources, rebuilt (grown)",  "128", "A6000 48 GB ☁",  "6 h 35 m", "56.44%", "Rollback",  C_SUB),
         ("ks_cloud2","Kashmiri", "144,749 / 335 h — as ks_cloud, 2 epochs (patience 5)", "128", "A6000 48 GB ☁",  "~9 h",     "52.60%", "Rollback",  C_SUB),
         ("ks_cloud3","Kashmiri", "144,942 / 336 h — as ks_cloud2 + 20 vocab chars repaired","128", "A6000 48 GB ☁",  "~8 h",     "50.26%", "DEPLOYED",  C_GREEN),
+        ("ks_cloud4","Kashmiri", "as ks_cloud3, warm start, token rows at 5x LR",         "128", "A6000 48 GB ☁",  "~1 h",     "50.69%", "Rejected",  C_RED),
         ("ps_cloud", "Pashto",   "18,656 / ~30 h — CV 10k + FLEURS ps_af x8",          "128", "A6000 48 GB ☁",  "1 h 32 m", "36.16%", "DEPLOYED",  C_GREEN),
     ]
     y += 0.52
@@ -1274,15 +1275,16 @@ def slide_finetune_summary(prs, n):
         ("3 · Head-to-head + robustness", "Zero-shot SeamlessM4T beat fine-tuned Whisper on 5/6 languages and held under bandpass/noise/codec.", C_TEAL),
         ("4 · Adapter campaign", "hi/ne gained from IndicVoices data; Pashto fell to noise-augmented training; Kashmiri to a trainable __kas__ token + a ruler correction.", C_BLUE),
         ("5 · Cloud capacity push", "Rented A6000s (~$11) retrained ps+ks at r=128 — beyond the 8 GB laptop: Pashto 36.91→36.16, Kashmiri 61.88→50.26 (3.84 pp from simply letting the run converge, then 2.34 pp from repairing the vocabulary). Both passed their gates and deployed.", C_TEAL),
-        ("6 · Outcome", "All 7 languages route to SeamlessM4T. Fine-tuned Whisper is retained for rollback only. Five scoring defects caught in total.", C_GREEN),
+        ("6 · Exhausting the levers", "Two honest negatives closed the campaign: a warm start improved validation loss but LOST 0.43 pp WER (5th loss/WER divergence), and beam search gains ~3 pp on clean speech while losing ~3 pp at 0 dB SNR. Production decoding unchanged.", C_RED),
+        ("7 · Outcome", "All 7 languages route to SeamlessM4T. Kashmiri 74.02 → 50.26. What remains is a data/acoustic limit, not an optimisation one. Five scoring defects caught in total.", C_GREEN),
     ]
-    y = 2.1
+    y = 2.02
     for title, desc, col in stages:
-        box(s, 0.4, y, 12.5, 0.76, fill_color=C_CARD, line_color=C_BORDER)
-        box(s, 0.4, y, 0.08, 0.76, fill_color=col)
-        txbox(s, title, 0.62, y + 0.08, 3.7, 0.6, font_size=12.5, bold=True, color=col)
-        txbox(s, desc, 4.35, y + 0.06, 8.4, 0.64, font_size=10, color=C_SUB)
-        y += 0.84
+        box(s, 0.4, y, 12.5, 0.68, fill_color=C_CARD, line_color=C_BORDER)
+        box(s, 0.4, y, 0.08, 0.68, fill_color=col)
+        txbox(s, title, 0.62, y + 0.06, 3.7, 0.56, font_size=11.5, bold=True, color=col)
+        txbox(s, desc, 4.35, y + 0.04, 8.4, 0.60, font_size=9, color=C_SUB)
+        y += 0.75
 
 
 # ── Main ───────────────────────────────────────────────────────────────────────

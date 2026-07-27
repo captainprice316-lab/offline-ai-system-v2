@@ -964,6 +964,8 @@ def build():
              tcl("RTX A6000 48 GB (cloud)"), tc("~9 h"), tc("52.60%"), tcl("Rollback")],
             [tcl("ks_cloud3"), tcl("Kashmiri"), tcl("144,942 / 336 h (as ks_cloud2 + 20 vocab chars)"), tc("128"),
              tcl("RTX A6000 48 GB (cloud)"), tc("~8 h"), Paragraph("<b>50.26%</b>", ProfBlue()), tcl("Deployed")],
+            [tcl("ks_cloud4"), tcl("Kashmiri"), tcl("as ks_cloud3, warm start, token rows at 5x LR"), tc("128"),
+             tcl("RTX A6000 48 GB (cloud)"), tc("~1 h"), tc("50.69%"), tcl("Rejected")],
             [tcl("ps_cloud"), tcl("Pashto"), tcl("18,656 / ~30 h (CV 10k + FLEURS x8)"), tc("128"),
              tcl("RTX A6000 48 GB (cloud)"), tc("1 h 32 m"), Paragraph("<b>36.16%</b>", ProfBlue()), tcl("Deployed")],
         ], colWidths=[1.9*cm, 1.8*cm, 3.9*cm, 1.0*cm, 2.6*cm, 1.5*cm, 1.5*cm, W-14.2*cm],
@@ -1045,7 +1047,7 @@ def build():
              "is 10.99% and the fine-tune 14.22%. Mandarin is served by SeamlessM4T in production (§5.5)."),
         note("Train WER is each run's best validation-split WER (§5.3), not the held-out test; the two differ "
              "most for pa (train 49.31 vs test 57.39) and zh (train 8.97 vs test 14.22)."),
-        note("pp = percentage points absolute WER change (baseline → test WER); negative = improvement."),
+        note("pp = percentage points absolute WER change (baseline -> test WER); negative = improvement."),
         sp(10),
         h2("5.2 Baseline vs. Fine-Tuned WER"),
         KeepTogether([
@@ -1230,14 +1232,14 @@ def build():
         body(
             "<b>SeamlessM4T LoRA adapters (deployed 2026-07-18 to 27).</b> Hindi, Nepali, Pashto and "
             "Kashmiri each run a per-language LoRA adapter. Hindi and Nepali were trained on FLEURS + "
-            "IndicVoices-R (cap 20k samples): Hindi 15.44% → <b>12.91%</b> and Nepali 28.46% → "
+            "IndicVoices-R (cap 20k samples): Hindi 15.44% -> <b>12.91%</b> and Nepali 28.46% -> "
             "<b>24.34%</b> versus zero-shot on the same held-out test. Pashto required five attempts: "
             "more data alone regressed (CV domain drift), a larger adapter (r=32 incl. MLP layers) won "
             "clean speech (37.29% vs Whisper's 38.55%) but collapsed at 0 dB SNR (87.2% vs 64.8%), and "
             "the fifth, <b>noise-augmented</b> adapter — training audio degraded with the evaluation's "
             "own bandpass/noise/codec pipeline — reached <b>36.91%</b> clean while fixing the collapse "
             "(56.0% at 0 dB, beating Whisper's 64.8%). A sixth attempt that scaled the Common Voice "
-            "data 10k → 30k regressed (37.46% — the CV-drift lesson again); the winning lever was "
+            "data 10k -> 30k regressed (37.46% — the CV-drift lesson again); the winning lever was "
             "instead <b>capacity</b>: the same noise-augmented recipe retrained at LoRA rank 128 on a "
             "rented cloud GPU (ps_cloud, ~$2 of compute) reached <b>36.16%</b> clean and beat ps_aug in "
             "4/5 degradation conditions (0 dB: 53.8%), becoming the deployed Pashto adapter on "
@@ -1268,7 +1270,7 @@ def build():
             "training-eval-vs-deployed-artefact mismatch) — each one initially read as a real result."
         ),
         sp(4),
-        note("† Mandarin: fine-tuning regressed the model (baseline 10.99% → fine-tuned 14.22%). The prior "
+        note("† Mandarin: fine-tuning regressed the model (baseline 10.99% -> fine-tuned 14.22%). The prior "
              "report's 100.03% baseline / 100.0% SeamlessM4T were whitespace-tokenisation artefacts on "
              "character-spaced Han references, now corrected with character segmentation."),
         note("‡ Kashmiri: custom <|ks|> token (ID 51866) on large-v3, best checkpoint step 2400. The n=100 "
@@ -1292,7 +1294,7 @@ def build():
         sp(6),
         img_scaled(report_charts.robustness_heatmap(), width=W * 0.78),
         note("Figure 5: SeamlessM4T's WER advantage over fine-tuned Whisper (percentage points) across the "
-             "five channel conditions. Positive everywhere; Hindi (+5.0→+19.5) and Mandarin (+3.6→+17.2) "
+             "five channel conditions. Positive everywhere; Hindi (+5.0->+19.5) and Mandarin (+3.6->+17.2) "
              "widen most at 0 dB SNR. This is the conservative zero-shot comparison — the deployed hi/ne LoRA "
              "adapters improve on it further."),
         sp(8),
@@ -1353,7 +1355,7 @@ def build():
             "second epoch alone reached <b>52.60%</b> (CER 23.67%) — winning WER and CER at every "
             "normalisation level, boundary-free CER 25.69% vs 28.13%, and the degradation sweep 5/5 "
             "against Whisper and 4/5 against ks_cloud itself. Kashmiri's deployed WER has fallen "
-            "74.02 → 61.88 → 56.44 → 52.60 over the campaign. Kashmiri now runs on the ks_cloud2 "
+            "74.02 -> 61.88 -> 56.44 -> 52.60 over the campaign. Kashmiri now runs on the ks_cloud2 "
             "adapter; ks_cloud and fine-tuned Whisper are retained for rollback."
         ),
         sp(6),
@@ -1380,23 +1382,61 @@ def build():
             "step, so the comparison isolates a single variable. The result is unambiguous on the "
             "measure that matters most. <b>Of the 747 test words containing the four missing letters, "
             "the previous model got 747 wrong — every single one; ks_cloud3 gets 310 of them right.</b> "
-            "Overall WER falls 52.60% → <b>50.26%</b>, and raw WER falls 74.31% → <b>64.71%</b>, a 9.60 pp "
+            "Overall WER falls 52.60% -> <b>50.26%</b>, and raw WER falls 74.31% -> <b>64.71%</b>, a 9.60 pp "
             "gain: most of the missing characters are combining marks that the diacritic-normalised ruler "
             "discards anyway, so the repair shows its full value only on unnormalised text. Length "
-            "calibration also improved (hypothesis/reference ratio 0.943 → 0.980) and deletions fell from "
+            "calibration also improved (hypothesis/reference ratio 0.943 -> 0.980) and deletions fell from "
             "16.5% to 13.9% of errors."
         ),
         sp(6),
         body(
-            "Two honest qualifications. First, the 49% floor quoted above was an <i>upper bound</i>: it "
-            "assumed every unrepresentable word would become correct once writable, whereas about a third "
-            "actually did. Second, the reason is visible in the training curve — the twenty new embedding "
-            "rows were trained for only 1.06 epochs before early stopping, so they are the least-converged "
-            "parameters in the model. The 437 words still wrong represent roughly 4.9 pp of the remaining "
-            "error and are now an ordinary learning problem rather than an impossibility: the failures "
-            "have become plausible acoustic confusions between similar words instead of blank omissions. "
-            "Continuing training from this checkpoint, with a higher learning rate on those rows, is the "
-            "clearest remaining avenue."
+            "One honest qualification: the 49% floor quoted above was an <i>upper bound</i>. It assumed "
+            "every unrepresentable word would become correct once writable, whereas about a third actually "
+            "did. The 437 words still wrong represent roughly 4.9 pp of the remaining error, but their "
+            "failures are now plausible acoustic confusions between similar words rather than blank "
+            "omissions."
+        ),
+        sp(6),
+        body(
+            "<b>That residue is not a training-duration problem, and testing the obvious remedy showed "
+            "why it matters to check.</b> The twenty new embedding rows had trained for only 1.06 epochs, "
+            "making them by far the least-converged parameters in the model, so a further run "
+            "(<b>ks_cloud4</b>) warm-started from ks_cloud3 with a fresh learning-rate schedule and those "
+            "rows driven at five times the adapter's rate. It improved <i>immediately</i> — validation "
+            "loss 0.8305 -> 0.8257 within 200 steps — and then worsened at every subsequent evaluation, "
+            "early-stopping at step 1,200 because the model was already converged. On the deciding ruler "
+            "it <b>lost</b>: 50.69% WER against ks_cloud3's 50.26%, with CER and boundary-free CER also "
+            "marginally worse. Better validation loss, worse word error: the fifth loss/WER divergence "
+            "this project has recorded, and the first in the unfavourable direction. Selecting on the "
+            "loss curve would have regressed the deployed system. ks_cloud3 remains in production."
+        ),
+        sp(6),
+        body(
+            "<b>Decoding was the last untested lever, and it does not survive the robustness "
+            "requirement either.</b> VANI decodes greedily: <font face='Courier'>num_beams</font> is "
+            "absent from SeamlessM4T's generation configuration, so the library default of 1 applies to "
+            "all seven languages. Beam-8 decoding lowers Kashmiri's clean WER from 50.26% to 47.37%, and "
+            "adding an in-domain Kneser-Ney trigram language model to rescore the 8-best list reaches "
+            "46.90% (against an oracle ceiling of 44.33% over that list, so the language model captures "
+            "roughly a sixth of what re-ranking could ever recover). Latency is not the obstacle — beam-8 "
+            "costs about 5% of wall-clock, not the eightfold one might expect, because decode time is "
+            "dominated by a sequential step count that the minimum-token constraint fixes. The obstacle "
+            "is robustness: across eight configurations (beam widths 2, 4 and 8, each with length "
+            "penalties 1.0, 0.8 and 0.6) <i>every one</i> regressed the 0 dB SNR condition by 2–3 pp "
+            "while gaining 2–3 pp on clean audio. With flat posteriors, beam search reliably prefers "
+            "fluent but acoustically unsupported hypotheses; greedy decoding's myopia is a virtue "
+            "precisely when the evidence is weakest. For a system whose purpose is degraded radio, that "
+            "trade runs the wrong way, so production decoding is unchanged. The wider lesson is that "
+            "<b>decode settings validated only on clean test sets can silently degrade deployed "
+            "robustness</b>."
+        ),
+        sp(6),
+        body(
+            "Taken together — capacity, corpus size, convergence, vocabulary coverage and decoding have "
+            "each now been tested and, where they helped, deployed — the remaining error is best "
+            "characterised as a data and acoustic-modelling limit rather than an optimisation one. That "
+            "is the empirical basis on which any future move to a different pretrained backbone should "
+            "be argued."
         ),
         sp(6),
         img_scaled(report_charts.ks_ruler_bars(), width=W * 0.78),
@@ -1653,9 +1693,9 @@ def build():
             "Across all languages, eval WER oscillates at individual checkpoints while training loss "
             "decreases monotonically. The most clear example is PA v3:"
         ),
-        bullet("Steps 1200→1400: WER regresses 54.48% → 55.68% (+1.2 pp) while loss drops 0.2101 → 0.2100"),
-        bullet("Steps 1400→1600: WER recovers 55.68% → 52.99% (-2.7 pp) — new 2nd best"),
-        bullet("Steps 1800→2000: WER oscillates 52.06% → 52.75% while loss reaches new low 0.1892"),
+        bullet("Steps 1200->1400: WER regresses 54.48% -> 55.68% (+1.2 pp) while loss drops 0.2101 -> 0.2100"),
+        bullet("Steps 1400->1600: WER recovers 55.68% -> 52.99% (-2.7 pp) — new 2nd best"),
+        bullet("Steps 1800->2000: WER oscillates 52.06% -> 52.75% while loss reaches new low 0.1892"),
         body(
             "The same pattern appeared in PA v2 (regression at step 1000, recovery by step 1600) "
             "and NE v2 (regression at steps 1600 and 2400). "
@@ -1881,7 +1921,7 @@ def build():
             "pa/ne/hi/ur/zh (§5.5), and the lead holds under radio degradation (§5.5.1). The last two "
             "strongholds fell to SeamlessM4T LoRA adapters: Pashto to noise-augmented training "
             "(ps_aug 36.91%, then ps_cloud 36.16%), and Kashmiri to a custom trainable __kas__ token "
-            "plus a scoring-ruler correction (ks_max 64.31% → ks_cloud3 50.26% diacritic-normalised). "
+            "plus a scoring-ruler correction (ks_max 64.31% -> ks_cloud3 50.26% diacritic-normalised). "
             "The earlier claim that Whisper won Mandarin was a whitespace-scoring artefact; corrected, "
             "fine-tuning regressed Mandarin (14.22% vs 10.99% baseline). Every fine-tuned Whisper "
             "model is retained on disk for rollback only. One shared SeamlessM4T (~4.6 GB resident) "
@@ -1891,17 +1931,28 @@ def build():
             "<b>Rented cloud capacity was the campaign's cheapest large lever.</b>  "
             "The 8 GB laptop caps SeamlessM4T LoRA at r=32 (1.75% trainable). One day on a rented "
             "RTX A6000 (~$6 total) retrained both open languages at r=128 (6.6% trainable): Kashmiri "
-            "improved 61.88% → 50.26% and Pashto 36.91% → 36.16%, both passing their degradation "
+            "improved 61.88% -> 50.26% and Pashto 36.91% -> 36.16%, both passing their degradation "
             "gates and deploying. The reverse lever — more data at unchanged capacity — regressed "
             "(ps_aug2, +0.55 pp): for these low-resource languages the binding constraint was "
             "adapter capacity, not corpus size."
         ),
         bullet(
             "<b>Training-signal caution: eval_loss and WER diverge in both directions.</b>  "
-            "This project logged four loss/WER divergences. The latest: ps_cloud's eval_loss (1.134) "
-            "was clearly worse than ps_aug2's (1.048), yet ps_cloud wins WER by 1.3 pp and chrF by 7 "
-            "points. Model selection must gate on task metrics (WER/CER ladders + degradation "
-            "sweeps), never on validation loss alone."
+            "This project logged five loss/WER divergences. ps_cloud's eval_loss (1.134) was clearly "
+            "worse than ps_aug2's (1.048), yet ps_cloud wins WER by 1.3 pp and chrF by 7 points. The "
+            "fifth ran the other way and was caught only at the gate: ks_cloud4 improved validation "
+            "loss over the deployed ks_cloud3 (0.8257 vs 0.8305) while <i>losing</i> 0.43 pp of WER, so "
+            "selecting on the loss curve would have regressed production. Model selection must gate on "
+            "task metrics (WER/CER ladders + degradation sweeps), never on validation loss alone."
+        ),
+        bullet(
+            "<b>Decode defaults are an invisible system-level variable.</b>  "
+            "SeamlessM4T ships no <font face='Courier'>num_beams</font>, so all seven languages decode "
+            "greedily — unnoticed through an entire seven-language campaign because every evaluation "
+            "inherited the same default. Beam-8 is worth 2.9 pp of clean Kashmiri WER at only ~5% "
+            "wall-clock, but regresses 0 dB SNR by 3.2 pp, and no beam width or length penalty avoids "
+            "that trade. Decode settings validated only on clean speech can quietly cost robustness "
+            "where an operational system needs it most."
         ),
         sp(10),
     ]
