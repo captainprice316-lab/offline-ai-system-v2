@@ -1,0 +1,23 @@
+{
+  "beam_1best_wer": 47.37,
+  "rescored_wer": 46.9,
+  "oracle_wer": 44.33,
+  "delta_pp": -0.48,
+  "folds": [
+    {
+      "tuned_on_fold": 0,
+      "lambda": 0.3,
+      "beta": 0.0,
+      "tune_wer": 46.52
+    },
+    {
+      "tuned_on_fold": 1,
+      "lambda": 0.7,
+      "beta": 0.5,
+      "tune_wer": 46.82
+    }
+  ],
+  "n_clips": 372,
+  "n_cands": 2976,
+  "level": 2
+}
