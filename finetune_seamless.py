@@ -166,6 +166,28 @@ LANG_CFG = {
         "lora_targets": ["q_proj", "k_proj", "v_proj", "out_proj", "fc1", "fc2"],
         "trainable_kas_token": True,
     },
+    "ks_cloud3": {
+        # THE TOKENIZER FIX (2026-07-27). Diagnostic on deployed ks_cloud found
+        # 20 Kashmiri characters absent from SeamlessM4T's SPM vocab -> <unk>:
+        # 854,234 occurrences, 96.9% of training sentences carried at least one,
+        # so nearly every target was corrupted AND the model could never emit
+        # them (U+0672: 370x in test refs, 0x in hypotheses). Measured cost:
+        # ~7.4 pp of the 56.44% WER, i.e. a hard floor near 49% for ANY model on
+        # the old vocab — including ks_cloud2. KS_EXTRA_CHARS adds all 20 with
+        # neighbour-initialised, TRAINABLE embedding rows (the __kas__ trick,
+        # generalised). Verified locally: 39,768 <unk> -> 0 on 5k sentences,
+        # round-trip exact modulo NFC mark ordering. Otherwise identical to
+        # ks_cloud2 so the comparison isolates the vocabulary repair.
+        "sm_lang": "kas", "name": "Kashmiri (CLOUD r128, 2-epoch, +20 vocab chars)",
+        "combined_manifest_dir": os.environ.get("KS_COMBINED_DIR", "ks_data"),
+        "indicvoices_parquet_dir": os.environ.get(
+            "KS_IVR_DIR", "ks_data/indicvoices_r/Kashmiri"),
+        "train_cap": None,
+        "lora_r": 128, "lora_alpha": 256,
+        "lora_targets": ["q_proj", "k_proj", "v_proj", "out_proj", "fc1", "fc2"],
+        "trainable_kas_token": True,
+        "ks_extra_chars": True,
+    },
     "ps_aug": {
         # Pashto attempt #5 — targets ps_bal2's robustness-gate failure (37.29
         # clean but 87.2 @ 0 dB vs Whisper 64.8). Same data and capacity as
@@ -619,6 +641,98 @@ def load_ks_combined(cfg: dict):
     return train_ds, val_ds
 
 
+# Kashmiri characters ABSENT from the SeamlessM4T sentencepiece vocabulary —
+# they encode to <unk>, so the model can neither read them in training targets
+# nor ever emit them (verified 2026-07-27: U+0672 appears 370x in the 372-clip
+# test references and 0x in ks_cloud's hypotheses). 96.9% of the 97k training
+# sentences carry at least one, i.e. almost every target was corrupted, and
+# ~7.4 pp of the 56.44% WER is this defect alone — a hard floor near 49%.
+# Each maps to the closest in-vocab character used to initialise its embedding
+# (same trick as __kas__ <- __urd__, which is what made Kashmiri work at all).
+# Complete list: every character in the 97k-sentence ks_combined corpus that the
+# SPM tokenizer maps to <unk> (20 distinct, 854,234 occurrences). Values are the
+# closest in-vocab character, used to initialise the new embedding row.
+KS_EXTRA_CHARS = {
+    # ── letters (carry phonemic content; getting these right matters most) ──
+    "ٲ": "ا",  # U+0672 ALEF WITH WAVY HAMZA ABOVE   90,480
+    "ٮ": "ب",  # U+066E DOTLESS BEH                  64,763
+    "ۄ": "و",  # U+06C4 WAW WITH RING                50,170
+    "ۅ": "و",  # U+06C5 KIRGHIZ OE                    2,584
+    "ؠ": "ی",  # U+0620 KASHMIRI YEH                  2,348
+    # ── combining marks below the line ──
+    "ٕ": "ء",  # U+0655 HAMZA BELOW                 316,046
+    "ٖ": "ِ",  # U+0656 SUBSCRIPT ALEF               56,023
+    "۪": "ِ",  # U+06EA EMPTY CENTRE LOW STOP        49,037
+    "ۭ": "ِ",  # U+06ED SMALL LOW MEEM               15,104
+    "ٟ": "ء",  # U+065F WAVY HAMZA BELOW                179
+    # ── combining marks above the line ──
+    "ٚ": "َ",  # U+065A VOWEL SIGN SMALL V ABOVE    162,929
+    "ٗ": "ُ",  # U+0657 INVERTED DAMMA               44,510
+    "٘": "ْ",  # U+0658 MARK NOON GHUNNA                 43
+    "ٓ": "َ",  # U+0653 MADDAH ABOVE                      3
+    "ٙ": "َ",  # U+0659 ZWARAKAY                          3
+    # ── rare honorifics / signs (kept so round-trip is exact) ──
+    "ؐ": "َ",  # U+0610 SALLALLAHOU ALAYHE WASSALLAM      5
+    "ؒ": "َ",  # U+0612 RAHMATULLAH ALAYHE                2
+    "ؑ": "َ",  # U+0611 ALAYHE ASSALLAM                   2
+    "﷽": "ا",  # U+FDFD BISMILLAH LIGATURE                2
+    "؎": "،",  # U+060E POETIC VERSE SIGN                 1
+}
+
+
+def add_ks_chars(processor, model):
+    """Add the Kashmiri characters missing from the SPM vocab as real tokens,
+    initialising each embedding from its closest in-vocab neighbour. Returns the
+    list of new token ids so the caller can mark them TRAINABLE (they start as
+    approximations and must learn their own acoustics/orthography).
+
+    Only characters that actually resolve to <unk> are added, so re-running on an
+    already-extended tokenizer is a no-op."""
+    import torch as _torch
+    tok = processor.tokenizer
+    unk = tok.unk_token_id
+
+    def _content_id(ch):
+        """Last piece of ch's encoding — skips SPM's leading word-boundary marker."""
+        ids = tok.encode(ch, add_special_tokens=False)
+        return ids[-1] if ids else unk
+
+    missing = [c for c in KS_EXTRA_CHARS
+               if any(i == unk for i in tok.encode(c, add_special_tokens=False))]
+    if not missing:
+        print("  [ks-chars] all Kashmiri characters already in tokenizer")
+        return []
+
+    # capture init sources BEFORE extending the tokenizer (ids shift on resize)
+    init_src = {c: _content_id(KS_EXTRA_CHARS[c]) for c in missing}
+    tok.add_tokens(missing)                      # normal tokens: must compose into words
+    print(f"  [ks-chars] added {len(missing)} chars to tokenizer (vocab {len(tok)}): "
+          + " ".join(f"U+{ord(c):04X}" for c in missing))
+
+    if model.get_input_embeddings().weight.shape[0] < len(tok):
+        model.resize_token_embeddings(len(tok))
+
+    new_ids = []
+    with _torch.no_grad():
+        in_emb = model.get_input_embeddings().weight
+        out_emb = model.get_output_embeddings()
+        # fallback for any char with no usable neighbour: the mean embedding is a
+        # far more stable start than resize_token_embeddings' random init
+        in_mean = in_emb[:len(tok) - len(missing)].mean(dim=0)
+        for c in missing:
+            nid, src = tok.convert_tokens_to_ids(c), init_src[c]
+            assert nid != unk, f"failed to add U+{ord(c):04X}"
+            if src != unk:
+                in_emb[nid] = in_emb[src].clone()
+                if out_emb is not None and out_emb.weight.data_ptr() != in_emb.data_ptr():
+                    out_emb.weight[nid] = out_emb.weight[src].clone()
+            else:
+                in_emb[nid] = in_mean.clone()
+            new_ids.append(nid)
+    print(f"  [ks-chars] {len(new_ids)} embedding rows initialised from in-vocab neighbours")
+    return new_ids
+
+
 def add_kas_token(processor, model):
     """Add __kas__ to the tokenizer and model embeddings, initialised from
     __urd__. Embeddings stay FROZEN under LoRA — the urd-initialised prefix is
@@ -830,18 +944,31 @@ def train(lang: str, args):
     # Kashmiri: SeamlessM4T has no __kas__ — add it (embedding init from __urd__)
     # BEFORE the PEFT wrap so the resized embedding is part of the base model.
     kas_id = None
+    ks_char_ids = []
     if sm_lang == "kas":
         kas_id = add_kas_token(processor, model)
+        # Repair the vocabulary itself: without these, ~31% of target WORDS
+        # contain an <unk> and the model can never emit them (see KS_EXTRA_CHARS).
+        if cfg.get("ks_extra_chars"):
+            ks_char_ids = add_ks_chars(processor, model)
 
     # ── LoRA ──────────────────────────────────────────────────────────────────
     lora_kwargs = {}
+    trainable_ids = []
     if cfg.get("trainable_kas_token") and kas_id is not None:
         # Train ONLY the __kas__ row of text_decoder.embed_tokens (PEFT
         # TrainableTokens delta) — the frozen urd-init conditioning vector is
         # the suspected ks bottleneck. lm_head is unaffected (delta applies to
         # the input-embedding forward, which is what conditions generation).
-        lora_kwargs["trainable_token_indices"] = {"embed_tokens": [kas_id]}
+        trainable_ids.append(kas_id)
         print(f"  [kas] __kas__ embedding row {kas_id} set TRAINABLE (PEFT trainable_token_indices)")
+    if ks_char_ids:
+        # The new character rows start as copies of their nearest neighbour —
+        # they only become useful once trained.
+        trainable_ids += ks_char_ids
+        print(f"  [ks-chars] {len(ks_char_ids)} character rows set TRAINABLE")
+    if trainable_ids:
+        lora_kwargs["trainable_token_indices"] = {"embed_tokens": trainable_ids}
     lora_cfg = LoraConfig(
         r=cfg.get("lora_r", 8),
         lora_alpha=cfg.get("lora_alpha", 16),
@@ -995,7 +1122,7 @@ def main():
 
     # "all" = the six FLEURS languages; ks (custom token) and the extra-data
     # experiments run only when named explicitly
-    EXPERIMENTS = {"ks", "ks_r16", "ks_max", "ks_max2", "ks_cloud", "ks_cloud2", "ps_cv", "ps_bal", "ps_bal2", "ps_aug", "ps_aug2", "ps_cloud", "hi_iv", "ne_iv"}
+    EXPERIMENTS = {"ks", "ks_r16", "ks_max", "ks_max2", "ks_cloud", "ks_cloud2", "ks_cloud3", "ps_cv", "ps_bal", "ps_bal2", "ps_aug", "ps_aug2", "ps_cloud", "hi_iv", "ne_iv"}
     langs = [l for l in LANG_CFG if l not in EXPERIMENTS] if args.lang == "all" else [args.lang]
     for lang in langs:
         train(lang, args)

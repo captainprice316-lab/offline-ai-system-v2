@@ -46,6 +46,8 @@ LANG_CFG = {
     "ps_aug": {"fleurs": "ps_af",   "sm_lang": "pbt", "name": "Pashto (r32+MLP, noise-aug)"},
     "ps_aug2": {"fleurs": "ps_af",  "sm_lang": "pbt", "name": "Pashto (r32+MLP, noise-aug, combined CV 122h)"},
     "ps_cloud": {"fleurs": "ps_af", "sm_lang": "pbt", "name": "Pashto (CLOUD r128+MLP, noise-aug)"},
+    # NOTE ks_* experiments have no FLEURS config — evaluate them with
+    # scripts/eval/eval_ks_seamless.py --adapter-dir <run>/adapter instead.
     "hi_iv": {"fleurs": "hi_in",    "sm_lang": "hin", "name": "Hindi (FLEURS+IV)"},
     "ne_iv": {"fleurs": "ne_np",    "sm_lang": "npi", "name": "Nepali (FLEURS+IV)"},
 }
