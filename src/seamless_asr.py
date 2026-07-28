@@ -119,6 +119,16 @@ class SeamlessASR:
                             raise RuntimeError(
                                 f"ks adapter: {len(ids)} trainable_token_indices but "
                                 f"{delta.shape[0]} delta rows — refusing to guess the mapping")
+                        # ACCUMULATE onto the model's own embedding row. Do NOT
+                        # substitute the checkpoint's base_layer.weight and add the
+                        # delta to that: tried 2026-07-29 and it collapses the model
+                        # (WER 100%, CER 196%), because base_layer already reflects
+                        # the trained state and adding the delta double-counts it.
+                        # A residual ~2 pp gap remains between this path and the
+                        # eval path (52.33 vs 50.26 on the 372-clip split) and is
+                        # still unexplained — see docs and the production-path
+                        # harness. Weights, deltas, features, max_new_tokens and
+                        # input dtype have all been ruled out by direct comparison.
                         with torch.no_grad():
                             emb = self.model.get_input_embeddings().weight
                             for row, tok_id in enumerate(ids):
