@@ -74,3 +74,9 @@ scratchpad/
 # Keep the professor-facing deliverable PDFs despite the global *.pdf rule
 !docs/VANI_Finetune_Report.pdf
 !docs/VANI_Presentation_Companion.pdf
+
+# Keep the presentation deck despite the global *.pptx rule. It is the second
+# half of the "regenerate reports after any training change" deliverable pair,
+# and was silently untracked until 2026-07-28 while commit messages claimed
+# otherwise. Regenerate with generate_finetune_pptx.py; commit the result.
+!docs/VANI_Finetune_Presentation_v6.pptx
