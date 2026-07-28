@@ -656,9 +656,9 @@ def build():
         sp(12),
         Table([
             [tch("Item", left=True), tch("Value", left=True)],
-            [tcl("Languages Fine-Tuned", bold=True), tcl("7  (Punjabi, Pashto, Urdu, Nepali, Mandarin, Hindi, Kashmiri)  —  Dogri in scope but not fine-tuned, see 4.5")],
+            [tcl("Languages Fine-Tuned", bold=True), tcl("8  (Punjabi, Pashto, Urdu, Nepali, Mandarin, Hindi, Kashmiri, Dogri)")],
             [tcl("Deployed via fine-tuned Whisper", bold=True), tcl("0  — all seven route to SeamlessM4T (LoRA adapters for hi/ne/ps/ks; Whisper kept for rollback)")],
-            [tcl("Best deployed WER", bold=True), tcl("Hindi 12.91%  |  Urdu 16.90%  |  Punjabi 19.77%  |  Pashto 36.16%  |  Kashmiri 50.26%")],
+            [tcl("Best deployed WER", bold=True), tcl("Hindi 12.91%  |  Urdu 16.90%  |  Punjabi 19.77%  |  Pashto 36.16%  |  Kashmiri 50.26%  |  Dogri 50.07%")],
             [tcl("Training Hardware",    bold=True), tcl("NVIDIA RTX 5060 8 GB VRAM (CUDA) - Windows 11  +  rented RTX A6000 48 GB (cloud, r=128 runs)")],
             [tcl("Base Model",           bold=True), tcl("OpenAI Whisper large-v3 (1.55 B)  +  SeamlessM4T v2 large (2.3 B) for the adapter campaign")],
             [tcl("Adaptation Method",    bold=True), tcl("LoRA  r=8..128, incl. trainable custom tokens  --  0.25% to 6.6% trainable parameters")],
@@ -684,7 +684,7 @@ def build():
             "detects keywords, diarizes speakers, and generates structured intelligence summary (ISUM) reports."
         ),
         body(
-            "Seven ASR models were fine-tuned: Punjabi (pa), Pashto (ps), Urdu (ur), Nepali (ne), "
+            "Eight ASR models were eventually fine-tuned: Punjabi (pa), Pashto (ps), Urdu (ur), Nepali (ne), "
             "Mandarin Chinese (zh), Hindi (hi) — plus Kashmiri (ks), which required adding a custom "
             "&lt;|ks|&gt; language token to the vocabulary. Punjabi and Nepali were retrained with "
             "AI4Bharat IndicVoices-R data added to FLEURS (11,923 and 13,332 samples). All models are "
@@ -968,6 +968,8 @@ def build():
              tcl("RTX A6000 48 GB (cloud)"), tc("~1 h"), tc("50.69%"), tcl("Rejected")],
             [tcl("ps_cloud"), tcl("Pashto"), tcl("18,656 / ~30 h (CV 10k + FLEURS x8)"), tc("128"),
              tcl("RTX A6000 48 GB (cloud)"), tc("1 h 32 m"), Paragraph("<b>36.16%</b>", ProfBlue()), tcl("Deployed")],
+            [tcl("doi_iv"), tcl("Dogri"), tcl("IndicVoices-R Dogri (97 shards, 43.8 GB)"), tc("128"),
+             tcl("RTX A6000 48 GB (cloud)"), tc("~6 h"), Paragraph("<b>50.07%</b>", ProfBlue()), tcl("First Dogri model")],
         ], colWidths=[1.9*cm, 1.8*cm, 3.9*cm, 1.0*cm, 2.6*cm, 1.5*cm, 1.5*cm, W-14.2*cm],
         style=std_ts(left_cols=(0, 1, 2, 4, 7)), repeatRows=1),
         sp(4),
@@ -992,42 +994,74 @@ def build():
              "data at unchanged capacity) regressed."),
         sp(10),
 
-        h2("4.5 Dogri (doi) — In Scope for the Pipeline, Absent from the ASR Campaign"),
+        h2("4.5 Dogri (doi) — the Eighth Language"),
         body(
-            "VANI's problem statement names <b>eight</b> border-region languages, but every result "
-            "table in this report covers seven. The eighth is <b>Dogri</b>, and the discrepancy is "
-            "deliberate rather than an oversight, so it is recorded here explicitly."
+            "VANI's problem statement names <b>eight</b> border-region languages, but for most of this "
+            "project's life every result table covered seven. The eighth is <b>Dogri</b>, and until "
+            "2026-07-28 it had no fine-tuned ASR model, no evaluation and no audio on the project "
+            "machine — while still being wired into the pipeline for <b>language identification</b> "
+            "and for <b>translation</b>, where it is the one language routed to IndicTrans2 rather "
+            "than NLLB-200 because it is absent from the distilled NLLB vocabulary. In practice it "
+            "fell back silently to un-fine-tuned Whisper, and nobody had measured what that cost."
         ),
         sp(4),
         body(
-            "Dogri is wired into the pipeline for <b>language identification</b> and for "
-            "<b>translation</b>, where it is the single language routed to IndicTrans2 rather than "
-            "NLLB-200 because it is absent from the distilled NLLB vocabulary (config.yaml, "
-            "<font face='Courier'>language.indic_langs</font>). What it does <b>not</b> have is a "
-            "fine-tuned ASR model: it falls back to un-fine-tuned Whisper, and no Dogri result appears "
-            "in any evaluation table because <b>no Dogri audio exists on the project machine</b> — "
-            "there is neither a training corpus nor a test split nor even a demo clip."
+            "<b>Neither backend has a Dogri language token.</b> Whisper has no "
+            "<font face='Courier'>&lt;|doi|&gt;</font>, and SeamlessM4T v2's 101 language tokens "
+            "include <font face='Courier'>__hin__</font>, <font face='Courier'>__pan__</font> and "
+            "<font face='Courier'>__urd__</font> but neither <font face='Courier'>__doi__</font> nor "
+            "<font face='Courier'>__dgo__</font>. Dogri therefore began exactly where Kashmiri did, "
+            "and the same remedy applied: a custom language token, initialised from a neighbour and "
+            "made trainable (5.5.2), on IndicVoices-R Dogri data — the corpus family that supplied "
+            "Kashmiri. This is the <b>second</b> use of that technique, and the test of whether it is "
+            "a method rather than a one-off fix."
         ),
+        sp(6),
+        Table([
+            [tch("Dogri ASR system"), tch("WER %"), tch("CER %"), tch("What it is")],
+            [tcl("SeamlessM4T zero-shot, __pan__ proxy"), tc("114.62"), tc("96.81"),
+             tcl("closest language genetically; wrong script")],
+            [tcl("Whisper large-v3, auto-detect"), tc("102.25"), tc("—"),
+             tcl("what VANI actually did for Dogri")],
+            [tcl("SeamlessM4T zero-shot, __hin__ proxy"), tc("99.99"), tc("68.14"),
+             tcl("script-matched proxy")],
+            [tcl("Whisper large-v3, forced Hindi"), tc("88.08"), tc("—"),
+             tcl("best baseline obtainable without training")],
+            [Paragraph("<b>doi_iv (custom __doi__ token + LoRA)</b>", ProfBlue()),
+             Paragraph("<b>50.07</b>", ProfBlue()), Paragraph("<b>27.29</b>", ProfBlue()),
+             tcl("first Dogri model in this project")],
+        ], colWidths=[7.0*cm, 2.0*cm, 2.0*cm, W-11.0*cm],
+        style=std_ts(left_cols=(0, 3)), repeatRows=1),
         sp(4),
+        note("425-clip IndicVoices-R Dogri test split, scored on the same normalisation ladder as "
+             "every other language in this report. Dogri's L0, L2 and L4 figures are identical, "
+             "because Devanagari carries none of the Perso-Arabic diacritic burden that separates "
+             "Kashmiri's raw and normalised scores by roughly 14 pp."),
+        sp(6),
         body(
-            "The obstacle is representational as well as practical. <b>Neither backend has a Dogri "
-            "language token</b>: Whisper has no <font face='Courier'>&lt;|doi|&gt;</font>, and "
-            "SeamlessM4T v2's 101 language tokens include <font face='Courier'>__hin__</font>, "
-            "<font face='Courier'>__pan__</font> and <font face='Courier'>__urd__</font> but neither "
-            "<font face='Courier'>__doi__</font> nor <font face='Courier'>__dgo__</font>. Dogri "
-            "therefore begins exactly where Kashmiri did before this campaign, and the same remedy "
-            "applies — a custom language token whose embedding is initialised from a neighbour and "
-            "then trained (5.5.2). Two things make it a far easier case than Kashmiri: Dogri is "
-            "written in Devanagari, whose working orthography SeamlessM4T covers well through Hindi, "
-            "Marathi and Maithili, so the unknown-token defect that cost Kashmiri 7 pp is unlikely to "
-            "recur; and Dogri is closely related to Hindi and Punjabi, both of which the model already "
-            "handles strongly, giving it a far better starting prior than Kashmiri ever had."
+            "Fine-tuning improves Dogri by <b>52 pp over what the deployed system actually did</b> "
+            "(102.25% -> 50.07%) and by 38 pp over the best baseline anyone could have configured "
+            "without training. It is the largest single-language gain in the campaign, and it came "
+            "from a language that had simply never been looked at."
+        ),
+        sp(6),
+        body(
+            "<b>The two zero-shot proxies also settle a design question.</b> Dogri is far closer to "
+            "Punjabi than to Hindi genetically, which argues for initialising "
+            "<font face='Courier'>__doi__</font> from <font face='Courier'>__pan__</font>. Whisper's "
+            "own language identification agrees emphatically: given Dogri audio it answers "
+            "<i>Punjabi</i> for <b>222 of 425 clips</b>, against 25 for Hindi. But SeamlessM4T knows "
+            "Punjabi only in <b>Gurmukhi</b>, and the language token conditions generation, not "
+            "recognition — so the pan proxy emits the wrong script entirely and its CER collapses to "
+            "96.81 against hin's 68.14. Recognition says Punjabi; generation says Devanagari. The "
+            "script-matched initialisation is the correct one, and this was established by "
+            "measurement rather than argument, at no training cost."
         ),
         sp(4),
-        note("Dogri audio is available publicly in AI4Bharat IndicVoices-R, the same corpus that "
-             "supplied Kashmiri, with train and test splits. Adding Dogri is therefore a data-"
-             "acquisition task rather than a research one, and is the clearest way to test whether "
-             "the custom-token technique generalises beyond the single language it was devised for."),
+        note("This also illustrates the failure mode the report keeps returning to: a language absent "
+             "from a model's inventory does not fail loudly, it gets silently misrouted to whatever "
+             "the model considers nearest — and in Dogri's case that routing produced a WER above "
+             "100%, which no accuracy dashboard would have flagged as a missing-language problem."),
         sp(10),
 
     ]
@@ -1983,6 +2017,26 @@ def build():
             "loss over the deployed ks_cloud3 (0.8257 vs 0.8305) while <i>losing</i> 0.43 pp of WER, so "
             "selecting on the loss curve would have regressed production. Model selection must gate on "
             "task metrics (WER/CER ladders + degradation sweeps), never on validation loss alone."
+        ),
+        bullet(
+            "<b>The custom-token technique generalises — it is a method, not a Kashmiri fix.</b>  "
+            "Adding a language token the model does not ship, initialised from a neighbour and made "
+            "trainable, was invented for Kashmiri and has now been applied unchanged to <b>Dogri</b>, "
+            "a different script (Devanagari vs Perso-Arabic) with a different failure profile (a "
+            "clean vocabulary rather than 20 unrepresentable characters). Dogri improved from "
+            "<b>102.25% to 50.07% WER</b> — 52 pp over what the deployed system actually did, the "
+            "largest single-language gain of the campaign, in a language nobody had measured."
+        ),
+        bullet(
+            "<b>A missing language fails silently, not loudly.</b>  "
+            "With no Dogri token in either backend, VANI routed Dogri audio to whatever Whisper "
+            "considered nearest: its language identification answered <i>Punjabi</i> for 222 of 425 "
+            "clips, producing Gurmukhi output against Devanagari references and a WER above 100%. "
+            "Nothing in the system reported an error. The corollary for the initialisation choice is "
+            "subtle: Dogri really is closest to Punjabi (Whisper's own LID says so), but the language "
+            "token conditions <i>generation</i>, so the script-matched Hindi initialisation wins "
+            "(zero-shot 99.99% vs 114.62%, CER 68.14 vs 96.81). Recognition and generation want "
+            "different neighbours."
         ),
         bullet(
             "<b>Decode defaults are an invisible system-level variable.</b>  "
