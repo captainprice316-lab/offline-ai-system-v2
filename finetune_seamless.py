@@ -211,6 +211,32 @@ LANG_CFG = {
         "trainable_kas_token": True,
         "ks_extra_chars": True,
     },
+    "doi_iv": {
+        # DOGRI — the 8th border language, named in VANI's problem statement but
+        # never fine-tuned or evaluated because no Dogri audio existed locally
+        # (report 4.5). SeamlessM4T ships no __doi__/__dgo__ token, so this is
+        # the SECOND use of the custom-token trick that made Kashmiri work:
+        # __doi__ initialised from __hin__ and TRAINABLE (frozen init was the
+        # bottleneck for ks). __hin__ rather than __pan__ deliberately — Dogri is
+        # written in DEVANAGARI, and matching the script prior matters more than
+        # the closer genetic tie to Punjabi, which SeamlessM4T only knows in
+        # Gurmukhi.
+        # Expected to be far easier than Kashmiri: Devanagari's working
+        # orthography is well covered by the vocabulary (the ks <unk> defect
+        # should not recur — VERIFY on real text before trusting that), and
+        # Hindi gives a far stronger starting prior than Kashmiri ever had.
+        # Data: IndicVoices-R Dogri (train + test), the same corpus family as ks.
+        # Val = the IVR-R Dogri test split, so this run establishes the FIRST
+        # Dogri baseline; there is no prior number to beat.
+        "sm_lang": "doi", "name": "Dogri (IndicVoices-R, custom __doi__ token)",
+        "custom_lang_token": {"token": "__doi__", "init_from": "__hin__"},
+        "trainable_kas_token": True,          # generic: trains the custom row
+        "indicvoices_parquet_dir": os.environ.get(
+            "DOI_IVR_DIR", "doi_data/indicvoices_r/Dogri"),
+        "train_cap": None,
+        "lora_r": 128, "lora_alpha": 256,
+        "lora_targets": ["q_proj", "k_proj", "v_proj", "out_proj", "fc1", "fc2"],
+    },
     "ps_aug": {
         # Pashto attempt #5 — targets ps_bal2's robustness-gate failure (37.29
         # clean but 87.2 @ 0 dB vs Whisper 64.8). Same data and capacity as
@@ -756,42 +782,57 @@ def add_ks_chars(processor, model):
     return new_ids
 
 
-def add_kas_token(processor, model):
-    """Add __kas__ to the tokenizer and model embeddings, initialised from
-    __urd__. Embeddings stay FROZEN under LoRA — the urd-initialised prefix is
-    a fixed conditioning vector, exactly as Whisper's <|ks|> was (74.02% WER).
-    Also registers kas in the generation config so post-training generate()
-    with tgt_lang='kas' works."""
+def add_lang_token(processor, model, token: str, init_from: str, tag: str = None):
+    """Add a language token SeamlessM4T does not ship, initialised from the
+    closest language it does. The embedding stays FROZEN under plain LoRA — the
+    initialised prefix acts as a fixed conditioning vector, exactly as Whisper's
+    <|ks|> did (74.02% WER) — unless the config marks it trainable, which is
+    what finally made Kashmiri work. Also registers the code in the generation
+    config so post-training generate(tgt_lang=...) resolves it.
+
+    Kashmiri (__kas__ <- __urd__) was the first use; Dogri (__doi__ <- __hin__)
+    is the second, which is why this is parameterised rather than hardcoded.
+    Token ORDER matters: a deployed adapter's rows are positional, so never
+    reorder or insert ahead of an existing custom token.
+    """
     import torch as _torch
     tok = processor.tokenizer
-    if tok.convert_tokens_to_ids("__kas__") != tok.unk_token_id and "__kas__" in tok.get_vocab():
-        print("  [kas] __kas__ already in tokenizer")
+    code = (tag or token.strip("_"))
+    if tok.convert_tokens_to_ids(token) != tok.unk_token_id and token in tok.get_vocab():
+        print(f"  [{code}] {token} already in tokenizer")
     else:
-        tok.add_tokens(["__kas__"], special_tokens=True)
-        print(f"  [kas] __kas__ added to tokenizer (vocab {len(tok)})")
+        tok.add_tokens([token], special_tokens=True)
+        print(f"  [{code}] {token} added to tokenizer (vocab {len(tok)})")
 
-    kas_id = tok.convert_tokens_to_ids("__kas__")
-    urd_id = tok.convert_tokens_to_ids("__urd__")
-    assert kas_id != tok.unk_token_id and urd_id != tok.unk_token_id
+    new_id = tok.convert_tokens_to_ids(token)
+    src_id = tok.convert_tokens_to_ids(init_from)
+    assert new_id != tok.unk_token_id, f"failed to add {token}"
+    assert src_id != tok.unk_token_id, f"init source {init_from} not in vocabulary"
 
     if model.get_input_embeddings().weight.shape[0] < len(tok):
         model.resize_token_embeddings(len(tok))
     with _torch.no_grad():
         in_emb = model.get_input_embeddings().weight
-        in_emb[kas_id] = in_emb[urd_id].clone()
+        in_emb[new_id] = in_emb[src_id].clone()
         out_emb = model.get_output_embeddings()
         if out_emb is not None and out_emb.weight.data_ptr() != in_emb.data_ptr():
-            out_emb.weight[kas_id] = out_emb.weight[urd_id].clone()
-    print(f"  [kas] embedding row {kas_id} initialised from __urd__ ({urd_id})")
+            out_emb.weight[new_id] = out_emb.weight[src_id].clone()
+    print(f"  [{code}] embedding row {new_id} initialised from {init_from} ({src_id})")
 
     gc = model.generation_config
     lang_map = getattr(gc, "text_decoder_lang_to_code_id", None)
     if lang_map is not None:
         try:
-            lang_map["kas"] = kas_id
+            lang_map[code] = new_id
         except TypeError:
             pass  # non-dict mapping; eval must pass the bos id explicitly
-    return kas_id
+    return new_id
+
+
+def add_kas_token(processor, model):
+    """Kashmiri's custom token. Thin wrapper kept so the deployed ks adapters
+    (whose embedding rows are positional) keep byte-identical behaviour."""
+    return add_lang_token(processor, model, "__kas__", "__urd__", tag="kas")
 
 
 # ── Audio decoding ─────────────────────────────────────────────────────────────
@@ -970,6 +1011,12 @@ def train(lang: str, args):
     ks_char_ids = []
     if sm_lang == "kas":
         kas_id = add_kas_token(processor, model)
+    elif cfg.get("custom_lang_token"):
+        # Any other language SeamlessM4T does not ship a token for (Dogri is the
+        # first): {"token": "__doi__", "init_from": "__hin__"}
+        _ct = cfg["custom_lang_token"]
+        kas_id = add_lang_token(processor, model, _ct["token"], _ct["init_from"],
+                                tag=sm_lang)
         # Repair the vocabulary itself: without these, ~31% of target WORDS
         # contain an <unk> and the model can never emit them (see KS_EXTRA_CHARS).
         if cfg.get("ks_extra_chars"):
@@ -984,7 +1031,9 @@ def train(lang: str, args):
         # the suspected ks bottleneck. lm_head is unaffected (delta applies to
         # the input-embedding forward, which is what conditions generation).
         trainable_ids.append(kas_id)
-        print(f"  [kas] __kas__ embedding row {kas_id} set TRAINABLE (PEFT trainable_token_indices)")
+        _tokname = (cfg.get("custom_lang_token") or {}).get("token", "__kas__")
+        print(f"  [{sm_lang}] {_tokname} embedding row {kas_id} set TRAINABLE "
+              f"(PEFT trainable_token_indices)")
     if ks_char_ids:
         # The new character rows start as copies of their nearest neighbour —
         # they only become useful once trained.
@@ -1183,7 +1232,7 @@ def main():
 
     # "all" = the six FLEURS languages; ks (custom token) and the extra-data
     # experiments run only when named explicitly
-    EXPERIMENTS = {"ks", "ks_r16", "ks_max", "ks_max2", "ks_cloud", "ks_cloud2", "ks_cloud3", "ks_cloud4", "ps_cv", "ps_bal", "ps_bal2", "ps_aug", "ps_aug2", "ps_cloud", "hi_iv", "ne_iv"}
+    EXPERIMENTS = {"ks", "ks_r16", "ks_max", "ks_max2", "ks_cloud", "ks_cloud2", "ks_cloud3", "ks_cloud4", "ps_cv", "ps_bal", "ps_bal2", "ps_aug", "ps_aug2", "ps_cloud", "hi_iv", "ne_iv", "doi_iv"}
     langs = [l for l in LANG_CFG if l not in EXPERIMENTS] if args.lang == "all" else [args.lang]
     for lang in langs:
         train(lang, args)
