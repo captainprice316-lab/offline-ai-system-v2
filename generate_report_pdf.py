@@ -658,7 +658,7 @@ def build():
             [tch("Item", left=True), tch("Value", left=True)],
             [tcl("Languages Fine-Tuned", bold=True), tcl("8  (Punjabi, Pashto, Urdu, Nepali, Mandarin, Hindi, Kashmiri, Dogri)")],
             [tcl("Deployed via fine-tuned Whisper", bold=True), tcl("0  — all seven route to SeamlessM4T (LoRA adapters for hi/ne/ps/ks; Whisper kept for rollback)")],
-            [tcl("Best deployed WER", bold=True), tcl("Hindi 12.91%  |  Urdu 16.90%  |  Punjabi 19.77%  |  Pashto 36.16%  |  Kashmiri 50.26%  |  Dogri 50.07%")],
+            [tcl("Best deployed WER", bold=True), tcl("Hindi 12.91%  |  Urdu 16.90%  |  Punjabi 19.77%  |  Pashto 36.16%  |  Kashmiri 50.26%  |  Dogri 46.73%")],
             [tcl("Training Hardware",    bold=True), tcl("NVIDIA RTX 5060 8 GB VRAM (CUDA) - Windows 11  +  rented RTX A6000 48 GB (cloud, r=128 runs)")],
             [tcl("Base Model",           bold=True), tcl("OpenAI Whisper large-v3 (1.55 B)  +  SeamlessM4T v2 large (2.3 B) for the adapter campaign")],
             [tcl("Adaptation Method",    bold=True), tcl("LoRA  r=8..128, incl. trainable custom tokens  --  0.25% to 6.6% trainable parameters")],
@@ -969,7 +969,9 @@ def build():
             [tcl("ps_cloud"), tcl("Pashto"), tcl("18,656 / ~30 h (CV 10k + FLEURS x8)"), tc("128"),
              tcl("RTX A6000 48 GB (cloud)"), tc("1 h 32 m"), Paragraph("<b>36.16%</b>", ProfBlue()), tcl("Deployed")],
             [tcl("doi_iv"), tcl("Dogri"), tcl("IndicVoices-R Dogri (97 shards, 43.8 GB)"), tc("128"),
-             tcl("RTX A6000 48 GB (cloud)"), tc("~6 h"), Paragraph("<b>50.07%</b>", ProfBlue()), tcl("First Dogri model")],
+             tcl("RTX A6000 48 GB (cloud)"), tc("~6 h"), tc("50.07%"), tcl("Cut short by schedule")],
+            [tcl("doi_iv2"), tcl("Dogri"), tcl("as doi_iv, fresh LR schedule, 9,000 steps"), tc("128"),
+             tcl("RTX A6000 48 GB (cloud)"), tc("~9 h"), Paragraph("<b>46.73%</b>", ProfBlue()), tcl("Best Dogri model")],
         ], colWidths=[1.9*cm, 1.8*cm, 3.9*cm, 1.0*cm, 2.6*cm, 1.5*cm, 1.5*cm, W-14.2*cm],
         style=std_ts(left_cols=(0, 1, 2, 4, 7)), repeatRows=1),
         sp(4),
@@ -977,11 +979,13 @@ def build():
              "clean FLEURS ps_af (n=100). Wall times include periodic evaluation. Cloud runs used one "
              "rented RTX A6000 at $0.53/hr — ks_cloud ~$4, ks_cloud2 ~$5, ps_cloud ~$2 including "
              "data-preparation time."),
-        note("ks_cloud2 is the cheapest result in this table: an identical rerun of ks_cloud that was "
-             "simply allowed to finish. ks_cloud had early-stopped at 0.8 epochs with its validation "
-             "loss still descending — patience 3 was too tight for a corpus this size — so raising it "
-             "to 5 and training a second epoch bought a further 3.84 pp. A training run that halts "
-             "while still improving is a silent and easily missed loss."),
+        note("ks_cloud2 and doi_iv2 are the cheapest results in this table: identical reruns of "
+             "ks_cloud and doi_iv that were simply allowed to finish. Both predecessors stopped with "
+             "their validation loss still descending — ks_cloud because patience 3 was too tight for "
+             "a corpus that size, doi_iv because its linear schedule had decayed the learning rate to "
+             "zero — and continuing each was worth 3.84 pp and 3.34 pp respectively. Two languages, "
+             "two scripts, the same mechanism: a training run that halts while still improving is a "
+             "silent and easily missed loss."),
         note("The ks_cloud corpus (rebuilt on the cloud box from the same three public sources) came out "
              "half again larger than ks_max2's because the humair025 dataset had grown upstream: "
              "humair025 120,845 clips / 275.6 h + IndicVoices-R train 22,824 / 58.3 h + OpenSLR-122 "
@@ -1027,22 +1031,39 @@ def build():
              tcl("script-matched proxy")],
             [tcl("Whisper large-v3, forced Hindi"), tc("88.08"), tc("—"),
              tcl("best baseline obtainable without training")],
-            [Paragraph("<b>doi_iv (custom __doi__ token + LoRA)</b>", ProfBlue()),
-             Paragraph("<b>50.07</b>", ProfBlue()), Paragraph("<b>27.29</b>", ProfBlue()),
-             tcl("first Dogri model in this project")],
+            [tcl("doi_iv (custom __doi__ token + LoRA)"), tc("50.07"), tc("27.29"),
+             tcl("first Dogri model; stopped by its LR schedule")],
+            [Paragraph("<b>doi_iv2 (same, trained to convergence)</b>", ProfBlue()),
+             Paragraph("<b>46.73</b>", ProfBlue()), Paragraph("<b>25.18</b>", ProfBlue()),
+             tcl("best Dogri model")],
         ], colWidths=[7.0*cm, 2.0*cm, 2.0*cm, W-11.0*cm],
         style=std_ts(left_cols=(0, 3)), repeatRows=1),
         sp(4),
         note("425-clip IndicVoices-R Dogri test split, scored on the same normalisation ladder as "
-             "every other language in this report. Dogri's L0, L2 and L4 figures are identical, "
-             "because Devanagari carries none of the Perso-Arabic diacritic burden that separates "
-             "Kashmiri's raw and normalised scores by roughly 14 pp."),
+             "every other language in this report; the figures quoted are L2, the deciding level. "
+             "For Dogri, L1 through L4 are identical — the diacritic-stripping and folding levels "
+             "are no-ops for Devanagari — and only the L0 to L1 step (Unicode NFC, zero-width "
+             "removal, whitespace collapse) moves the number at all, by 0.48 pp. Kashmiri's raw and "
+             "diacritic-normalised scores differ by roughly 14 pp on the same ladder, which is the "
+             "whole reason the ladder exists."),
         sp(6),
         body(
-            "Fine-tuning improves Dogri by <b>52 pp over what the deployed system actually did</b> "
-            "(102.25% -> 50.07%) and by 38 pp over the best baseline anyone could have configured "
-            "without training. It is the largest single-language gain in the campaign, and it came "
-            "from a language that had simply never been looked at."
+            "Fine-tuning improves Dogri by <b>55 pp over what the deployed system actually did</b> "
+            "(102.25% -> 46.73%) and by 41 pp over the best baseline anyone could have configured "
+            "without training. It is by a wide margin the largest single-language gain in the "
+            "campaign, and it came from a language that had simply never been looked at."
+        ),
+        sp(6),
+        body(
+            "<b>The two Dogri runs also replicate the campaign's most reusable lesson.</b> doi_iv "
+            "recorded its best validation loss at its final step, having improved at essentially "
+            "every evaluation: it stopped because its linear learning-rate schedule had run to zero, "
+            "not because it had converged. Restarting from those weights with a fresh schedule "
+            "(doi_iv2) improved WER from 50.07% to <b>46.73%</b>. Kashmiri had shown exactly this "
+            "before — ks_cloud stopped at 0.8 epochs in the same state and letting it converge was "
+            "worth 3.84 pp. Two languages, two scripts, two corpora, the same mechanism and almost "
+            "the same magnitude (3.84 pp and 3.34 pp), for a few dollars of GPU time each. A run "
+            "whose schedule expires looks converged and is not."
         ),
         sp(6),
         body(
@@ -2024,7 +2045,7 @@ def build():
             "trainable, was invented for Kashmiri and has now been applied unchanged to <b>Dogri</b>, "
             "a different script (Devanagari vs Perso-Arabic) with a different failure profile (a "
             "clean vocabulary rather than 20 unrepresentable characters). Dogri improved from "
-            "<b>102.25% to 50.07% WER</b> — 52 pp over what the deployed system actually did, the "
+            "<b>102.25% to 46.73% WER</b> — 55 pp over what the deployed system actually did, the "
             "largest single-language gain of the campaign, in a language nobody had measured."
         ),
         bullet(

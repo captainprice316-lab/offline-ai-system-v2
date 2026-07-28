@@ -1069,7 +1069,7 @@ def slide_intro_problem(prs, n):
     txbox(s, "The Operational Problem", 0.55, 2.20, 5.7, 0.32,
           font_size=13, bold=True, color=RGBColor(0xFF, 0xFF, 0xFF))
     probs = [
-        "High-volume radio traffic in many low-resource\nborder languages (Punjabi, Pashto, Urdu,\nNepali, Mandarin, Hindi, Kashmiri, Dogri).\nAll eight now have fine-tuned ASR - Dogri was\nthe last, added 2026-07-28 (102.25 -> 50.07).",
+        "High-volume radio traffic in many low-resource\nborder languages (Punjabi, Pashto, Urdu,\nNepali, Mandarin, Hindi, Kashmiri, Dogri).\nAll eight now have fine-tuned ASR - Dogri was\nthe last, added 2026-07-28 (102.25 -> 46.73).",
         "Must run FULLY OFFLINE / air-gapped —\nno cloud, no internet at runtime",
         "Generic ASR fails on these languages AND\non the noisy, band-limited radio channel",
         "Manual transcription + translation does not\nscale to an operational intercept volume",
@@ -1239,7 +1239,8 @@ def slide_campaign_hours(prs, n):
         ("ks_cloud3","Kashmiri", "144,942 / 336 h — as ks_cloud2 + 20 vocab chars repaired","128", "A6000 48 GB ☁",  "~8 h",     "50.26%", "DEPLOYED",  C_GREEN),
         ("ks_cloud4","Kashmiri", "as ks_cloud3, warm start, token rows at 5x LR",         "128", "A6000 48 GB ☁",  "~1 h",     "50.69%", "Rejected",  C_RED),
         ("ps_cloud", "Pashto",   "18,656 / ~30 h — CV 10k + FLEURS ps_af x8",          "128", "A6000 48 GB ☁",  "1 h 32 m", "36.16%", "DEPLOYED",  C_GREEN),
-        ("doi_iv",   "Dogri",    "IndicVoices-R Dogri — 97 shards, 43.8 GB",           "128", "A6000 48 GB ☁",  "~6 h",     "50.07%", "1st model", C_GREEN),
+        ("doi_iv",   "Dogri",    "IndicVoices-R Dogri — 97 shards, 43.8 GB",           "128", "A6000 48 GB ☁",  "~6 h",     "50.07%", "cut short", C_SUB),
+        ("doi_iv2",  "Dogri",    "as doi_iv, fresh LR schedule, 9,000 steps",          "128", "A6000 48 GB ☁",  "~9 h",     "46.73%", "BEST",      C_GREEN),
     ]
     y += 0.52
     for i, (run, lang, data, r, hw, wt, res, status, col) in enumerate(rows):
