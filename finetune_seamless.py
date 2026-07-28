@@ -237,6 +237,29 @@ LANG_CFG = {
         "lora_r": 128, "lora_alpha": 256,
         "lora_targets": ["q_proj", "k_proj", "v_proj", "out_proj", "fc1", "fc2"],
     },
+    "doi_iv2": {
+        # Dogri continuation. doi_iv's validation loss improved at EVERY one of
+        # its evaluations (2.095 -> ~1.23 by step 4400) and was still falling
+        # when its linear schedule ran the learning rate down to zero — so it
+        # stops because the SCHEDULE ended, not because the data was exhausted.
+        # That is exactly the state ks_cloud was in when it early-stopped at
+        # epoch 0.8; simply letting it converge (ks_cloud2) bought 3.84 pp, the
+        # largest single gain of the campaign. So: warm-start from doi_iv's
+        # weights with a FRESH schedule at half the original peak (5e-5) and
+        # room to run. Same data, val split and rank, so the delta is
+        # attributable to training length alone.
+        "sm_lang": "doi", "name": "Dogri (continuation from doi_iv)",
+        "custom_lang_token": {"token": "__doi__", "init_from": "__hin__"},
+        "trainable_kas_token": True,
+        "indicvoices_parquet_dir": os.environ.get(
+            "DOI_IVR_DIR", "doi_data/indicvoices_r/Dogri"),
+        "train_cap": None,
+        "init_adapter": os.environ.get(
+            "DOI_INIT_ADAPTER", "finetune_runs_seamless/doi_iv/adapter"),
+        "learning_rate": 5e-5,
+        "lora_r": 128, "lora_alpha": 256,
+        "lora_targets": ["q_proj", "k_proj", "v_proj", "out_proj", "fc1", "fc2"],
+    },
     "ps_aug": {
         # Pashto attempt #5 — targets ps_bal2's robustness-gate failure (37.29
         # clean but 87.2 @ 0 dB vs Whisper 64.8). Same data and capacity as
@@ -1236,7 +1259,7 @@ def main():
 
     # "all" = the six FLEURS languages; ks (custom token) and the extra-data
     # experiments run only when named explicitly
-    EXPERIMENTS = {"ks", "ks_r16", "ks_max", "ks_max2", "ks_cloud", "ks_cloud2", "ks_cloud3", "ks_cloud4", "ps_cv", "ps_bal", "ps_bal2", "ps_aug", "ps_aug2", "ps_cloud", "hi_iv", "ne_iv", "doi_iv"}
+    EXPERIMENTS = {"ks", "ks_r16", "ks_max", "ks_max2", "ks_cloud", "ks_cloud2", "ks_cloud3", "ks_cloud4", "ps_cv", "ps_bal", "ps_bal2", "ps_aug", "ps_aug2", "ps_cloud", "hi_iv", "ne_iv", "doi_iv", "doi_iv2"}
     langs = [l for l in LANG_CFG if l not in EXPERIMENTS] if args.lang == "all" else [args.lang]
     for lang in langs:
         train(lang, args)
