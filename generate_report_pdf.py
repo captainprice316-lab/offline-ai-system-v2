@@ -656,7 +656,7 @@ def build():
         sp(12),
         Table([
             [tch("Item", left=True), tch("Value", left=True)],
-            [tcl("Languages Fine-Tuned", bold=True), tcl("7  (Punjabi, Pashto, Urdu, Nepali, Mandarin, Hindi, Kashmiri)")],
+            [tcl("Languages Fine-Tuned", bold=True), tcl("7  (Punjabi, Pashto, Urdu, Nepali, Mandarin, Hindi, Kashmiri)  —  Dogri in scope but not fine-tuned, see 4.5")],
             [tcl("Deployed via fine-tuned Whisper", bold=True), tcl("0  — all seven route to SeamlessM4T (LoRA adapters for hi/ne/ps/ks; Whisper kept for rollback)")],
             [tcl("Best deployed WER", bold=True), tcl("Hindi 12.91%  |  Urdu 16.90%  |  Punjabi 19.77%  |  Pashto 36.16%  |  Kashmiri 50.26%")],
             [tcl("Training Hardware",    bold=True), tcl("NVIDIA RTX 5060 8 GB VRAM (CUDA) - Windows 11  +  rented RTX A6000 48 GB (cloud, r=128 runs)")],
@@ -991,6 +991,45 @@ def build():
              "The same lesson read in the other direction for data alone: ps_aug2 (3x the Common Voice "
              "data at unchanged capacity) regressed."),
         sp(10),
+
+        h2("4.5 Dogri (doi) — In Scope for the Pipeline, Absent from the ASR Campaign"),
+        body(
+            "VANI's problem statement names <b>eight</b> border-region languages, but every result "
+            "table in this report covers seven. The eighth is <b>Dogri</b>, and the discrepancy is "
+            "deliberate rather than an oversight, so it is recorded here explicitly."
+        ),
+        sp(4),
+        body(
+            "Dogri is wired into the pipeline for <b>language identification</b> and for "
+            "<b>translation</b>, where it is the single language routed to IndicTrans2 rather than "
+            "NLLB-200 because it is absent from the distilled NLLB vocabulary (config.yaml, "
+            "<font face='Courier'>language.indic_langs</font>). What it does <b>not</b> have is a "
+            "fine-tuned ASR model: it falls back to un-fine-tuned Whisper, and no Dogri result appears "
+            "in any evaluation table because <b>no Dogri audio exists on the project machine</b> — "
+            "there is neither a training corpus nor a test split nor even a demo clip."
+        ),
+        sp(4),
+        body(
+            "The obstacle is representational as well as practical. <b>Neither backend has a Dogri "
+            "language token</b>: Whisper has no <font face='Courier'>&lt;|doi|&gt;</font>, and "
+            "SeamlessM4T v2's 101 language tokens include <font face='Courier'>__hin__</font>, "
+            "<font face='Courier'>__pan__</font> and <font face='Courier'>__urd__</font> but neither "
+            "<font face='Courier'>__doi__</font> nor <font face='Courier'>__dgo__</font>. Dogri "
+            "therefore begins exactly where Kashmiri did before this campaign, and the same remedy "
+            "applies — a custom language token whose embedding is initialised from a neighbour and "
+            "then trained (5.5.2). Two things make it a far easier case than Kashmiri: Dogri is "
+            "written in Devanagari, whose working orthography SeamlessM4T covers well through Hindi, "
+            "Marathi and Maithili, so the unknown-token defect that cost Kashmiri 7 pp is unlikely to "
+            "recur; and Dogri is closely related to Hindi and Punjabi, both of which the model already "
+            "handles strongly, giving it a far better starting prior than Kashmiri ever had."
+        ),
+        sp(4),
+        note("Dogri audio is available publicly in AI4Bharat IndicVoices-R, the same corpus that "
+             "supplied Kashmiri, with train and test splits. Adding Dogri is therefore a data-"
+             "acquisition task rather than a research one, and is the clearest way to test whether "
+             "the custom-token technique generalises beyond the single language it was devised for."),
+        sp(10),
+
     ]
 
     # ── 5. RESULTS ────────────────────────────────────────────────────────────

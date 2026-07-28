@@ -1069,7 +1069,7 @@ def slide_intro_problem(prs, n):
     txbox(s, "The Operational Problem", 0.55, 2.20, 5.7, 0.32,
           font_size=13, bold=True, color=RGBColor(0xFF, 0xFF, 0xFF))
     probs = [
-        "High-volume radio traffic in many low-resource\nborder languages (Punjabi, Pashto, Urdu,\nNepali, Mandarin, Hindi, Kashmiri, Dogri)",
+        "High-volume radio traffic in many low-resource\nborder languages (Punjabi, Pashto, Urdu,\nNepali, Mandarin, Hindi, Kashmiri, Dogri).\nDogri: LangID + translation only - no ASR\nmodel and no audio available (see notes).",
         "Must run FULLY OFFLINE / air-gapped —\nno cloud, no internet at runtime",
         "Generic ASR fails on these languages AND\non the noisy, band-limited radio channel",
         "Manual transcription + translation does not\nscale to an operational intercept volume",
