@@ -21,8 +21,16 @@ training data/
 
 # Audio test data
 eval_audio/
-eval_data/
 input_audio/
+
+# eval_data holds a 136 MB Common Voice corpus alongside the evaluation
+# hypotheses. Ignore the contents, but KEEP the per-clip hypothesis files: they
+# are ~8 MB total and are what allows a result to be re-scored under a different
+# normalisation ruler, significance-tested, or error-analysed WITHOUT a GPU or
+# the multi-GB adapters. docs/*.json carries the summary numbers; these carry
+# the evidence behind them.
+eval_data/*
+!eval_data/*.jsonl
 
 # Documents/papers (binary, not source)
 *.pdf
