@@ -567,15 +567,19 @@ def load_indicvoices_ks(cfg: dict):
     })
 
     def _gen(pq_files, max_samples):
+        # max_samples None == use the whole split. Every caller before doi_iv
+        # passed a number, so the None path was never exercised and raised
+        # "'>=' not supported between int and NoneType" on the first shard.
+        cap = float("inf") if max_samples is None else max_samples
         count = 0
         for pq_file in pq_files:
-            if count >= max_samples:
+            if count >= cap:
                 break
             t   = pq.read_table(pq_file, columns=["audio", "normalized", "duration"])
             raw = t.to_pydict()
             del t
             for audio, text, dur in zip(raw["audio"], raw["normalized"], raw["duration"]):
-                if count >= max_samples:
+                if count >= cap:
                     break
                 if dur is None or not (min_dur <= dur <= max_dur) or not text:
                     continue
