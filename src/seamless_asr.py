@@ -101,9 +101,30 @@ class SeamlessASR:
                     delta_key = ("base_model.model.text_decoder.embed_tokens."
                                 "token_adapter.trainable_tokens_delta")
                     if delta_key in st:
+                        # Bake EVERY trainable-token delta, at the indices the
+                        # checkpoint declares. ks_max had exactly one row
+                        # (__kas__) and this code used to hardcode delta[0];
+                        # ks_cloud3 carries 21 — __kas__ plus the 20 repaired
+                        # Kashmiri characters — so that shortcut silently left
+                        # 20 trained embeddings at their neighbour-init values
+                        # and made the DEPLOYED model differ from the evaluated
+                        # one. Indices come from adapter_config.json in the same
+                        # order as the delta rows (see add_ks_chars).
+                        ks_cfg = json.loads(
+                            (ks_p / "adapter_config.json").read_text(encoding="utf-8"))
+                        tti = (ks_cfg.get("trainable_token_indices") or {})
+                        ids = tti.get("embed_tokens") or [kas_id]
+                        delta = st[delta_key]
+                        if len(ids) != delta.shape[0]:
+                            raise RuntimeError(
+                                f"ks adapter: {len(ids)} trainable_token_indices but "
+                                f"{delta.shape[0]} delta rows — refusing to guess the mapping")
                         with torch.no_grad():
                             emb = self.model.get_input_embeddings().weight
-                            emb[kas_id] += st[delta_key][0].to(emb.dtype).to(emb.device)
+                            for row, tok_id in enumerate(ids):
+                                emb[tok_id] += delta[row].to(emb.dtype).to(emb.device)
+                        print(f"[SeamlessASR] ks: baked {len(ids)} trainable-token "
+                              f"delta(s) at ids {ids[0]}..{ids[-1]}")
                     else:
                         print(f"[SeamlessASR] WARN: {delta_key} not found in ks adapter "
                               "— __kas__ stays at its raw urd-init value")
