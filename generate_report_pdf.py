@@ -658,7 +658,7 @@ def build():
             [tch("Item", left=True), tch("Value", left=True)],
             [tcl("Languages Fine-Tuned", bold=True), tcl("8  (Punjabi, Pashto, Urdu, Nepali, Mandarin, Hindi, Kashmiri, Dogri)")],
             [tcl("Deployed via fine-tuned Whisper", bold=True), tcl("0  — all seven route to SeamlessM4T (LoRA adapters for hi/ne/ps/ks; Whisper kept for rollback)")],
-            [tcl("Best deployed WER", bold=True), tcl("Hindi 12.91%  |  Urdu 16.90%  |  Punjabi 19.77%  |  Pashto 36.16%  |  Kashmiri 50.26%  |  Dogri 46.73%")],
+            [tcl("Best deployed WER", bold=True), tcl("Hindi 12.91%  |  Urdu 16.90%  |  Punjabi 19.77%  |  Pashto 36.16%  |  Kashmiri 50.26%  |  Dogri 46.73%  (evaluation path; see 4.7)")],
             [tcl("Training Hardware",    bold=True), tcl("NVIDIA RTX 5060 8 GB VRAM (CUDA) - Windows 11  +  rented RTX A6000 48 GB (cloud, r=128 runs)")],
             [tcl("Base Model",           bold=True), tcl("OpenAI Whisper large-v3 (1.55 B)  +  SeamlessM4T v2 large (2.3 B) for the adapter campaign")],
             [tcl("Adaptation Method",    bold=True), tcl("LoRA  r=8..128, incl. trainable custom tokens  --  0.25% to 6.6% trainable parameters")],
@@ -1156,6 +1156,49 @@ def build():
              "assumption that it was. Reproduce with scripts/eval/significance.py, "
              "significance_ps.py and significance_degradation.py; all read the stored hypotheses and "
              "need no GPU."),
+        sp(10),
+
+        h2("4.7 Every Number Here Is an Evaluation Number, and the Deployment Differs"),
+        body(
+            "One further caveat applies to the whole report, and it is uncomfortable enough to state "
+            "explicitly. Every WER in these tables was produced by the evaluation harness "
+            "(<font face='Courier'>scripts/eval/</font>), which constructs the model with "
+            "<font face='Courier'>PeftModel.from_pretrained</font> and one adapter. The <b>deployed</b> "
+            "system constructs it differently: <font face='Courier'>src/seamless_asr.py</font> bakes "
+            "the trainable-token embedding deltas into the base model and loads only the LoRA "
+            "matrices, because PEFT cannot stack a trainable-token delta alongside several named "
+            "adapters. Those two constructions were assumed equivalent for a year and never compared."
+        ),
+        sp(4),
+        body(
+            "They are not equivalent. Measured directly on the same 372 clips and the same ruler, "
+            "Kashmiri scores <b>52.33%</b> through the deployed path against <b>50.26%</b> through the "
+            "evaluation path — a <b>2.07 pp</b> gap that is comfortably significant (95% CI "
+            "[+1.24, +2.91], p &lt; 0.001), with only 19 of 372 hypotheses identical between them. "
+            "The deployed model is therefore measurably worse than the model this report describes, "
+            "and because the divergence lives in the shared generation path rather than in anything "
+            "Kashmiri-specific, the other seven languages are presumed affected and simply have not "
+            "been measured both ways."
+        ),
+        sp(4),
+        body(
+            "Finding it also fixed a real defect: the deployment baked only the first of ks_cloud3's "
+            "21 trainable-token deltas, silently leaving the twenty repaired characters at their "
+            "neighbour-initialised values. That is corrected. The residual 2 pp is not. Direct "
+            "comparison has since excluded the LoRA weights (480 of 480 tensors identical), the "
+            "trainable-token deltas, the extracted input features, the generation length limit, the "
+            "input dtype, substituting the checkpoint's frozen embedding table, and multi-adapter "
+            "interference. The remaining difference has been narrowed to the construction of the "
+            "forward pass and is unresolved; the next step is to diff logits on a single clip rather "
+            "than continue eliminating components."
+        ),
+        sp(4),
+        note("Reported here rather than quietly corrected because the alternative — republishing every "
+             "number against the deployed path — would take a full re-evaluation of eight languages, "
+             "and because the gap is itself the report's clearest instance of its recurring theme: an "
+             "artefact measured is not necessarily the artefact shipped. The same lesson produced the "
+             "74.02-versus-79.29 correction earlier in this project. Reproduce with "
+             "scripts/eval/eval_ks_production_path.py."),
         sp(10),
 
     ]
