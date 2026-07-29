@@ -88,3 +88,12 @@ scratchpad/
 # and was silently untracked until 2026-07-28 while commit messages claimed
 # otherwise. Regenerate with generate_finetune_pptx.py; commit the result.
 !docs/VANI_Finetune_Presentation_v6.pptx
+# LaTeX build artefacts
+paper/*.aux
+paper/*.log
+paper/*.out
+paper/*.bbl
+paper/*.blg
+paper/*.synctex.gz
+paper/*.fls
+paper/*.fdb_latexmk

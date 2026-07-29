@@ -1,0 +1,138 @@
+%% CODS 2026 -- Main Track (archival, 8 pages + 2 references)
+%% Anonymised for review.
+\documentclass[sigconf,anonymous,review]{acmart}
+
+\settopmatter{printacmref=false}
+\renewcommand\footnotetextcopyrightpermission[1]{}
+\pagestyle{plain}
+
+\usepackage{booktabs}
+\usepackage{multirow}
+
+\begin{document}
+
+\title{What Actually Improves Low-Resource ASR:\\
+Lessons from Twenty LoRA Adaptations Across Eight Border Languages}
+
+\author{Anonymous Author(s)}
+
+\begin{abstract}
+We report the two-month adaptation campaign behind a deployed, fully offline
+speech-recognition system for eight low-resource border languages, comprising
+roughly twenty LoRA fine-tuning runs across two multilingual backbones. The
+campaign's headline outcome is a complete backend replacement: per-language
+fine-tuned Whisper, the system's original design, now serves \emph{none} of the
+eight languages, having been displaced by a single shared SeamlessM4T~v2 model
+with per-language adapters.
+
+Two of the eight languages---Kashmiri and Dogri---are absent from both backbones'
+language inventories, and we show that the resulting failures are
+representational rather than acoustic. A language a model cannot name is not
+rejected but silently misrouted: presented with Dogri audio, Whisper's language
+identification answers \emph{Punjabi} for 222 of 425 clips and emits Gurmukhi
+against Devanagari references, yielding a word error rate above 100\% that no
+accuracy dashboard would flag as a missing-language problem. We add the missing
+language token, initialised from a neighbour and trained, and take Dogri from
+102.25\% to 46.73\% WER---the largest single-language gain of the campaign, in a
+language that had never previously been measured.
+
+Applying the same technique to Kashmiri exposed a second and subtler defect: 20
+characters of written Kashmiri have no token in the backbone's subword
+vocabulary and resolve to the unknown-token id, appearing in 96.9\% of training
+sentences. Of the 747 test words containing the four affected letters, the
+pre-repair model got \emph{all 747} wrong; after repair it recovers 310. We
+quantify each lever the campaign tried, and find that a retrospective paired
+bootstrap divides them sharply: backend replacement, vocabulary repair and
+training to convergence are significant at $p<0.001$, whereas every
+adapter-versus-adapter decision---including one on which a deployment was
+made---is indistinguishable from noise on the 30- and 100-clip evaluations used
+to gate them. We close by measuring the deployed code path directly and finding
+it 2.07~pp worse than the path that produced every number we had published.
+\end{abstract}
+
+\begin{CCSXML}
+<ccs2012>
+<concept>
+<concept_id>10010147.10010178.10010179.10003352</concept_id>
+<concept_desc>Computing methodologies~Speech recognition</concept_desc>
+<concept_significance>500</concept_significance>
+</concept>
+<concept>
+<concept_id>10010147.10010178.10010179.10010182</concept_id>
+<concept_desc>Computing methodologies~Natural language processing</concept_desc>
+<concept_significance>300</concept_significance>
+</concept>
+</ccs2012>
+\end{CCSXML}
+
+\ccsdesc[500]{Computing methodologies~Speech recognition}
+\ccsdesc[300]{Computing methodologies~Natural language processing}
+
+\keywords{speech recognition, low-resource languages, parameter-efficient
+fine-tuning, deployment, evaluation methodology}
+
+\maketitle
+
+\section{Introduction}
+
+Most practical work on low-resource speech recognition assumes the target
+language is at least \emph{representable} by the model being adapted---that it
+has a language token, and that its script survives the subword vocabulary
+intact. For the languages that motivate this paper, neither assumption holds,
+and the consequences are not the ones the literature prepares you for.
+
+We describe the adaptation campaign behind a deployed offline speech pipeline
+for eight border-region languages: Punjabi, Pashto, Urdu, Nepali, Mandarin,
+Hindi, Kashmiri and Dogri. The system runs air-gapped on a single workstation,
+transcribing degraded radio audio and translating it to English. Its original
+design fine-tuned one Whisper model per language. Over roughly twenty adaptation
+runs we replaced that design entirely, and in doing so accumulated a set of
+results that we believe are more useful to practitioners than the final error
+rates: several of the things that obviously should have helped did not, one that
+looked like a modelling problem turned out to be a vocabulary bug, and a
+retrospective statistical audit showed that a substantial fraction of the
+decisions we made along the way were unsupported by the evaluations we used to
+make them.
+
+\paragraph{Contributions.}
+\begin{itemize}
+\item A backend-selection study across eight languages showing that a single
+shared multilingual model with per-language LoRA adapters outperforms
+per-language fine-tuned Whisper everywhere, once three independent scoring
+defects in the original comparison are corrected (Section~\ref{sec:backend}).
+
+\item A method for languages the backbone does not support---adding a language
+token initialised from a linguistic neighbour and training it---demonstrated on
+two languages with different scripts and different failure profiles. We show
+that the correct neighbour is determined by \emph{script}, not genetic
+relatedness, and settle this by measurement (Section~\ref{sec:unsupported}).
+
+\item The identification and repair of a subword-vocabulary defect that placed a
+hard floor under Kashmiri accuracy: 20 characters resolving to the unknown token
+across 96.9\% of training sentences, rendering 747 of 747 affected test words
+unwinnable regardless of model capacity or training duration
+(Section~\ref{sec:vocab}).
+
+\item A quantified ranking of every lever the campaign tried, including three
+that produced no significant improvement, and a retrospective significance audit
+showing that our 30-clip robustness gate could not resolve the differences it
+was used to decide (Section~\ref{sec:measure}).
+
+\item A direct measurement of the deployed code path against the evaluation
+harness, which differ by 2.07~pp---a gap we report rather than conceal, because
+it is the clearest instance of this paper's recurring theme
+(Section~\ref{sec:deployed}).
+\end{itemize}
+
+\paragraph{A note on what this paper is.} This is an experience report, and its
+value lies substantially in the negative results. We deployed an adapter on a
+0.75~pp margin we later found to be insignificant; we rejected two others on
+differences that were also insignificant; we spent a day pursuing a decoding
+improvement that turned out to trade clean-speech accuracy for robustness at low
+signal-to-noise ratio, which is the wrong direction for a radio system. Each of
+these is reported with the evidence that undermines it. We think this is more
+useful than a clean narrative, because the conditions that produced them---small
+evaluation sets, sub-2~pp effects, a gate inherited from an earlier phase of the
+work---are entirely ordinary.
+
+\end{document}
