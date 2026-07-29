@@ -994,8 +994,12 @@ def build():
              "guard (cloud/prep_ks_data.py, composition.json)."),
         note("Capacity, not data, was the decisive lever at the end: r=128 trains 6.6% of model "
              "parameters (~107 M) vs r=32's 1.75% — beyond the 8 GB laptop, trivial for a 48 GB card. "
-             "The same lesson read in the other direction for data alone: ps_aug2 (3x the Common Voice "
-             "data at unchanged capacity) regressed."),
+             "The same lesson does NOT hold in the other direction for data alone, and the distinction "
+             "matters: a CV-DOMINATED mixture (ps_cv) was significantly worse than the balanced one "
+             "(42.47% vs 36.91%, paired bootstrap p < 0.001), but merely scaling the Common Voice "
+             "share from 10k to 30k at unchanged capacity (ps_aug2, 37.46%) produced NO significant "
+             "change (p = 0.48). More data was harmful when it unbalanced the mixture, not simply "
+             "because there was more of it."),
         sp(10),
 
         h2("4.5 Dogri (doi) — the Eighth Language"),
@@ -1333,13 +1337,30 @@ def build():
             "the fifth, <b>noise-augmented</b> adapter — training audio degraded with the evaluation's "
             "own bandpass/noise/codec pipeline — reached <b>36.91%</b> clean while fixing the collapse "
             "(56.0% at 0 dB, beating Whisper's 64.8%). A sixth attempt that scaled the Common Voice "
-            "data 10k -> 30k regressed (37.46% — the CV-drift lesson again); the winning lever was "
-            "instead <b>capacity</b>: the same noise-augmented recipe retrained at LoRA rank 128 on a "
-            "rented cloud GPU (ps_cloud, ~$2 of compute) reached <b>36.16%</b> clean and beat ps_aug in "
-            "4/5 degradation conditions (0 dB: 53.8%), becoming the deployed Pashto adapter on "
-            "2026-07-27. Every adapter passed the 30-clip, 5-condition degradation sweep before "
-            "deployment, and each is enabled only for its own language's decoding calls — other "
-            "languages run the plain base model."
+            "data 10k -> 30k gave 37.46%, a difference from ps_aug that is not statistically "
+            "significant (p = 0.48). A seventh, retrained at LoRA rank 128 on a rented cloud GPU "
+            "(ps_cloud, ~$2 of compute), reached <b>36.16%</b> clean and won 4/5 degradation "
+            "conditions against ps_aug including 0 dB (53.8%), and is the adapter deployed on "
+            "2026-07-27. <b>Its 0.75 pp clean-WER advantage over ps_aug is not statistically "
+            "significant either</b> (95% CI [-2.23, +0.70], p = 0.32 by paired bootstrap over the "
+            "100 test clips); the deployment rests on the degradation sweep rather than on clean "
+            "speech. Every adapter passed that 30-clip, 5-condition sweep before deployment, and each "
+            "is enabled only for its own language's decoding calls — other languages run the plain "
+            "base model."
+        ),
+        sp(6),
+        body(
+            "<b>That last qualification generalises, and it is worth stating plainly.</b> Pashto's "
+            "held-out FLEURS split has 100 clips, and a paired bootstrap shows it cannot resolve the "
+            "differences this campaign was chasing: ps_cloud vs ps_aug (0.75 pp, p = 0.32), ps_aug2 vs "
+            "ps_aug (0.54 pp, p = 0.48) and ps_cloud vs ps_bal2 (1.13 pp, p = 0.12) are all "
+            "indistinguishable from noise, while the one large difference — the CV-dominated ps_cv at "
+            "5.56 pp — is significant at p &lt; 0.001. Kashmiri and Dogri, evaluated on 372 and 425 "
+            "clips, resolved everything claimed of them: the vocabulary repair (2.35 pp, p &lt; 0.001) "
+            "and training to convergence (3.84 pp and 3.34 pp, both p &lt; 0.001). The practical "
+            "lesson is that a 100-clip test set supports claims of roughly 5 pp and above, and that "
+            "sub-2 pp improvements reported on sets this size — a common practice — should be treated "
+            "as unresolved unless an interval accompanies them."
         ),
         sp(6),
         body(
@@ -1502,7 +1523,10 @@ def build():
             "it <b>lost</b>: 50.69% WER against ks_cloud3's 50.26%, with CER and boundary-free CER also "
             "marginally worse. Better validation loss, worse word error: the fifth loss/WER divergence "
             "this project has recorded, and the first in the unfavourable direction. Selecting on the "
-            "loss curve would have regressed the deployed system. ks_cloud3 remains in production."
+            "loss curve would have selected it. On the deciding ruler the 0.43 pp gap is itself not "
+            "statistically significant (95% CI [-0.29, +1.17], p = 0.24), so the honest reading is "
+            "that a measurably better validation loss bought no measurable change in word error at "
+            "all. ks_cloud3 remains in production."
         ),
         sp(6),
         body(
@@ -2029,6 +2053,16 @@ def build():
             "gates and deploying. The reverse lever — more data at unchanged capacity — regressed "
             "(ps_aug2, +0.55 pp): for these low-resource languages the binding constraint was "
             "adapter capacity, not corpus size."
+        ),
+        bullet(
+            "<b>Report intervals, or a 100-clip test set will flatter you.</b>  "
+            "A paired bootstrap over the per-clip hypotheses shows that Pashto's 100-clip FLEURS "
+            "split cannot resolve any of the sub-2 pp differences this campaign pursued — including "
+            "the 0.75 pp margin on which ps_cloud was deployed over ps_aug (p = 0.32). The larger "
+            "claims survive comfortably: the Kashmiri vocabulary repair (2.35 pp), and training to "
+            "convergence on two languages (3.84 pp and 3.34 pp), are all significant at p &lt; 0.001 "
+            "on 372-425 clips. Point estimates alone would have supported three claims this project "
+            "cannot actually make."
         ),
         bullet(
             "<b>Training-signal caution: eval_loss and WER diverge in both directions.</b>  "

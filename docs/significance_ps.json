@@ -1,0 +1,54 @@
+{
+  "ps_cloud_vs_ps_aug": {
+    "why": "DEPLOYED ps_cloud over ps_aug",
+    "wer_a": 36.16,
+    "wer_b": 36.91,
+    "diff": -0.75,
+    "ci95": [
+      -2.23,
+      0.7
+    ],
+    "p": 0.3224,
+    "n_clips": 100,
+    "significant_at_0.05": false
+  },
+  "ps_aug2_vs_ps_aug": {
+    "why": "REJECTED ps_aug2",
+    "wer_a": 37.46,
+    "wer_b": 36.91,
+    "diff": 0.54,
+    "ci95": [
+      -1.05,
+      2.14
+    ],
+    "p": 0.4766,
+    "n_clips": 100,
+    "significant_at_0.05": false
+  },
+  "ps_cloud_vs_ps_bal2": {
+    "why": "r=128 vs r=32 noise-aug",
+    "wer_a": 36.16,
+    "wer_b": 37.29,
+    "diff": -1.13,
+    "ci95": [
+      -2.57,
+      0.21
+    ],
+    "p": 0.1152,
+    "n_clips": 100,
+    "significant_at_0.05": false
+  },
+  "ps_aug_vs_ps_cv": {
+    "why": "balanced data vs CV-dominated",
+    "wer_a": 36.91,
+    "wer_b": 42.47,
+    "diff": -5.56,
+    "ci95": [
+      -10.77,
+      -1.93
+    ],
+    "p": 0.0002,
+    "n_clips": 100,
+    "significant_at_0.05": true
+  }
+}

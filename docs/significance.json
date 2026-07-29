@@ -1,0 +1,80 @@
+{
+  "ks_cloud3_vs_ks_cloud2": {
+    "why": "vocabulary repair (deployed decision)",
+    "wer_a": 50.26,
+    "wer_b": 52.6,
+    "diff": -2.35,
+    "ci95": [
+      -3.29,
+      -1.38
+    ],
+    "p": 0.0,
+    "n_clips": 372,
+    "significant_at_0.05": true
+  },
+  "ks_cloud2_vs_ks_cloud": {
+    "why": "training to convergence",
+    "wer_a": 52.6,
+    "wer_b": 56.44,
+    "diff": -3.84,
+    "ci95": [
+      -4.75,
+      -2.93
+    ],
+    "p": 0.0,
+    "n_clips": 372,
+    "significant_at_0.05": true
+  },
+  "ks_cloud4_vs_ks_cloud3": {
+    "why": "warm start - REJECTED on 0.43 pp",
+    "wer_a": 50.69,
+    "wer_b": 50.26,
+    "diff": 0.43,
+    "ci95": [
+      -0.29,
+      1.17
+    ],
+    "p": 0.2386,
+    "n_clips": 372,
+    "significant_at_0.05": false
+  },
+  "ks_cloud3_vs_ks_max2": {
+    "why": "r=128 + vocabulary vs r=32",
+    "wer_a": 50.26,
+    "wer_b": 61.88,
+    "diff": -11.63,
+    "ci95": [
+      -12.85,
+      -10.43
+    ],
+    "p": 0.0,
+    "n_clips": 372,
+    "significant_at_0.05": true
+  },
+  "ks_cloud3_vs_ks_whisper": {
+    "why": "deployed vs the Whisper it replaced",
+    "wer_a": 50.26,
+    "wer_b": 65.19,
+    "diff": -14.93,
+    "ci95": [
+      -17.26,
+      -12.62
+    ],
+    "p": 0.0,
+    "n_clips": 372,
+    "significant_at_0.05": true
+  },
+  "doi_iv2_vs_doi_iv": {
+    "why": "Dogri training to convergence",
+    "wer_a": 46.73,
+    "wer_b": 50.07,
+    "diff": -3.34,
+    "ci95": [
+      -5.03,
+      -2.07
+    ],
+    "p": 0.0,
+    "n_clips": 425,
+    "significant_at_0.05": true
+  }
+}
