@@ -1089,6 +1089,75 @@ def build():
              "100%, which no accuracy dashboard would have flagged as a missing-language problem."),
         sp(10),
 
+        h2("4.6 How Much of This Is Statistically Resolvable?"),
+        body(
+            "Every comparison in this report is a point estimate on a fixed test set, and the "
+            "decisions taken on them ranged from 15 pp to under 1 pp. A paired bootstrap over clips "
+            "(10,000 resamples, re-aggregating errors and reference length rather than averaging "
+            "per-clip rates) was run retrospectively on the stored per-clip hypotheses to establish "
+            "which of those decisions the evidence actually supports. It divides the campaign cleanly."
+        ),
+        sp(6),
+        Table([
+            [tch("Claim"), tch("Diff (pp)"), tch("95% CI"), tch("p"), tch("Holds?")],
+            [tcl("SeamlessM4T replaces Whisper (ks, clean)"), tc("-14.93"), tc("[-17.3, -12.6]"),
+             tc("<0.001"), Paragraph("<b>yes</b>", ProfBlue())],
+            [tcl("...and in all 5 degradation conditions"), tc("-14 to -22"), tc("all exclude 0"),
+             tc("<0.002"), Paragraph("<b>yes</b>", ProfBlue())],
+            [tcl("Vocabulary repair (ks_cloud3 vs ks_cloud2)"), tc("-2.35"), tc("[-3.29, -1.38]"),
+             tc("<0.001"), Paragraph("<b>yes</b>", ProfBlue())],
+            [tcl("Training to convergence (Kashmiri)"), tc("-3.84"), tc("[-4.75, -2.93]"),
+             tc("<0.001"), Paragraph("<b>yes</b>", ProfBlue())],
+            [tcl("Training to convergence (Dogri)"), tc("-3.34"), tc("[-5.03, -2.07]"),
+             tc("<0.001"), Paragraph("<b>yes</b>", ProfBlue())],
+            [tcl("CV-dominated mixture is worse (ps_cv)"), tc("-5.56"), tc("[-10.8, -1.9]"),
+             tc("<0.001"), Paragraph("<b>yes</b>", ProfBlue())],
+            [tcl("ps_cloud better than ps_aug (clean)"), tc("-0.75"), tc("[-2.23, +0.70]"),
+             tc("0.32"), tcl("no")],
+            [tcl("ps_cloud better than ps_aug (sweep)"), tc("-2.1 to +1.2"), tc("all cross 0"),
+             tc("0/5 sig."), tcl("no")],
+            [tcl("ps_bal2 collapses at 0 dB"), tc("-31.2"), tc("[-101, +1.3]"),
+             tc("0.27"), tcl("no")],
+            [tcl("ks_cloud3 better than ks_cloud2 (sweep)"), tc("-2.5 to +1.7"), tc("all cross 0"),
+             tc("0/5 sig."), tcl("no")],
+            [tcl("ks_cloud4 worse than ks_cloud3"), tc("+0.43"), tc("[-0.29, +1.17]"),
+             tc("0.24"), tcl("no")],
+            [tcl("ps_aug2 regressed vs ps_aug"), tc("+0.54"), tc("[-1.05, +2.14]"),
+             tc("0.48"), tcl("no")],
+        ], colWidths=[7.4*cm, 2.0*cm, 3.0*cm, 1.8*cm, W-14.2*cm],
+        style=std_ts(left_cols=(0, 4)), repeatRows=1),
+        sp(6),
+        body(
+            "The split is not random: it follows test-set size and effect size together. The "
+            "<b>backend-selection</b> conclusions — the ones this project was originally about — are "
+            "supported everywhere, because replacing Whisper with SeamlessM4T moves WER by 10 to 22 pp "
+            "and even 30 clips resolve that comfortably. So are the two mechanisms established on the "
+            "372- and 425-clip Kashmiri and Dogri sets. What does <b>not</b> survive is the "
+            "fine-grained adapter selection: the 1 to 3 pp differences between one adapter and its "
+            "successor, decided on a 30-clip sweep and a 100-clip clean split, are indistinguishable "
+            "from noise in every case tested."
+        ),
+        sp(6),
+        body(
+            "<b>This has a direct consequence for how the deployment decisions should be read.</b> "
+            "ps_cloud is in production over ps_aug, and neither its 0.75 pp clean-WER advantage nor "
+            "its 4/5 sweep result is statistically significant; the honest description is that the two "
+            "adapters are indistinguishable on the available evidence and the newer one was chosen. "
+            "The same applies to rejecting ks_cloud4 and ps_aug2: those were sound engineering calls "
+            "under uncertainty — do not replace a deployed model without evidence of improvement — but "
+            "they are not demonstrations that the alternatives were worse. Reported as win counts, "
+            "'4/5 conditions' reads like evidence; decomposed, it is five coin flips."
+        ),
+        sp(4),
+        note("The 30-clip sweep was inherited from the earliest robustness work and never revisited as "
+             "the differences being tested shrank from tens of points to fractions of one. A gate "
+             "adequate for choosing a backend is not automatically adequate for choosing between two "
+             "checkpoints of the same model, and this project ran twenty adaptations on the "
+             "assumption that it was. Reproduce with scripts/eval/significance.py, "
+             "significance_ps.py and significance_degradation.py; all read the stored hypotheses and "
+             "need no GPU."),
+        sp(10),
+
     ]
 
     # ── 5. RESULTS ────────────────────────────────────────────────────────────
@@ -1333,7 +1402,7 @@ def build():
             "IndicVoices-R (cap 20k samples): Hindi 15.44% -> <b>12.91%</b> and Nepali 28.46% -> "
             "<b>24.34%</b> versus zero-shot on the same held-out test. Pashto required five attempts: "
             "more data alone regressed (CV domain drift), a larger adapter (r=32 incl. MLP layers) won "
-            "clean speech (37.29% vs Whisper's 38.55%) but collapsed at 0 dB SNR (87.2% vs 64.8%), and "
+            "clean speech (37.29% vs Whisper's 38.55%) but recorded 87.2% at 0 dB SNR against 64.8% - a dramatic point estimate that the 30-clip sweep cannot actually resolve (p = 0.27, see 4.6) - and "
             "the fifth, <b>noise-augmented</b> adapter — training audio degraded with the evaluation's "
             "own bandpass/noise/codec pipeline — reached <b>36.91%</b> clean while fixing the collapse "
             "(56.0% at 0 dB, beating Whisper's 64.8%). A sixth attempt that scaled the Common Voice "
@@ -1464,7 +1533,7 @@ def build():
             "IndicVoices-R + OpenSLR-122) and reached <b>61.88%</b>; then <b>ks_cloud</b> (2026-07-27) raised "
             "LoRA rank 32 to 128 — beyond the 8 GB laptop's VRAM, so trained on a rented A6000 for ~$4 — "
             "on a 145k-clip / 335 h rebuild of the same corpus and reached <b>56.44%</b> (CER 26.19%), "
-            "winning the degradation sweep 5/5 with the 0 dB condition at 81.3% vs Whisper's 99.5%. "
+            "winning the degradation sweep 5/5 against Whisper with every condition individually significant (4.6), 0 dB at 81.3% against 99.5%. Its sweep advantage over ks_cloud2, by contrast, is within noise. "
             "Finally <b>ks_cloud2</b> re-ran that exact recipe with early-stopping patience raised from 3 "
             "to 5: ks_cloud had halted at 0.8 epochs while its validation loss was still falling, so a "
             "second epoch alone reached <b>52.60%</b> (CER 23.67%) — winning WER and CER at every "
