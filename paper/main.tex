@@ -135,4 +135,489 @@ useful than a clean narrative, because the conditions that produced them---small
 evaluation sets, sub-2~pp effects, a gate inherited from an earlier phase of the
 work---are entirely ordinary.
 
+\section{Setting}
+\label{sec:setting}
+
+The system transcribes intercepted radio traffic offline. Every model runs
+locally on one workstation with an 8~GB consumer GPU; no audio leaves the
+machine, which rules out hosted APIs and constrains model size throughout. Audio
+arrives degraded---narrowband, noisy, codec-compressed---so clean-speech accuracy
+alone is never a sufficient basis for a deployment decision, a point that
+recurs in Sections~\ref{sec:measure} and \ref{sec:decode}.
+
+\paragraph{Languages and data.} Six of the eight languages have FLEURS test
+splits, which we use at $n=100$ per language. Kashmiri and Dogri do not appear in
+FLEURS at all; for these we use the IndicVoices-R test splits, 372 and 425 clips
+respectively. This asymmetry matters more than it first appears, and
+Section~\ref{sec:measure} shows that the 100-clip splits cannot resolve the
+differences the campaign spent most of its effort chasing.
+
+\paragraph{Scoring.} Four of the eight languages are written in Perso-Arabic or
+Devanagari scripts whose orthographic conventions make raw word error rate
+misleading. We therefore score on a normalisation ladder, from raw text (L0)
+through Unicode NFC and whitespace normalisation (L1), diacritic stripping (L2),
+and conservative and aggressive character folding (L3, L4). We report L2 as the
+deciding level throughout. The choice is consequential for Kashmiri, where L0 and
+L2 differ by roughly 14~pp because Perso-Arabic references are densely
+diacritised and no model reproduces those marks; it is nearly irrelevant for
+Dogri, where L1 through L4 are identical because Devanagari carries no comparable
+burden. A single scorer is used for every language and every system, including
+character segmentation for Mandarin.
+
+\paragraph{Adaptation.} All adaptation is LoRA. Whisper runs used rank 8--16;
+SeamlessM4T adapters ranged from rank 8 to rank 128 on the attention and MLP
+projections, the upper end requiring rented cloud GPUs because rank 128 exceeds
+the 8~GB workstation. Total cloud expenditure across the campaign was
+approximately \$25.
+
+\section{Backend Replacement}
+\label{sec:backend}
+
+The system originally fine-tuned one Whisper large-v3 model per language. A
+re-evaluation against zero-shot SeamlessM4T~v2 reversed that design completely.
+
+\begin{table}[t]
+\caption{Deployed word error rate by language, before and after the campaign.
+Six languages are scored on FLEURS ($n=100$); Kashmiri and Dogri on
+IndicVoices-R ($n=372$, $n=425$) at L2. ``Before'' is the previously deployed
+per-language fine-tuned Whisper, except Dogri, which had no model and fell back
+to un-fine-tuned Whisper.}
+\label{tab:headline}
+\small
+\begin{tabular}{llrrl}
+\toprule
+Language & Script & Before & After & Deployed backend \\
+\midrule
+Punjabi   & Gurmukhi    & 57.39 & \textbf{19.77} & SM4T zero-shot \\
+Nepali    & Devanagari  & 50.92 & \textbf{24.34} & SM4T + LoRA \\
+Hindi     & Devanagari  & 19.78 & \textbf{12.91} & SM4T + LoRA \\
+Urdu      & Nastaliq    & 19.82 & \textbf{16.90} & SM4T zero-shot \\
+Mandarin  & Han         & 14.22 & \textbf{11.69} & SM4T zero-shot \\
+Pashto    & Nastaliq    & 38.55 & \textbf{36.16} & SM4T + LoRA \\
+Kashmiri  & Nastaliq    & 74.02 & \textbf{50.26} & SM4T + custom token \\
+Dogri     & Devanagari  & 102.25 & \textbf{46.73} & SM4T + custom token \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:headline} gives the outcome. Fine-tuned Whisper now serves none of
+the eight languages; every model remains on disk for rollback but none is in the
+serving path. For five languages, zero-shot SeamlessM4T won outright, by margins
+from 2.9~pp (Urdu) to 37.6~pp (Punjabi), and the advantage widens rather than
+narrows under channel degradation. The remaining three required adapters, and two
+of those required more than an adapter.
+
+\paragraph{Three scoring defects preceded the result.} The original comparison
+favoured Whisper, and the reversal came from correcting the measurement rather
+than from any change to the models. First, the ``untuned baseline'' loaded
+\texttt{whisper-large-v3-turbo} rather than \texttt{large-v3}, a different model
+with different behaviour. Second, Mandarin word error rate was computed without
+character segmentation, so unspaced Han transcripts scored near 100\% regardless
+of content---an artefact that had been reported as a headline improvement from
+100\% to 9\%. Third, a label-encoding bug in the speech-to-text-translation
+path depressed one backend's scores independently of its recognition quality.
+Each defect had produced a plausible number that survived review because nothing
+about it looked wrong.
+
+We note this not as an aside but because it establishes the pattern the rest of
+the paper documents: in this project, the majority of apparent model findings
+that we investigated closely turned out to be measurement findings.
+
+\section{The Adaptation Campaign}
+\label{sec:campaign}
+
+Across roughly twenty runs, the levers we tried divide cleanly into those that
+moved word error rate and those that did not.
+
+\paragraph{Pashto: seven attempts, one real gain.} Pashto was fine-tuned
+Whisper's last stronghold and took the most effort. Adding Common Voice data to
+FLEURS in a mixture dominated by the former \emph{regressed} accuracy by 5.6~pp
+($p<0.001$), a domain-drift effect. Rebalancing the mixture and raising adapter
+rank recovered it. The decisive change was neither data nor capacity but
+\emph{noise-augmented training}: degrading the training audio with the same
+bandpass, additive-noise and codec pipeline used for evaluation produced an
+adapter that both improved clean speech and, more importantly, stopped collapsing
+at low signal-to-noise ratio. Two later attempts---scaling the Common Voice share
+threefold, and raising rank to 128---produced changes we cannot distinguish from
+noise (Section~\ref{sec:measure}).
+
+\paragraph{Kashmiri: eight versions across two backbones.} Kashmiri began at
+74.02\% and ended at 50.26\%. The path there involved a custom language token
+(Section~\ref{sec:unsupported}), a fourfold corpus expansion, a rank increase
+from 32 to 128, a vocabulary repair (Section~\ref{sec:vocab}), and one run that
+simply trained longer.
+
+\paragraph{Training to convergence is worth more than it appears.} Two runs in
+this campaign stopped not because they had converged but because their linear
+learning-rate schedule had decayed to zero. Both recorded their best validation
+loss at their final step, having improved at essentially every evaluation.
+Restarting each from its own weights with a fresh schedule---changing nothing
+else---improved Kashmiri by 3.84~pp and Dogri by 3.34~pp, both significant at
+$p<0.001$. The two languages differ in script, corpus and backbone history, and
+the effect replicates across them at almost the same magnitude. A schedule that
+expires produces a loss curve indistinguishable from convergence, and the cost of
+mistaking one for the other was, in this campaign, larger than the cost of
+doubling adapter rank.
+
+\section{Languages the Model Cannot Name}
+\label{sec:unsupported}
+
+Kashmiri and Dogri are absent from both backbones' language inventories.
+SeamlessM4T~v2 ships 101 language tokens, including \texttt{\_\_hin\_\_},
+\texttt{\_\_pan\_\_} and \texttt{\_\_urd\_\_}, but neither \texttt{\_\_kas\_\_}
+nor \texttt{\_\_doi\_\_}; Whisper has no \texttt{<|ks|>} or \texttt{<|doi|>}.
+
+\paragraph{The failure is silent.} A model given a language it cannot name does
+not refuse. It routes the input to whatever it considers nearest. Presented with
+Dogri audio, Whisper's language identification answers \emph{Punjabi} for 222 of
+425 clips, against 25 for Hindi---a linguistically defensible judgement, since
+Dogri is far closer to Punjabi than to Hindi. It then transcribes in
+\textbf{Gurmukhi}, while Dogri is written in Devanagari. The resulting word error
+rate exceeds 100\%, because insertions outnumber the words that could have been
+matched. Nothing in the pipeline reports an error; the system produces confident,
+fluent, entirely unusable output, and did so for the entire period Dogri was
+nominally supported.
+
+\paragraph{Method.} We add the missing token to the tokeniser, initialise its
+embedding from the closest supported language, and---critically---make that
+embedding trainable, using PEFT's trainable-token mechanism to learn a delta on
+that row alone while the rest of the embedding table stays frozen. Every earlier
+Kashmiri attempt had left the initialised row frozen, treating it as a fixed
+conditioning vector; that choice was the difference between an unusable model
+(129\% WER) and a deployable one.
+
+\paragraph{Which neighbour? Script, not ancestry.}
+\label{par:neighbour}
+The initialisation source is a real design decision, and the intuitive answer is
+wrong. Dogri's nearest relative among the supported languages is Punjabi, and
+Whisper's language identification agrees emphatically. But SeamlessM4T knows
+Punjabi only in Gurmukhi, and a language token conditions \emph{generation}, not
+recognition. Table~\ref{tab:dogri} settles it by measurement: zero-shot decoding
+with the Punjabi token scores 114.62\% WER against 99.99\% for Hindi, and the
+character error rates---96.81\% versus 68.14\%---show why. The Punjabi prior
+emits the wrong script, and almost nothing matches. Recognition and generation
+want different neighbours; the token serves generation, so script wins.
+
+\begin{table}[t]
+\caption{Dogri, 425-clip IndicVoices-R test split, L2. The two zero-shot proxies
+also answer the initialisation question: the script-matched neighbour beats the
+genetically closer one by 14.6~pp WER and 28.7~pp CER.}
+\label{tab:dogri}
+\small
+\begin{tabular}{lrrl}
+\toprule
+System & WER & CER & What it is \\
+\midrule
+SM4T zero-shot, \texttt{pan} & 114.62 & 96.81 & closest language; wrong script \\
+Whisper, auto-detect         & 102.25 & ---   & \emph{what the system did} \\
+SM4T zero-shot, \texttt{hin} &  99.99 & 68.14 & script-matched proxy \\
+Whisper, forced Hindi        &  88.08 & ---   & best untrained baseline \\
+Custom token + LoRA          &  50.07 & 27.29 & first Dogri model \\
+\quad + trained to convergence & \textbf{46.73} & \textbf{25.18} & deployed candidate \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The result is a 55~pp improvement over what the deployed system actually did, and
+41~pp over the best baseline obtainable without training. It is the largest
+single-language gain of the campaign, and it came from a language nobody had
+measured, using a technique already in the codebase for another language. The
+same method, unchanged, works on two languages with different scripts and
+different failure profiles---which is our basis for calling it a method rather
+than a fix.
+
+\section{A Floor Made of Missing Characters}
+\label{sec:vocab}
+
+Applying the technique to Kashmiri exposed a second defect, invisible to every
+diagnostic we routinely used.
+
+After deploying a rank-128 Kashmiri adapter at 56.44\% WER, we examined the
+composition of the remaining errors rather than the aggregate. Substitutions
+accounted for 77\% of them, the hypothesis-to-reference length ratio was 0.943,
+and no output was truncated---so the early-termination pathology that had
+afflicted earlier Kashmiri models was gone, and little was recoverable by
+adjusting decoding. The errors were words the model wrote incorrectly, not words
+it failed to write.
+
+Inspecting the most frequent confusions showed pairs differing by a single
+character: \texttt{p\=a\d{t}h\u{i}} for \texttt{p\'a\d{t}h\u{i}},
+\texttt{xa\d{t}r} for \texttt{x\'a\d{t}r}. Those characters are Kashmiri-specific
+vowel signs. Testing them against the tokeniser gave the explanation: they encode
+to the \textbf{unknown token}.
+
+\paragraph{Extent.} Twenty characters used in written Kashmiri have no token in
+SeamlessM4T's subword vocabulary. They occur 854{,}234 times in the training
+corpus and appear in \textbf{96.9\%} of its sentences. Two consequences follow.
+The model cannot emit them---one such character appears 370 times in the test
+references and \emph{zero} times in any hypothesis. And because the same
+tokeniser encodes the training targets, the model was trained against corrupted
+labels for nearly every sentence it saw.
+
+\paragraph{Cost.} Of the 3{,}917 substitution errors, 662 fall on words rendered
+unrepresentable by these characters. Of the 747 test words containing the four
+affected \emph{letters}---the subset that survives diacritic normalisation---the
+model got \textbf{747 wrong. Every one.} No amount of capacity, data or training
+time could have fixed a single one of them.
+
+\paragraph{Repair and result.} We add all twenty characters as tokens,
+initialise each from its closest in-vocabulary neighbour (letters from their base
+letter, combining marks from a similar mark) and train those rows alongside the
+language token. Nothing else changes: same corpus, same rank, same schedule, same
+converged step, so the comparison isolates a single variable. Word error rate
+falls from 52.60\% to \textbf{50.26\%} ($p<0.001$), and of the 747 previously
+unwinnable words the repaired model recovers \textbf{310}. The remaining failures
+are ordinary acoustic confusions between similar words rather than blank
+omissions.
+
+\paragraph{Why the aggregate gain is smaller than the defect.} On unnormalised
+text the repair is worth 9.60~pp (74.31\% to 64.71\%); at L2 it is worth 2.34~pp.
+Most of the twenty characters are combining marks that diacritic normalisation
+discards anyway, so the deciding ruler sees only the four letters. Both numbers
+are real, and reporting only the larger would misrepresent what the repair buys
+under the metric we actually decide on.
+
+\paragraph{Generality.} This defect is not exotic. It arises whenever a
+language's written form uses characters outside the coverage of a subword
+vocabulary trained predominantly on other languages, which is the ordinary
+condition for scripts with language-specific extensions. It is invisible to loss
+curves, because the model learns to predict the unknown token perfectly well; it
+is invisible to aggregate WER, because the affected words simply appear as
+ordinary errors; and it is invisible to any evaluation that does not inspect
+which characters the model is capable of producing. Dogri, by contrast, is
+written in unextended Devanagari and shows \emph{zero} unsupported characters,
+which is why it needed only the language token.
+
+\section{What the Evaluation Could Not See}
+\label{sec:measure}
+
+Having reached deployable accuracy on all eight languages, we ran a
+retrospective audit: for every comparison on which a decision had been taken, a
+paired bootstrap over clips (10{,}000 resamples, re-aggregating errors and
+reference length rather than averaging per-clip rates). The pairing matters,
+since both systems transcribe identical audio and removing clip-difficulty
+variance is what makes small effects detectable at all.
+
+The audit divided the campaign along a line we had not anticipated
+(Table~\ref{tab:sig}).
+
+\begin{table}[t]
+\caption{Retrospective paired bootstrap. Every claim on which a deployment or
+rejection was decided. Negative differences favour the first system.}
+\label{tab:sig}
+\small
+\begin{tabular}{lrrl}
+\toprule
+Claim & Diff & 95\% CI & Holds? \\
+\midrule
+SM4T replaces Whisper (ks) & $-14.93$ & $[-17.3, -12.6]$ & \textbf{yes} \\
+\quad and all 5 degraded conditions & $-14$ to $-22$ & exclude 0 & \textbf{yes} \\
+Vocabulary repair & $-2.35$ & $[-3.29, -1.38]$ & \textbf{yes} \\
+Convergence (Kashmiri) & $-3.84$ & $[-4.75, -2.93]$ & \textbf{yes} \\
+Convergence (Dogri) & $-3.34$ & $[-5.03, -2.07]$ & \textbf{yes} \\
+CV-dominated mixture worse & $-5.56$ & $[-10.8, -1.9]$ & \textbf{yes} \\
+\midrule
+ps rank-128 better, clean & $-0.75$ & $[-2.23, +0.70]$ & no \\
+ps rank-128 better, sweep & --- & 0 of 5 sig. & no \\
+Earlier ps adapter ``collapses'' & $-31.2$ & $[-101, +1.3]$ & no \\
+ks rank-128 better, sweep & --- & 0 of 5 sig. & no \\
+Warm-start run ``worse'' & $+0.43$ & $[-0.29, +1.17]$ & no \\
+Data-scaled run ``regressed'' & $+0.54$ & $[-1.05, +2.14]$ & no \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The split follows test-set size and effect size together. Every conclusion about
+\emph{backend selection}---the question the project originally asked---is
+supported, because replacing one model family with another moves word error rate
+by 10 to 22~pp and even 30 clips resolve that comfortably. So are the two
+mechanisms established on the 372- and 425-clip Kashmiri and Dogri sets.
+
+What does not survive is the fine-grained adapter selection that consumed most of
+the campaign's effort. The 1 to 3~pp differences between an adapter and its
+successor, evaluated on a 30-clip robustness sweep and a 100-clip clean split,
+are indistinguishable from noise in every case we tested---including the 0.75~pp
+margin on which we deployed one adapter over another.
+
+\paragraph{``Wins 4 of 5 conditions'' is not a result.} Our deployment gate
+reported robustness as a win count across five degradation conditions, a format
+that reads like evidence. Decomposed, the four wins are four differences whose
+confidence intervals all cross zero, and the count itself has a one-sided sign
+test $p=0.188$. The gate was designed during earlier work when the differences
+under test were tens of points, and it was never revisited as those differences
+shrank to fractions of one. A gate adequate for choosing a backbone is not
+automatically adequate for choosing between two checkpoints of the same model.
+
+\paragraph{What we changed, and what we did not.} We did not reverse the
+deployments. Choosing the newer of two statistically indistinguishable adapters
+is defensible under uncertainty, and one does not replace a running model without
+evidence of improvement. What changed is the claim: those adapters are
+\emph{equivalent on the available evidence}, not better. We report this because
+the alternative---quietly restating point estimates as findings---is precisely
+the practice that produced three of this paper's corrections.
+
+\section{Decoding: a Trade, Not an Improvement}
+\label{sec:decode}
+
+Late in the campaign we noticed that the deployed system decodes greedily: the
+backbone ships no beam-search default and the serving code never sets one, so all
+eight languages had been decoding with a single beam without anyone choosing
+that. Beam search with width 8 improves Kashmiri clean word error rate from
+50.26\% to 47.37\%, and adding an in-domain Kneser--Ney trigram language model to
+rescore the 8-best list reaches 46.90\%, against an oracle ceiling of 44.33\%
+over that list. Wall-clock cost is about 5\%, not the eightfold one might expect,
+because decode time is dominated by a sequential step count that a
+minimum-length constraint fixes and the GPU absorbs the wider batch.
+
+We did not deploy it. Across eight configurations---beam widths 2, 4 and 8, each
+with length penalties 1.0, 0.8 and 0.6---\emph{every one} regressed the 0~dB
+signal-to-noise condition by 2 to 3~pp while gaining 2 to 3~pp on clean audio.
+Length penalty was our hypothesis for the cause and is not: it recovers about
+0.5~pp of the regression. With flat posteriors, beam search reliably finds
+higher-scoring hypotheses that are fluent and wrong, and greedy decoding's myopia
+is a virtue exactly when the acoustic evidence is weakest. For a system whose
+purpose is degraded radio, that trade runs the wrong way.
+
+The general form of this is worth stating: \textbf{decode settings validated only
+on clean test sets can silently degrade deployed robustness}, and the clean-speech
+number---the one a paper would normally report---moves in the flattering
+direction.
+
+\section{The Deployed Path Is Not the Evaluated Path}
+\label{sec:deployed}
+
+A final measurement closes the paper because it undercuts the rest of it.
+
+Every word error rate we have reported was produced by our evaluation harness,
+which constructs the model with the adapter loaded through the parameter-efficient
+fine-tuning library. The deployed system constructs it differently: it bakes the
+trainable-token embedding deltas into the base model and loads only the low-rank
+matrices, because the library cannot stack a trainable-token delta alongside
+several named adapters. The two constructions were assumed equivalent for a year
+and never compared.
+
+They are not. Measured on the same 372 clips with the same scorer, Kashmiri
+scores \textbf{52.33\%} through the deployed path against \textbf{50.26\%}
+through the evaluation path: a 2.07~pp gap, 95\% CI $[+1.24, +2.91]$,
+$p<0.001$, with only 19 of 372 hypotheses identical between them. The deployed
+model is measurably worse than the model this paper describes, and because the
+divergence lives in the shared generation path rather than in anything
+language-specific, the other seven languages are presumed affected and have
+simply never been measured both ways.
+
+Investigating it fixed one genuine defect---the deployment baked only the first
+of 21 trainable-token deltas, leaving the twenty repaired characters of
+Section~\ref{sec:vocab} at their initialisation values in production. The
+residual 2~pp is unresolved. Direct comparison has excluded the low-rank weights
+(480 of 480 tensors identical), the deltas, the extracted input features, the
+generation length limit, the input dtype, substituting the checkpoint's frozen
+embedding table, and multi-adapter interference.
+
+We report this rather than correcting it silently. Republishing every number
+against the deployed path would require re-evaluating eight languages, and the
+gap is in any case the clearest instance of what this paper keeps finding: the
+artefact you measure is not necessarily the artefact you ship.
+
+\section{Lessons}
+\label{sec:lessons}
+
+\begin{enumerate}
+\item \textbf{Check what your model can emit before adapting it.} A tokeniser
+audit costs minutes and would have found the 20-character defect a month earlier.
+Loss curves, aggregate WER and validation accuracy are all blind to it.
+
+\item \textbf{A missing language fails silently.} Absent a language token, a
+model routes to its nearest neighbour and produces confident, well-formed,
+useless output. Verify that every language you claim to support is one the model
+can name.
+
+\item \textbf{Initialise custom language tokens by script, not by ancestry.}
+The token conditions generation; a genetically closer language in the wrong
+script starts you further away.
+
+\item \textbf{A schedule that expires is not a converged model.} Two runs here
+left 3--4~pp on the table by stopping when their learning rate reached zero.
+
+\item \textbf{Size the evaluation to the effect.} A 30-clip sweep resolves
+backend replacement and nothing finer. If you are chasing 1~pp, report intervals
+or stop claiming improvements.
+
+\item \textbf{Measure the deployed path.} Evaluation and serving code diverge
+quietly, and the divergence is worth points.
+\end{enumerate}
+
+\section{Conclusion}
+
+We replaced a per-language fine-tuned Whisper deployment with a single shared
+multilingual model and per-language adapters across eight low-resource border
+languages, including two the backbone cannot name and one that had never been
+measured at all. The largest gains came not from capacity or data but from
+repairs to representation: a language token the model lacked, and twenty
+characters its vocabulary could not express. The most useful result, though, may
+be the audit: of the decisions this campaign made, those about backends were
+supported by the evidence and those about individual adapters largely were not,
+and we could not have known which was which without asking.
+
+\begin{acks}
+Anonymised for review. The authors used a large language model to assist with
+drafting and editing this manuscript; all experiments, results and analyses are
+the authors' own.
+\end{acks}
+
+\bibliographystyle{ACM-Reference-Format}
+\begin{thebibliography}{9}
+
+\bibitem{whisper}
+A.~Radford, J.~W. Kim, T.~Xu, G.~Brockman, C.~McLeavey, and I.~Sutskever.
+\newblock Robust speech recognition via large-scale weak supervision.
+\newblock In \emph{ICML}, 2023.
+
+\bibitem{seamless}
+Seamless Communication et al.
+\newblock SeamlessM4T: Massively multilingual and multimodal machine
+translation.
+\newblock arXiv:2308.11596, 2023.
+
+\bibitem{lora}
+E.~J. Hu, Y.~Shen, P.~Wallis, Z.~Allen-Zhu, Y.~Li, S.~Wang, L.~Wang, and
+W.~Chen.
+\newblock LoRA: Low-rank adaptation of large language models.
+\newblock In \emph{ICLR}, 2022.
+
+\bibitem{fleurs}
+A.~Conneau, M.~Ma, S.~Khanuja, Y.~Zhang, V.~Axelrod, S.~Dalmia, J.~Riesa,
+C.~Rivera, and A.~Bapna.
+\newblock FLEURS: Few-shot learning evaluation of universal representations of
+speech.
+\newblock In \emph{IEEE SLT}, 2023.
+
+\bibitem{indicvoices}
+T.~Javed et al.
+\newblock IndicVoices: Towards building an inclusive multilingual speech dataset
+for Indian languages.
+\newblock In \emph{ACL Findings}, 2024.
+
+\bibitem{peft}
+S.~Mangrulkar, S.~Gugger, L.~Debut, Y.~Belkada, S.~Paul, and B.~Bossan.
+\newblock PEFT: State-of-the-art parameter-efficient fine-tuning methods.
+\newblock \url{https://github.com/huggingface/peft}, 2022.
+
+\bibitem{mms}
+V.~Pratap, A.~Tjandra, B.~Shi, et al.
+\newblock Scaling speech technology to 1,000+ languages.
+\newblock \emph{JMLR}, 25(97), 2024.
+
+\bibitem{kenlm}
+K.~Heafield.
+\newblock KenLM: Faster and smaller language model queries.
+\newblock In \emph{WMT}, 2011.
+
+\bibitem{bootstrap}
+M.~Bisani and H.~Ney.
+\newblock Bootstrap estimates for confidence intervals in ASR performance
+evaluation.
+\newblock In \emph{ICASSP}, 2004.
+
+\end{thebibliography}
+
 \end{document}
