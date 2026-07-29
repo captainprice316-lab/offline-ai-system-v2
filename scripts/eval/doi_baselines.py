@@ -164,13 +164,35 @@ def main():
         print(f"\nzero-shot proxy: {'__pan__ (Punjabi, genetic)' if p < h else '__hin__ (Hindi, script)'} "
               f"transcribes Dogri better  (pan {p} vs hin {h})")
 
-    OUT_JSON.write_text(json.dumps(results, indent=2, ensure_ascii=False), encoding="utf-8")
-    with open(ROOT / "eval_data" / "doi_baselines_hyps.jsonl", "w", encoding="utf-8") as fh:
+    # MERGE, never overwrite. A --systems run used to clobber the whole file,
+    # which is how the whisper_auto/whisper_hi numbers quoted in the report were
+    # lost: they were produced first, then a later sm4t-only invocation replaced
+    # the file and left them unsourced. Same for the hypothesis file.
+    prior = {}
+    if OUT_JSON.exists():
+        prior = json.loads(OUT_JSON.read_text(encoding="utf-8"))
+    prior.update(results)
+    OUT_JSON.write_text(json.dumps(prior, indent=2, ensure_ascii=False),
+                        encoding="utf-8")
+
+    hyp_path = ROOT / "eval_data" / "doi_baselines_hyps.jsonl"
+    kept = []
+    if hyp_path.exists():
+        for line in hyp_path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            rec = json.loads(line)
+            if rec.get("system") not in hyps:
+                kept.append(rec)
+    with open(hyp_path, "w", encoding="utf-8") as fh:
+        for rec in kept:
+            fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
         for s, pairs in hyps.items():
             for i, (r, h) in enumerate(pairs):
                 fh.write(json.dumps({"system": s, "idx": i, "ref": r, "hyp": h},
                                     ensure_ascii=False) + "\n")
-    print(f"\n[saved] {OUT_JSON}")
+    print(f"\n[saved] {OUT_JSON}  (systems now on file: "
+          f"{', '.join(k for k in prior if not k.startswith('_'))})")
 
 
 if __name__ == "__main__":
