@@ -34,7 +34,7 @@ Dogri audio, Whisper's language identification answers \emph{Punjabi} for 222 of
 425 clips and emits Gurmukhi against Devanagari references, yielding a word
 error rate above 100\% that no accuracy dashboard would flag as a
 missing-language problem. Adding the missing language token, initialised from a
-neighbour and trained, takes Dogri from 102.25\% to 46.73\% WER---the largest
+neighbour and trained, takes Dogri from 102.39\% to 46.73\% WER---the largest
 single-language gain of the campaign, in a language never previously measured.
 The same technique on Kashmiri exposed a subtler defect: 20 characters of
 written Kashmiri have no token in the backbone's subword vocabulary and resolve
@@ -219,7 +219,7 @@ Urdu      & Nastaliq    & 19.82 & \textbf{16.90} & SM4T zero-shot \\
 Mandarin  & Han         & 14.22 & \textbf{11.69} & SM4T zero-shot \\
 Pashto    & Nastaliq    & 38.55 & \textbf{36.16} & SM4T + LoRA \\
 Kashmiri  & Nastaliq    & 65.19 & \textbf{50.26} & SM4T + custom token \\
-Dogri     & Devanagari  & 102.25 & \textbf{46.73} & SM4T + custom token \\
+Dogri     & Devanagari  & 102.39 & \textbf{46.73} & SM4T + custom token \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -440,13 +440,12 @@ initialised \texttt{\_\_doi\_\_} from \texttt{\_\_hin\_\_} on this evidence, and
 also answer the initialisation question: the script-matched neighbour beats the
 genetically closer one by 14.8~pp WER and 28.8~pp CER. Everything above the
 dashed line is a system producing more errors than there are reference words.
-All figures are L2 except the two Whisper baselines, which are L0; for Dogri the
-two rungs differ by about 0.5~pp, since L1 through L4 are identical.}
+All five figures are L2 on the same 425 clips and the same scorer.}
 \label{fig:dogri}
 \end{figure}
 
-The result is a 55~pp improvement over what the deployed system actually did,
-and 41~pp over the best baseline obtainable without training---the largest
+The result is a 55.7~pp improvement over what the deployed system actually did,
+and 41.5~pp over the best baseline obtainable without training---the largest
 single-language gain of the campaign, from a language nobody had measured, using
 a technique already in the codebase for another one. That the same method works
 unchanged on two languages with different scripts and different failure profiles

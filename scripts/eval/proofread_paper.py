@@ -112,12 +112,21 @@ chk("doi script-vs-ancestry CER gap (28.8)", 28.8,
     round(dbl["sm4t_pan"]["L2"]["cer"] - dbl["sm4t_hin"]["L2"]["cer"], 1))
 
 if "whisper_auto" in dbl:
-    chk("doi whisper auto", 102.25, dbl["whisper_auto"]["L2"]["wer"])
-    chk("doi whisper forced-hi", 88.08, dbl["whisper_hi"]["L2"]["wer"])
+    chk("doi whisper auto", 102.39, dbl["whisper_auto"]["L2"]["wer"])
+    chk("doi whisper forced-hi", 88.18, dbl["whisper_hi"]["L2"]["wer"], prose=False)
+    # The two gains derived from them. Quoted to one decimal rather than the
+    # nearest integer: 102.39 - 46.73 = 55.66, which the prose called "55 pp"
+    # and which actually rounds to 56. The same slip was present before the
+    # re-measurement (55.52 also rounds to 56), so it was a truncation, not a
+    # transcription error -- caught here only once the check was written.
+    chk("doi gain over deployed system", 55.7,
+        round(dbl["whisper_auto"]["L2"]["wer"] - d2["L2"]["wer"], 1))
+    chk("doi gain over best untrained baseline", 41.5,
+        round(dbl["whisper_hi"]["L2"]["wer"] - d2["L2"]["wer"], 1))
 else:
     notes.append("doi whisper_auto/whisper_hi are NOT in doi_baselines.json; "
-                 "102.25 and 88.08 remain L0 figures from an overwritten run. "
-                 "Figure 4's caption must keep saying so.")
+                 "their figures are L0 from an overwritten run and Figure 4's "
+                 "caption must say so.")
 
 # ── Section 7: the vocabulary repair, measured on two rungs ──────────────────
 chk("vocab repair at L0 (74.31)", 74.31, ruler["L0"]["ks_cloud2"]["wer"])

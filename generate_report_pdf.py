@@ -1142,11 +1142,11 @@ def build():
             [tch("Dogri ASR system"), tch("WER %"), tch("CER %"), tch("What it is")],
             [tcl("SeamlessM4T zero-shot, __pan__ proxy"), tc("114.62"), tc("96.79"),
              tcl("closest language genetically; wrong script")],
-            [tcl("Whisper large-v3, auto-detect"), tc("102.25 †"), tc("—"),
+            [tcl("Whisper large-v3, auto-detect"), tc("102.39"), tc("85.95"),
              tcl("what VANI actually did for Dogri")],
             [tcl("SeamlessM4T zero-shot, __hin__ proxy"), tc("99.86"), tc("67.99"),
              tcl("script-matched proxy")],
-            [tcl("Whisper large-v3, forced Hindi"), tc("88.08 †"), tc("—"),
+            [tcl("Whisper large-v3, forced Hindi"), tc("88.18"), tc("49.27"),
              tcl("best baseline obtainable without training")],
             [tcl("doi_iv (custom __doi__ token + LoRA)"), tc("50.07"), tc("27.29"),
              tcl("first Dogri model; stopped by its LR schedule")],
@@ -1163,20 +1163,21 @@ def build():
              "removal, whitespace collapse) moves the number at all, by 0.48 pp. Kashmiri's raw and "
              "diacritic-normalised scores differ by roughly 14 pp on the same ladder, which is the "
              "whole reason the ladder exists."),
-        note("† The two Whisper rows are <b>L0</b>, not L2. An earlier revision of this table "
-             "carried L0 figures under an L2 heading throughout — the __hin__ proxy is 99.99 at L0 "
-             "but 99.86 at L2, and its CER 68.14 against 67.99 — which is exactly the ruler-mixing "
-             "error §5.5.1 was written to warn about, committed by this report. The SeamlessM4T "
-             "rows are now L2 and sourced from docs/doi_baselines.json. The two Whisper rows cannot "
-             "be corrected the same way: scripts/eval/doi_baselines.py overwrote its own output "
-             "file on a --systems run, so those two systems' hypotheses were lost and only the L0 "
-             "summary survives. The script now merges instead of overwriting; re-running "
-             "whisper_auto and whisper_hi will replace these two figures with L2 ones. For Dogri "
-             "the two rungs differ by about 0.5 pp, so no conclusion here turns on it."),
+        note("<b>Correction, 2026-07-31.</b> An earlier revision of this table carried L0 figures "
+             "under an L2 heading — the __hin__ proxy is 99.99 at L0 but 99.86 at L2, its CER 68.14 "
+             "against 67.99 — which is exactly the ruler-mixing error §5.5.1 was written to warn "
+             "about, committed by this report. All four rows are now L2 and sourced from "
+             "docs/doi_baselines.json. The two Whisper rows also had to be re-measured rather than "
+             "re-scored: scripts/eval/doi_baselines.py overwrote its own output file on a --systems "
+             "run, so their hypotheses had been lost and only an L0 summary survived. The script "
+             "now merges instead of overwriting, both systems were re-run on 2026-07-31, and their "
+             "figures moved by 0.1 pp (102.25 to 102.39 and 88.08 to 88.18) — small enough that no "
+             "conclusion changes, which is why the correction is recorded rather than announced. "
+             "The re-run also recovered the two CER values this table previously showed as dashes."),
         sp(6),
         body(
-            "Fine-tuning improves Dogri by <b>55 pp over what the deployed system actually did</b> "
-            "(102.25% -> 46.73%) and by 41 pp over the best baseline anyone could have configured "
+            "Fine-tuning improves Dogri by <b>55.7 pp over what the deployed system actually did</b> "
+            "(102.39% -> 46.73%) and by 41.5 pp over the best baseline anyone could have configured "
             "without training. It is by a wide margin the largest single-language gain in the "
             "campaign, and it came from a language that had simply never been looked at."
         ),
@@ -2336,7 +2337,7 @@ def build():
             "trainable, was invented for Kashmiri and has now been applied unchanged to <b>Dogri</b>, "
             "a different script (Devanagari vs Perso-Arabic) with a different failure profile (a "
             "clean vocabulary rather than 20 unrepresentable characters). Dogri improved from "
-            "<b>102.25% to 46.73% WER</b> — 55 pp over what the deployed system actually did, the "
+            "<b>102.39% to 46.73% WER</b> — 55.7 pp over what the deployed system actually did, the "
             "largest single-language gain of the campaign, in a language nobody had measured."
         ),
         bullet(

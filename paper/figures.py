@@ -313,9 +313,9 @@ def fig_ruler():
 # ─────────────────────────────────────────────────────────────────────────────
 DOGRI = [
     ("SM4T zero-shot, pan token", 114.62, False),
-    ("Whisper, auto-detect",      102.25, False),
+    ("Whisper, auto-detect",      102.39, False),
     ("SM4T zero-shot, hin token",  99.86, False),
-    ("Whisper, forced Hindi",      88.08, False),
+    ("Whisper, forced Hindi",      88.18, False),
     ("__doi__ token + LoRA",       50.07, False),
     ("   + to convergence",        46.73, True),
 ]
@@ -461,6 +461,10 @@ def _check():
     dmap = dict((d[0], d[1]) for d in DOGRI)
     eq("DOGRI pan", dmap["SM4T zero-shot, pan token"], dbl["sm4t_pan"]["L2"]["wer"])
     eq("DOGRI hin", dmap["SM4T zero-shot, hin token"], dbl["sm4t_hin"]["L2"]["wer"])
+    eq("DOGRI whisper auto", dmap["Whisper, auto-detect"],
+       dbl["whisper_auto"]["L2"]["wer"])
+    eq("DOGRI whisper forced-hi", dmap["Whisper, forced Hindi"],
+       dbl["whisper_hi"]["L2"]["wer"])
     eq("DOGRI doi_iv", dmap["__doi__ token + LoRA"],
        load("doi_iv_seamless_results.json")["L2"]["wer"])
     eq("DOGRI doi_iv2", dmap["   + to convergence"],
