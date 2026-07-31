@@ -1228,8 +1228,9 @@ def slide_campaign_hours(prs, n):
     s = blank_slide(prs)
     bg(s)
     slide_header(s, "Training hours & dataset sizes — the closing adapter campaign", n, "Results")
-    txbox(s, "The Whisper phase cost ~100 laptop GPU-hours. The adapter campaign that replaced it was cheaper per win — "
-             "the two production adapters that closed it cost ~$6 of rented cloud compute, total.",
+    txbox(s, "Measured, not estimated: THREE surviving Whisper runs alone came to 103 laptop GPU-hours, and 62% of that "
+             "was periodic evaluation, not training. The 19 local adapter runs spent 4.7 h evaluating between them. The "
+             "two production adapters that closed the campaign cost ~$6 of rented cloud compute, total.",
           0.4, 1.42, 12.5, 0.55, font_size=12.5, italic=True, color=C_NAVY)
 
     cols_x  = [0.30, 1.60, 3.05, 7.15, 8.05, 9.75, 10.95, 12.05]

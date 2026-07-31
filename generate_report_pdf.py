@@ -950,13 +950,73 @@ def build():
              "Mandarin routes to SeamlessM4T (§5.5). Single run."),
         sp(10),
 
-        h2("4.4 Training Hours and Dataset Sizes — the SeamlessM4T Adapter Campaign"),
+        h2("4.4 Training Hours and Dataset Sizes — What the Campaign Actually Cost"),
         body(
-            "The Whisper phase above consumed roughly 100 GPU-hours on the project laptop (RTX 5060, "
-            "8 GB). The SeamlessM4T adapter phase that ultimately replaced it was far cheaper per win, "
-            "because LoRA adapters train in hours and the final capacity push rented cloud hardware by "
-            "the hour instead of scaling the laptop. The final two production adapters cost about $6 "
-            "of cloud compute combined. Key runs of the closing campaign:"
+            "This section replaces the estimate the report previously carried (\"roughly 100 "
+            "GPU-hours\" for the Whisper phase) with measured figures. Every run recorded its own "
+            "timing: HuggingFace's Trainer writes an <font face='Courier'>eval_runtime</font> into "
+            "each checkpoint's <font face='Courier'>trainer_state.json</font>, and the checkpoint "
+            "directories carry the wall-clock stamps of when they were written. "
+            "<font face='Courier'>scripts/eval/training_cost_inventory.py</font> recovers both and "
+            "writes <font face='Courier'>docs/training_cost_inventory.json</font>; the tables below "
+            "are generated from it."
+        ),
+        sp(6),
+        h3("4.4.1  The Whisper phase — and how much of it was evaluation"),
+        body(
+            "Only three Whisper runs still have their full checkpoint history on disk; the rest were "
+            "pruned by <font face='Courier'>save_total_limit</font> once the models were converted "
+            "to CT2, so their timings are not recoverable. Those three alone account for more "
+            "wall-clock than the whole phase was previously estimated at."
+        ),
+        sp(4),
+        Table([
+            [tch("Run"), tch("Steps"), tch("Evals"), tch("Elapsed"), tch("Idle"),
+             tch("Active"), tch("Of which eval"), tch("Training")],
+            [tcl("Punjabi v3 (r=16)"), tc("4,000"), tc("20"), tc("68.05 h"), tc("10.18 h"),
+             tc("57.88 h"), Paragraph("<b>36.73 h (63%)</b>", ProfBlue()), tc("21.15 h")],
+            [tcl("Punjabi v2 (r=8)"), tc("3,000"), tc("15"), tc("37.06 h"), tc("—"),
+             tc("37.06 h"), Paragraph("<b>25.02 h (68%)</b>", ProfBlue()), tc("12.04 h")],
+            [tcl("Pashto large-v3 (r=16)"), tc("2,000"), tc("10"), tc("8.20 h"), tc("—"),
+             tc("8.20 h"), Paragraph("<b>2.25 h (27%)</b>", ProfBlue()), tc("5.95 h")],
+            [Paragraph("<b>Three runs, measured</b>", ProfBlue()), tc("9,000"), tc("45"),
+             tc("113.31 h"), tc("10.18 h"),
+             Paragraph("<b>103.14 h</b>", ProfBlue()),
+             Paragraph("<b>64.00 h (62%)</b>", ProfBlue()),
+             Paragraph("<b>39.14 h</b>", ProfBlue())],
+        ], colWidths=[3.7*cm, 1.3*cm, 1.1*cm, 1.7*cm, 1.4*cm, 1.6*cm, 2.5*cm, W-13.3*cm],
+        style=std_ts(left_cols=(0,)), repeatRows=1),
+        sp(4),
+        note("<b>Evaluation, not training, was the cost.</b> Across these three runs 62% of the "
+             "wall-clock went on periodic evaluation rather than on gradient steps — 64 hours "
+             "against 39. The cause is in §6.9: <font face='Courier'>predict_with_generate</font> "
+             "at <font face='Courier'>per_device_eval_batch_size=1</font>, run every 200 steps "
+             "against validation splits of several hundred clips. Punjabi v3's 805-clip validation "
+             "split cost 1.84 h <i>per evaluation</i>, twenty times over. Halving the evaluation "
+             "frequency would have returned roughly a working day per run at no cost to model "
+             "selection, since §6.8 shows per-checkpoint WER oscillates anyway."),
+        note("\"Idle\" is time inside gaps more than 3x the median interval between "
+             "consecutive checkpoints — the laptop was not training then. Elapsed spans are taken "
+             "from checkpoint modification times, so they are an upper bound on compute; the "
+             "eval-hours column is the Trainer's own measurement and is exact. The previously "
+             "published \"roughly 100 GPU-hours\" figure covered all eleven Whisper runs; these "
+             "three measured runs come to 103 h on their own, so the true phase total is "
+             "materially higher and the old estimate was low."),
+        sp(10),
+        h3("4.4.2  The SeamlessM4T phase — the same work, two orders of magnitude cheaper to check"),
+        body(
+            "The adapter phase inverted the ratio. Nineteen local SeamlessM4T runs spent "
+            "<b>4.69 hours in total</b> on evaluation — against 64 hours for three Whisper runs — "
+            "because SeamlessM4T's validation splits are small and its decoding is faster. The "
+            "longest single SeamlessM4T evaluation budget in the campaign, ks_max2's 46 "
+            "evaluations, came to 0.95 h. That difference is why the adapter campaign could afford "
+            "to try twenty-six things while the Whisper phase managed eleven."
+        ),
+        sp(6),
+        body(
+            "LoRA adapters also train in hours rather than days, and the final capacity push rented "
+            "cloud hardware by the hour instead of scaling the laptop. The two production adapters "
+            "cost about $6 of cloud compute combined. Key runs of the closing campaign:"
         ),
         sp(4),
         Table([
@@ -1008,6 +1068,51 @@ def build():
              "share from 10k to 30k at unchanged capacity (ps_aug2, 37.46%) produced NO significant "
              "change (p = 0.48). More data was harmful when it unbalanced the mixture, not simply "
              "because there was more of it."),
+        sp(10),
+
+        h3("4.4.3  Dataset sizes — every corpus the campaign trained on"),
+        body(
+            "Training-set sizes span three orders of magnitude, from Pashto's 2,082 FLEURS clips to "
+            "Kashmiri's final 144,749-clip assembly. Where a corpus was built by this project the "
+            "duration is known exactly; for the FLEURS splits, which were used as shipped, only "
+            "clip counts were recorded."
+        ),
+        sp(4),
+        Table([
+            [tch("Language"), tch("Corpus used (largest run)"), tch("Train clips"),
+             tch("Audio hours"), tch("Held-out test")],
+            [tcl("Kashmiri"), tcl("humair025 IndicVoices + IndicVoices-R + OpenSLR-122"),
+             tc("144,749"), Paragraph("<b>335.4 h</b>", ProfBlue()), tcl("372 (IndicVoices-R)")],
+            [tcl("Dogri"), tcl("IndicVoices-R Dogri (97 shards, 43.8 GB on disk)"),
+             tc("—"), tc("not recorded"), tcl("425 (IndicVoices-R)")],
+            [tcl("Pashto"), tcl("Common Voice 30k + FLEURS ps_af x8 (ps_aug2)"),
+             tc("32,656"), tc("~55 h"), tcl("100 (FLEURS)")],
+            [tcl("Punjabi"), tcl("FLEURS pa_in + IndicVoices-R Punjabi (v3)"),
+             tc("21,923"), tc("not recorded"), tcl("100 (FLEURS)")],
+            [tcl("Nepali"), tcl("FLEURS ne_np + IndicVoices-R Nepali (v2)"),
+             tc("13,332"), tc("not recorded"), tcl("100 (FLEURS)")],
+            [tcl("Mandarin"), tcl("FLEURS cmn_hans_cn"),
+             tc("3,246"), tc("not recorded"), tcl("100 (FLEURS)")],
+            [tcl("Hindi"), tcl("FLEURS hi_in + IndicVoices-R (cap 20k)"),
+             tc("2,120 +"), tc("not recorded"), tcl("100 (FLEURS)")],
+            [tcl("Urdu"), tcl("FLEURS ur_pk"),
+             tc("2,109"), tc("not recorded"), tcl("100 (FLEURS)")],
+        ], colWidths=[2.2*cm, 6.6*cm, 2.0*cm, 2.2*cm, W-13.0*cm],
+        style=std_ts(left_cols=(0, 1, 4)), repeatRows=1),
+        sp(4),
+        note("Kashmiri's is the only corpus this project assembled from raw sources rather than "
+             "consuming as published, which is why it is the only row with an exact duration: "
+             "humair025 120,845 clips / 275.6 h + IndicVoices-R train 22,824 / 58.3 h + OpenSLR-122 "
+             "1,080 / 1.6 h, duration-filtered to 2–20 s, deduplicated to 131,868 unique sentences, "
+             "with the 403-sentence IndicVoices-R test blocklist removed as an evaluation-leak "
+             "guard. Recorded in cloud/prep_ks_data.py and its composition.json."),
+        note("<b>Corpus size did not order the results.</b> Kashmiri had by far the most training "
+             "audio and finished with the worst WER of the eight (50.26%); Hindi had the least "
+             "and finishes best (12.91%). What separated them was representation, not volume — "
+             "Hindi is a language both backbones ship natively, Kashmiri is one neither can name "
+             "and whose script the subword vocabulary cannot fully encode (§5.5.3). The same point "
+             "recurs within Pashto, where tripling the Common Voice share changed nothing "
+             "measurable."),
         sp(10),
 
         h2("4.5 Dogri (doi) — the Eighth Language"),
