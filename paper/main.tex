@@ -578,20 +578,24 @@ Late in the campaign we noticed that the deployed system decodes greedily: the
 backbone ships no beam-search default and the serving code never sets one, so
 all eight languages had been decoding with a single beam without anyone choosing
 it. Beam search with width 8 improves Kashmiri clean WER from 50.26\% to
-47.37\%, and an in-domain Kneser--Ney trigram language model~\cite{kenlm}
-rescoring the 8-best list reaches 46.90\%, against a 44.33\% oracle ceiling over
-that list. Wall-clock cost is about 5\%, not the eightfold one might expect,
-because decode time is dominated by a sequential step count that a
-minimum-length constraint fixes and the GPU absorbs the wider batch.
+47.37\% on the 372-clip test split, and an in-domain Kneser--Ney trigram
+language model~\cite{kenlm} rescoring the 8-best list reaches 46.90\%, against a
+44.33\% oracle ceiling over that list. Wall-clock cost is about 5\%, not the
+eightfold one might expect, because decode time is dominated by a sequential
+step count that a minimum-length constraint fixes and the GPU absorbs the wider
+batch.
 
-We did not deploy it. Across eight configurations---beam widths 2, 4 and 8, each
-with length penalties 1.0, 0.8 and 0.6---\emph{every one} regressed the 0~dB
-signal-to-noise condition by 2 to 3~pp while gaining 2 to 3~pp on clean audio.
-Length penalty was our hypothesis for the cause and is not: it recovers about
-0.5~pp. With flat posteriors, beam search reliably finds higher-scoring
-hypotheses that are fluent and wrong, and greedy decoding's myopia is a virtue
-exactly when the acoustic evidence is weakest. For a system whose purpose is
-degraded radio, that trade runs the wrong way. The general form:
+We did not deploy it. Across seven configurations---beam widths 2, 4 and 8, with
+length penalty 1.0 and 0.8 at each and 0.6 additionally at width 8---\emph{every
+one} regressed the 0~dB signal-to-noise condition, by 1.99 to 3.15~pp on the
+30-clip sweep. What they bought for it varied: width 8 gained 3.14 to 3.31~pp on
+clean audio, width 4 gained 1.99~pp, and width 2 \emph{lost} 0.50~pp, making it
+worse in both conditions at once. Length penalty was our hypothesis for the
+cause and is not: it recovers at most 0.50~pp of the 0~dB regression. With flat
+posteriors, beam search reliably finds higher-scoring hypotheses that are fluent
+and wrong, and greedy decoding's myopia is a virtue exactly when the acoustic
+evidence is weakest. For a system whose purpose is degraded radio, that trade
+runs the wrong way. The general form:
 \textbf{decode settings validated only on clean test sets can silently degrade
 deployed robustness}, and the clean-speech number---the one a paper would
 normally report---moves in the flattering direction.
