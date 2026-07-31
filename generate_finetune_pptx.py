@@ -1009,7 +1009,11 @@ def slide_table_sm4t(prs, n):
         ("Nepali (ne)",   "Devanagari"," 88.85", "50.92", "28.46", "SM4T",     "45.55", "51.67", "SM4T"),
         ("Mandarin (zh)", "Han Simpl.", " 10.99", "14.22", "11.69", "SM4T",    "42.00", "49.15", "SM4T"),
         ("Hindi (hi)",    "Devanagari"," 26.34", "19.78", "15.44", "SM4T",     "53.71", "51.54", "NLLB"),
-        ("Kashmiri (ks)", "Nastaliq",  " 96.87", "74.02", "— (no supp.)", "FT Whsp ✓","—", "—", "N/A"),
+        # ks is NOT on FLEURS and NOT on this ruler: 372-clip IndicVoices-R, L2
+        # diacritic-normalised. It previously showed 96.87 / 74.02, which are
+        # training-split validation figures sitting in a table of held-out ones
+        # — the same ruler mix the report warns about. Held-out L2 values now.
+        ("Kashmiri (ks)‡", "Nastaliq", "     —", "65.19", "50.26", "SM4T+tok", "—", "—", "N/A"),
     ]
 
     y += 0.54
@@ -1033,9 +1037,13 @@ def slide_table_sm4t(prs, n):
 
     txbox(s, "Zero-shot SeamlessM4T wins ASR for pa / ne / hi / ur / zh. Pashto and Kashmiri were "
              "fine-tuned Whisper's last strongholds; both fell in 2026-07 to SeamlessM4T LoRA "
-             "adapters (ps: noise-augmented training; ks: r=32 LoRA + a trainable __kas__ embedding "
-             "row, plus a scoring-ruler correction — see notes). VANI now routes all 7 languages to "
-             "SeamlessM4T; FT Whisper models are retained on disk for rollback only.",
+             "adapters (ps: noise-augmented training; ks: a trainable __kas__ embedding row, "
+             "rank 128 and a 20-character vocabulary repair, plus a scoring-ruler correction — see "
+             "notes). VANI now routes all 7 languages to SeamlessM4T; FT Whisper models are "
+             "retained on disk for rollback only.   "
+             "‡ Kashmiri is absent from FLEURS: its two figures are the 372-clip IndicVoices-R "
+             "test split at L2, not this table's FLEURS n=100 ruler, and are held-out rather than "
+             "training-split. The two rulers are not comparable across a row.",
           0.35, y+0.06, 12.5, 0.32, font_size=10, italic=True, color=C_SUB)
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1278,7 +1286,7 @@ def slide_finetune_summary(prs, n):
         ("4 · Adapter campaign", "hi/ne gained from IndicVoices data; Pashto fell to noise-augmented training; Kashmiri to a trainable __kas__ token + a ruler correction.", C_BLUE),
         ("5 · Cloud capacity push", "Rented A6000s (~$11) retrained ps+ks at r=128 — beyond the 8 GB laptop: Pashto 36.91→36.16, Kashmiri 61.88→50.26 (3.84 pp from simply letting the run converge, then 2.34 pp from repairing the vocabulary). Both passed their gates and deployed.", C_TEAL),
         ("6 · Exhausting the levers", "Two honest negatives closed the campaign: a warm start improved validation loss but LOST 0.43 pp WER (5th loss/WER divergence), and beam search gains ~3 pp on clean speech while losing ~3 pp at 0 dB SNR. Production decoding unchanged.", C_RED),
-        ("7 · Outcome", "All 7 languages route to SeamlessM4T. Kashmiri 74.02 → 50.26. What remains is a data/acoustic limit, not an optimisation one. Five scoring defects caught in total.", C_GREEN),
+        ("7 · Outcome", "All 7 languages route to SeamlessM4T. Kashmiri 65.19 → 50.26 on one held-out L2 ruler. What remains is a data/acoustic limit, not an optimisation one. Five scoring defects caught in total.", C_GREEN),
     ]
     y = 2.02
     for title, desc, col in stages:

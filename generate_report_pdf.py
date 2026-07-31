@@ -529,17 +529,25 @@ def chart_summary_bar():
     # Held-out test WER (eval_wer) on both sides — the baseline is a held-out
     # figure, so plotting train-val best_wer against it mixed rulers and showed
     # Mandarin as a gain when it is a regression.
+    #
+    # Kashmiri is EXCLUDED. Every bar here is FLEURS n=100; Kashmiri is absent
+    # from FLEURS, and both its figures were training-split values (baseline
+    # 96.87 is a different model, whisper-small-ks, and eval_wer 74.02 is the
+    # step-2400 validation WER). Plotting them beside six held-out pairs under
+    # the title "held-out test" is the same ruler mix §5.2 now footnotes.
+    # Kashmiri's held-out story is in §5.5 on its own 372-clip L2 ruler.
+    chart_langs = [l for l in LANG_ORDER if l != "ks"]
     fig, ax = plt.subplots(figsize=(10, 5))
-    names      = [LANG_META[l]["name"]       for l in LANG_ORDER]
-    baselines  = [LANG_META[l]["baseline_wer"] for l in LANG_ORDER]
-    tests      = [LANG_META[l]["eval_wer"]     for l in LANG_ORDER]
+    names      = [LANG_META[l]["name"]       for l in chart_langs]
+    baselines  = [LANG_META[l]["baseline_wer"] for l in chart_langs]
+    tests      = [LANG_META[l]["eval_wer"]     for l in chart_langs]
     deltas     = [f - b for b, f in zip(baselines, tests)]
-    x = np.arange(len(LANG_ORDER))
+    x = np.arange(len(chart_langs))
     w = 0.32
     ax.bar(x - w/2, baselines, w, label="Baseline WER (no fine-tuning)",
            color="#BDBDBD", edgecolor="white")
     bars2 = ax.bar(x + w/2, tests, w, label="Fine-tuned WER (held-out test)",
-                   color=[PALETTE[l] for l in LANG_ORDER], edgecolor="white")
+                   color=[PALETTE[l] for l in chart_langs], edgecolor="white")
     for bar, d in zip(bars2, deltas):
         ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.8,
                 f"{d:+.1f}pp", ha="center", va="bottom", fontsize=8,
@@ -1027,13 +1035,13 @@ def build():
         sp(6),
         Table([
             [tch("Dogri ASR system"), tch("WER %"), tch("CER %"), tch("What it is")],
-            [tcl("SeamlessM4T zero-shot, __pan__ proxy"), tc("114.62"), tc("96.81"),
+            [tcl("SeamlessM4T zero-shot, __pan__ proxy"), tc("114.62"), tc("96.79"),
              tcl("closest language genetically; wrong script")],
-            [tcl("Whisper large-v3, auto-detect"), tc("102.25"), tc("—"),
+            [tcl("Whisper large-v3, auto-detect"), tc("102.25 †"), tc("—"),
              tcl("what VANI actually did for Dogri")],
-            [tcl("SeamlessM4T zero-shot, __hin__ proxy"), tc("99.99"), tc("68.14"),
+            [tcl("SeamlessM4T zero-shot, __hin__ proxy"), tc("99.86"), tc("67.99"),
              tcl("script-matched proxy")],
-            [tcl("Whisper large-v3, forced Hindi"), tc("88.08"), tc("—"),
+            [tcl("Whisper large-v3, forced Hindi"), tc("88.08 †"), tc("—"),
              tcl("best baseline obtainable without training")],
             [tcl("doi_iv (custom __doi__ token + LoRA)"), tc("50.07"), tc("27.29"),
              tcl("first Dogri model; stopped by its LR schedule")],
@@ -1044,12 +1052,22 @@ def build():
         style=std_ts(left_cols=(0, 3)), repeatRows=1),
         sp(4),
         note("425-clip IndicVoices-R Dogri test split, scored on the same normalisation ladder as "
-             "every other language in this report; the figures quoted are L2, the deciding level. "
+             "every other language in this report. The figures quoted are L2, the deciding level. "
              "For Dogri, L1 through L4 are identical — the diacritic-stripping and folding levels "
              "are no-ops for Devanagari — and only the L0 to L1 step (Unicode NFC, zero-width "
              "removal, whitespace collapse) moves the number at all, by 0.48 pp. Kashmiri's raw and "
              "diacritic-normalised scores differ by roughly 14 pp on the same ladder, which is the "
              "whole reason the ladder exists."),
+        note("† The two Whisper rows are <b>L0</b>, not L2. An earlier revision of this table "
+             "carried L0 figures under an L2 heading throughout — the __hin__ proxy is 99.99 at L0 "
+             "but 99.86 at L2, and its CER 68.14 against 67.99 — which is exactly the ruler-mixing "
+             "error §5.5.1 was written to warn about, committed by this report. The SeamlessM4T "
+             "rows are now L2 and sourced from docs/doi_baselines.json. The two Whisper rows cannot "
+             "be corrected the same way: scripts/eval/doi_baselines.py overwrote its own output "
+             "file on a --systems run, so those two systems' hypotheses were lost and only the L0 "
+             "summary survives. The script now merges instead of overwriting; re-running "
+             "whisper_auto and whisper_hi will replace these two figures with L2 ones. For Dogri "
+             "the two rungs differ by about 0.5 pp, so no conclusion here turns on it."),
         sp(6),
         body(
             "Fine-tuning improves Dogri by <b>55 pp over what the deployed system actually did</b> "
@@ -1078,7 +1096,7 @@ def build():
             "<i>Punjabi</i> for <b>222 of 425 clips</b>, against 25 for Hindi. But SeamlessM4T knows "
             "Punjabi only in <b>Gurmukhi</b>, and the language token conditions generation, not "
             "recognition — so the pan proxy emits the wrong script entirely and its CER collapses to "
-            "96.81 against hin's 68.14. Recognition says Punjabi; generation says Devanagari. The "
+            "96.79 against hin's 67.99. Recognition says Punjabi; generation says Devanagari. The "
             "script-matched initialisation is the correct one, and this was established by "
             "measurement rather than argument, at no training cost."
         ),
@@ -1239,17 +1257,29 @@ def build():
              Paragraph("<b>-6.6 pp</b>", ParagraphStyle("GRhi", fontName="Helvetica-Bold",
                         fontSize=9, textColor=SUCCESS_GRN, alignment=TA_CENTER))],
             [tcl("Kashmiri"), tc("ks"), tc("large-v3†"),  tc("20,000"), tc("2400"),  tc("96.87%"),
-             tc("74.02%"), tc("74.02%"),
-             Paragraph("<b>-22.85 pp</b>", ParagraphStyle("GRks", fontName="Helvetica-Bold",
+             tc("74.02%"), tc("65.19% ‡"),
+             Paragraph("<b>-22.85 pp ‡</b>", ParagraphStyle("GRks", fontName="Helvetica-Bold",
                         fontSize=9, textColor=SUCCESS_GRN, alignment=TA_CENTER))],
         ], colWidths=[2.2*cm, 1.0*cm, 2.0*cm, 1.7*cm, 1.4*cm, 1.8*cm, 1.6*cm, 1.6*cm, W-13.3*cm],
         style=std_ts(left_cols=(0,)), repeatRows=1),
         sp(4),
         note("* Pashto base: Nasimbahar/pashto-ghag-whisper-medium-asr (734 MB domain-specific model)."),
         note("† Kashmiri: custom <|ks|> token (ID 51866) added to whisper-large-v3; embedding initialised from <|ur|>. "
-             "Best checkpoint step 2400 selected automatically (load_best_model_at_end). faster-whisper patched to accept language='ks'. "
-             "Held-out figure is the training-eval on the IndicVoices-R test split; the cross-model re-run (§5.5) was not repeated for "
-             "Kashmiri (its loader pulls the full 18 GB train split), and SeamlessM4T has no Kashmiri support."),
+             "Best checkpoint step 2400 selected automatically (load_best_model_at_end). faster-whisper patched to accept language='ks'."),
+        note("‡ This row previously read 74.02% in BOTH the Train and Test columns, and an earlier "
+             "revision of this note described that figure as 'the held-out figure ... [and] the "
+             "training-eval', which cannot both be true. 74.02% is the training-split validation WER "
+             "at step 2400. The <b>held-out</b> figure, on the 372-clip IndicVoices-R test split at "
+             "L2 (the ruler this report decides on), is <b>65.19%</b>; at L0 it is 79.29%. The "
+             "-22.85 pp improvement is baseline-to-train (96.87 -> 74.02) and stays on that ruler. "
+             "Note also that Kashmiri's baseline is the one exception to this section's "
+             "'true un-fine-tuned large-v3' rule: 96.87% is <i>muneebharoon/whisper-small-ks</i>, a "
+             "different and already-fine-tuned model, and is itself inflated by a Unicode "
+             "normalisation mismatch. No un-fine-tuned Kashmiri baseline was ever measured on the "
+             "held-out split — "
+             "so there is no like-for-like held-out improvement to quote. Comparing 74.02 against a "
+             "held-out number is precisely the mistake that made the first SeamlessM4T Kashmiri "
+             "adapter look like a regression (§5.5.1)."),
         note("Mandarin (red): fine-tuning REGRESSED vs the true large-v3 baseline. The prior report's "
              "100.03% baseline and -84 pp 'improvement' were a scoring artefact — FLEURS Mandarin references "
              "are character-spaced and WER tokenises on whitespace, so the un-fine-tuned model's unspaced Han "
@@ -1263,8 +1293,11 @@ def build():
         KeepTogether([
             img_from_buf(chart_summary_bar(), width=W),
             caption("Figure 2: True large-v3 baseline vs. fine-tuned WER, both on the held-out "
-                    "n=100 test set. Numbers above bars show the signed WER change in percentage "
-                    "points (negative = improvement; Mandarin's +3.2 is a regression)."),
+                    "n=100 FLEURS test set. Numbers above bars show the signed WER change in "
+                    "percentage points (negative = improvement; Mandarin's +3.2 is a regression). "
+                    "Kashmiri is not shown: it is absent from FLEURS, so it is not on this ruler, "
+                    "and its two available figures are training-split rather than held-out. Its "
+                    "held-out comparison is in §5.5, on the 372-clip IndicVoices-R L2 ruler."),
         ]),
         sp(10),
         h2("5.3 WER Progression During Training"),
@@ -1410,9 +1443,10 @@ def build():
             [tcl("Hindi (hi)"), tc("26.34 (10.55)"), tc("19.78 (7.46)"), tc("15.44 (9.12)"),
              Paragraph("<b>SM4T + LoRA</b>", ParagraphStyle("Bhi", fontName="Helvetica-Bold",
                         fontSize=9, textColor=HDR_BLUE, alignment=TA_CENTER)), tc("53.71"), tc("51.54")],
-            [tcl("Kashmiri (ks)‡"), tc("96.87 (—)"),
-             tc("74.02 (—)"),
-             tc("—§"),
+            [tcl("Kashmiri (ks)‡"), tc("— (—)"),
+             tc("65.19 (39.36)"),
+             Paragraph("<b>50.26 (23.34)</b>", ParagraphStyle("FTks", fontName="Helvetica-Bold",
+                        fontSize=9, textColor=SUCCESS_GRN, alignment=TA_CENTER)),
              Paragraph("<b>SM4T + LoRA</b>", ParagraphStyle("Bks", fontName="Helvetica-Bold",
                         fontSize=9, textColor=HDR_BLUE, alignment=TA_CENTER)), tc("—"), tc("—")],
         ], colWidths=[2.5*cm, 2.9*cm, 2.7*cm, 2.7*cm, 2.2*cm, 1.4*cm, W-14.4*cm],
@@ -1500,9 +1534,14 @@ def build():
         note("† Mandarin: fine-tuning regressed the model (baseline 10.99% -> fine-tuned 14.22%). The prior "
              "report's 100.03% baseline / 100.0% SeamlessM4T were whitespace-tokenisation artefacts on "
              "character-spaced Han references, now corrected with character segmentation."),
-        note("‡ Kashmiri: custom <|ks|> token (ID 51866) on large-v3, best checkpoint step 2400. The n=100 "
-             "cross-model re-run was not repeated for ks (its loader pulls the full 18 GB IndicVoices train "
-             "split); 74.02% is the training-eval on the IndicVoices-R test split."),
+        note("‡ Kashmiri is NOT on this table's ruler. Every other row is FLEURS n=100; Kashmiri is "
+             "absent from FLEURS entirely, so its two figures are the <b>372-clip IndicVoices-R test "
+             "split at L2</b> — fine-tuned Whisper-ks 65.19% (CER 39.36%) against the deployed "
+             "ks_cloud3 SeamlessM4T adapter 50.26% (CER 23.34%), a paired-bootstrap gap of -14.93 pp, "
+             "95% CI [-17.26, -12.62], p < 0.001 (§4.6). The row previously showed 96.87% / 74.02%, "
+             "which are <b>training-split validation</b> figures sitting in a table of held-out ones; "
+             "no un-fine-tuned Kashmiri baseline was ever measured on the held-out split, hence the "
+             "dash in the baseline column. Read the row down, not across to its neighbours."),
         note("§ SeamlessM4T v2 has no native Kashmiri (kas absent from the model vocabulary); a Urdu-token "
              "proxy failed (109% WER). The eventual fix was a custom trainable __kas__ token + LoRA (§5.5.2) — "
              "Kashmiri now runs on the ks_cloud3 SeamlessM4T adapter, not on fine-tuned Whisper."),
@@ -1581,9 +1620,10 @@ def build():
             "to 5: ks_cloud had halted at 0.8 epochs while its validation loss was still falling, so a "
             "second epoch alone reached <b>52.60%</b> (CER 23.67%) — winning WER and CER at every "
             "normalisation level, boundary-free CER 25.69% vs 28.13%, and the degradation sweep 5/5 "
-            "against Whisper and 4/5 against ks_cloud itself. Kashmiri's deployed WER has fallen "
-            "74.02 -> 61.88 -> 56.44 -> 52.60 over the campaign. Kashmiri now runs on the ks_cloud2 "
-            "adapter; ks_cloud and fine-tuned Whisper are retained for rollback."
+            "against Whisper and 4/5 against ks_cloud itself. On the identical 372-clip L2 ruler, "
+            "Kashmiri has fallen <b>65.19 (Whisper) -> 64.31 -> 61.88 -> 56.44 -> 52.60 -> 50.26</b> "
+            "across the campaign. Kashmiri now runs on the <b>ks_cloud3</b> adapter; ks_cloud2, "
+            "ks_cloud and fine-tuned Whisper are retained for rollback."
         ),
         sp(6),
         body(
@@ -2202,7 +2242,7 @@ def build():
             "Nothing in the system reported an error. The corollary for the initialisation choice is "
             "subtle: Dogri really is closest to Punjabi (Whisper's own LID says so), but the language "
             "token conditions <i>generation</i>, so the script-matched Hindi initialisation wins "
-            "(zero-shot 99.99% vs 114.62%, CER 68.14 vs 96.81). Recognition and generation want "
+            "(zero-shot 99.86% vs 114.62%, CER 67.99 vs 96.79). Recognition and generation want "
             "different neighbours."
         ),
         bullet(

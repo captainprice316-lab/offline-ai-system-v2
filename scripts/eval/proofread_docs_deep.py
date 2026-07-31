@@ -76,10 +76,19 @@ for l in ["pa","ps","ur","ne","zh","hi"]:
     check(f"md ASR {l}.seamless-cer", num2(c[3]), comp[l]["seamless_asr_cer"])
     gain = num(c[4])
     check(f"md ASR {l}.gain-arith", gain, round(comp[l]["whisper_ft_wer"] - comp[l]["whisper_baseline_wer"], 1), tol=0.06)
+# Kashmiri is on its OWN ruler (372-clip IndicVoices-R, L2), not FLEURS n=100,
+# so it is checked against ks_cloud_ruler_compare.json rather than against the
+# cross-model results. It used to be checked against 96.87 / 74.02, which are
+# training-split values -- the check was enforcing the ruler mix it should have
+# been catching.
 ksc = rows["ks"]
-check("md ASR ks.baseline", num(ksc[1]), 96.87)
-check("md ASR ks.ft", num(ksc[2]), 74.02)
-check("md ASR ks.gain-arith", num(ksc[4]), round(74.02-96.87, 2), tol=0.06)
+_ksr = json.load(open(REPO/"docs/ks_cloud_ruler_compare.json", encoding="utf-8"))["L2"]
+check("md ASR ks.ft (held-out L2)", num(ksc[2]), _ksr["whisper"]["wer"])
+check("md ASR ks.ft-cer (held-out L2)", num2(ksc[2]), _ksr["whisper"]["cer"])
+check("md ASR ks.deployed (held-out L2)", num(ksc[3]), _ksr["ks_cloud3"]["wer"])
+check("md ASR ks.deployed-cer (held-out L2)", num2(ksc[3]), _ksr["ks_cloud3"]["cer"])
+check("md ASR ks.gain-arith", num(ksc[4]),
+      round(_ksr["ks_cloud3"]["wer"] - _ksr["whisper"]["wer"], 2), tol=0.06)
 
 # deployed-backend column matches EVAL_RESULTS["best"]
 for l in ["pa","ps","ur","ne","zh","hi","ks"]:
@@ -233,10 +242,17 @@ for s in ["100.03","16.03","60.53","103.58"]:
             if s in ln:
                 print(f"  slide {idx} [{s}] {ln.strip()[:110]}")
 
+# ks is deliberately NOT keyed on 96.87 / 74.02 any more. Those are
+# training-split validation figures (and 96.87 is a different model,
+# whisper-small-ks); requiring them to appear in a cross-model table of held-out
+# FLEURS results is what kept the ruler mix alive in both deliverables. The
+# held-out Kashmiri pair on its own 372-clip IndicVoices-R L2 ruler is
+# 65.19 (fine-tuned Whisper-ks) against 50.26 (deployed ks_cloud3 adapter).
 EXPECT = {"77.6":"pa base","57.39":"pa ft","19.77":"pa sm","89.76":"ps base","38.55":"ps ft",
           "44.4":"ps sm","21.23":"ur base","19.82":"ur ft","16.9":"ur sm","88.85":"ne base",
           "50.92":"ne ft","28.46":"ne sm","10.99":"zh base","14.22":"zh ft","11.69":"zh sm",
-          "26.34":"hi base","19.78":"hi ft","15.44":"hi sm","96.87":"ks base","74.02":"ks ft"}
+          "26.34":"hi base","19.78":"hi ft","15.44":"hi sm",
+          "65.19":"ks ft (held-out L2)","50.26":"ks sm (deployed, held-out L2)"}
 for s, what in EXPECT.items():
     (ok if s in pptx_all else issues).append(
         f"PPTX has {what}" if s in pptx_all else f"PPTX missing corrected {what} ({s})")
