@@ -166,7 +166,7 @@ locally on one workstation with an 8~GB consumer GPU; no audio leaves the
 machine, which rules out hosted APIs and constrains model size throughout. Audio
 arrives degraded---narrowband, noisy, codec-compressed---so clean-speech
 accuracy alone is never a sufficient basis for a deployment decision, a point
-that recurs in Sections~\ref{sec:measure} and~\ref{sec:decode}.
+that recurs throughout Section~\ref{sec:measure}.
 
 \paragraph{Languages and data.} Six of the eight languages have FLEURS test
 splits, used at $n=100$ each. Kashmiri and Dogri do not appear in FLEURS at all; for
@@ -570,41 +570,22 @@ better. We report it because the alternative, quietly restating point estimates
 as findings, is precisely the practice that produced three of this paper's
 corrections.
 
-\section{Decoding: a Trade, Not an Improvement}
-\label{sec:decode}
-
-Late in the campaign we noticed that the deployed system decodes greedily: the
-backbone ships no beam-search default and the serving code never sets one, so
-all eight languages had been decoding with a single beam without anyone choosing
-it. Beam search with width 8 improves Kashmiri clean WER from 50.26\% to
-47.37\% on the 372-clip test split, and an in-domain Kneser--Ney trigram
-language model~\cite{kenlm} rescoring the 8-best list reaches 46.90\%, against a
-44.33\% oracle ceiling over that list. Wall-clock cost is about 5\%, not the
-eightfold one might expect, because decode time is dominated by a sequential
-step count that a minimum-length constraint fixes and the GPU absorbs the wider
-batch.
-
-We did not deploy it. Across seven configurations---beam widths 2, 4 and 8, with
-length penalty 1.0 and 0.8 at each and 0.6 additionally at width 8---\emph{every
-one} regressed the 0~dB signal-to-noise condition, by 1.99 to 3.15~pp on the
-30-clip sweep. What they bought for it varied: width 8 gained 3.14 to 3.31~pp on
-clean audio, width 4 gained 1.99~pp, and width 2 \emph{lost} 0.50~pp, making it
-worse in both conditions at once. Length penalty was our hypothesis for the
-cause and is not: it recovers at most 0.50~pp of the 0~dB regression. With flat
-posteriors, beam search reliably finds higher-scoring hypotheses that are fluent
-and wrong, and greedy decoding's myopia is a virtue exactly when the acoustic
-evidence is weakest. For a system whose purpose is degraded radio, that trade
-runs the wrong way. The general form:
-\textbf{decode settings validated only on clean test sets can silently degrade
-deployed robustness}, and the clean-speech number---the one a paper would
-normally report---moves in the flattering direction.
-
-Building the rescorer produced one further methodological result. Our first
-language model scored an implausibly good 46.1\%, from a seven-sentence overlap
-between the language-model corpus and the test references: the corpus had been
-deduplicated against the test set on \emph{raw} text, and those seven collided
-only after L2 normalisation. A deduplication guard that runs at a different
-normalisation level from the scorer is not a guard.
+\paragraph{The same blindness in the decoder.} The gate is not the only place a
+clean-speech number misleads. Late in the campaign we found that the deployed
+system decodes greedily---the backbone ships no beam-search default and the
+serving code never sets one, so all eight languages had been decoding with a
+single beam without anyone choosing it. Beam search with width 8 improves
+Kashmiri clean WER from 50.26\% to 47.37\% on the 372-clip split, and a
+Kneser--Ney trigram~\cite{kenlm} rescoring the 8-best list reaches 46.90\%. We
+did not deploy either. Across seven beam-and-length-penalty configurations,
+\emph{every one} regressed the 0~dB condition, by 1.99 to 3.15~pp; width 2
+managed to lose 0.50~pp on clean audio as well, making it worse in both at once.
+With flat posteriors, beam search reliably finds higher-scoring hypotheses that
+are fluent and wrong, and greedy decoding's myopia is a virtue exactly when the
+acoustic evidence is weakest. \textbf{Decode settings validated only on clean
+test sets can silently degrade deployed robustness}---and the clean-speech
+number, the one a paper would normally report, is the one that moves in the
+flattering direction.
 
 \section{The Deployed Path Is Not the Evaluated Path}
 \label{sec:deployed}
@@ -658,12 +639,11 @@ language in the wrong script starts you 14.8~pp further away.
 left 3--4~pp on the table by stopping when their stopping criterion, rather than
 their loss, ran out. Both reruns cost about \$5.
 
-\item \textbf{Size the evaluation to the effect.} A 30-clip sweep resolves
-backend replacement and nothing finer. If you are chasing 1~pp, report intervals
-or stop claiming improvements.
-
-\item \textbf{Validate on the channel you deploy to.} Every beam configuration
-we tried bought clean-speech accuracy with robustness at 0~dB.
+\item \textbf{Size the evaluation to the effect, and validate on the channel you
+deploy to.} A 30-clip sweep resolves backend replacement and nothing finer; if
+you are chasing 1~pp, report intervals or stop claiming improvements. And every
+beam configuration we tried bought clean-speech accuracy with robustness at
+0~dB, which a clean-only test set would have called a win.
 
 \item \textbf{Measure the deployed path.} Evaluation and serving code diverge
 quietly, and the divergence is worth points.

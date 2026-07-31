@@ -94,7 +94,7 @@ BACKEND = [
 
 def fig_backend():
     data = sorted(BACKEND, key=lambda r: r[1] - r[2], reverse=True)
-    fig, ax = plt.subplots(figsize=(COL2, 1.78))
+    fig, ax = plt.subplots(figsize=(COL2, 1.62))
     ys = list(range(len(data)))[::-1]
     for yi, (name, w, s, how) in zip(ys, data):
         ax.add_patch(FancyArrowPatch(
@@ -196,7 +196,7 @@ def _trajectory(ax, runs, ref, ref_label, title, ylim, deployed_idx):
 
 
 def fig_trajectory():
-    fig, axes = plt.subplots(1, 2, figsize=(COL2, 2.08),
+    fig, axes = plt.subplots(1, 2, figsize=(COL2, 1.92),
                              gridspec_kw={"width_ratios": [8, 7], "wspace": 0.17})
     _trajectory(axes[0], KS_RUNS, KS_WHISPER_REF,
                 "fine-tuned Whisper-ks  65.19",
@@ -234,7 +234,7 @@ FOREST = [
 
 
 def fig_forest():
-    fig, ax = plt.subplots(figsize=(COL2, 1.88))
+    fig, ax = plt.subplots(figsize=(COL2, 1.72))
     ys = list(range(len(FOREST)))[::-1]
     ax.axvline(0, color=INK, lw=0.7, zorder=1)
     for yi, (lab, d, lo, hi, n, sig) in zip(ys, FOREST):

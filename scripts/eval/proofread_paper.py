@@ -149,9 +149,14 @@ for lvl, w, km, kc in (("L0", 79.29, 80.91, 64.71), ("L1", 79.29, 80.31, 63.91),
 
 # ── Section 9: decoding ──────────────────────────────────────────────────────
 lm = load("ks_lm_rescore.json")
+# The standalone decoding section was cut to reach the page target and folded
+# into Section 8 as one paragraph. Claims the paragraph no longer makes are
+# still verified against the artefacts here, but marked prose=False so they do
+# not register as stale: the underlying result stands, the paper just does not
+# quote it any more.
 chk("beam-8 1-best", 47.37, lm["beam_1best_wer"])
 chk("LM-rescored", 46.90, lm["rescored_wer"])
-chk("oracle ceiling", 44.33, lm["oracle_wer"])
+chk("oracle ceiling (cut from prose)", 44.33, lm["oracle_wer"], prose=False)
 
 probe = load("ks_decode_probe.json")
 g_clean, g_awgn = probe["greedy"]["clean"], probe["greedy"]["awgn_0"]
@@ -166,9 +171,9 @@ if min(regress) <= 0:
 w8 = [round(g_clean - v["clean"], 2) for k, v in beams.items() if k.startswith("beam8")]
 w4 = [round(g_clean - v["clean"], 2) for k, v in beams.items() if k.startswith("beam4")]
 w2 = [round(g_clean - v["clean"], 2) for k, v in beams.items() if k.startswith("beam2")]
-chk("decode: width-8 clean gain lo", 3.14, min(w8))
-chk("decode: width-8 clean gain hi", 3.31, max(w8))
-chk("decode: width-4 clean gain", 1.99, max(w4))
+chk("decode: width-8 clean gain lo (cut from prose)", 3.14, min(w8), prose=False)
+chk("decode: width-8 clean gain hi (cut from prose)", 3.31, max(w8), prose=False)
+chk("decode: width-4 clean gain (cut from prose)", 1.99, max(w4), prose=False)
 # written in the text as "width 2 lost 0.50 pp", so compare the magnitude
 chk("decode: width-2 clean LOSS", 0.50, -max(w2))
 lp_recovery = max(
