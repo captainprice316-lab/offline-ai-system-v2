@@ -635,11 +635,12 @@ def slide_10_key_findings(prs, n=22):
     slide_header(s, "Key Findings & Technical Insights", n, "Key Findings")
 
     findings = [
-        ("01", C_GOLD,   "LoRA Effective at 0.25% Params",
-         "WER drops 1.4–51 pp where fine-tuning helps (zh regressed). r=8/r=16 sufficient. "
-         "Full fine-tune (40+ GB VRAM) unnecessary."),
-        ("02", C_GREEN,  "FLEURS + IndicVoices-R Transfer to Radio Domain",
-         "Clean read-speech training improves military-domain accuracy. PA v2: +9,407 IV-R samples → −4.1 pp."),
+        ("01", C_GOLD,   "LoRA Effective — but Rank Mattered More Than Expected",
+         "Full fine-tune (40+ GB VRAM) never needed. r=8/16 sufficed for Whisper; the SeamlessM4T campaign "
+         "needed r=128 (6.6% of params) for Kashmiri — beyond the 8 GB laptop, hence the rented A6000."),
+        ("02", C_GREEN,  "20 Kashmiri Characters Were Missing from the Vocabulary",
+         "They encode to <unk> — 854,234 occurrences across 96.9% of training sentences. Of 747 test words "
+         "containing the 4 affected letters, the model got 747 wrong. Repairing them: −2.35 pp (p < 0.001)."),
         ("03", C_TEAL,   "MMS-LID Critical for Pashto & Robustness",
          "Whisper-only scores 0% on Pashto LangID. MMS-LID lifts it to 53–87% across 5 degradation conditions."),
         ("04", C_RED,    "fp16 Gradient Explosion Risk at Low LR",
@@ -652,15 +653,17 @@ def slide_10_key_findings(prs, n=22):
          "5 conditions × 7 langs × 4 configs. ZH: 97–100%. PS: MMS-LID essential. Mandarin most robust."),
     ]
 
+    # 7 items at 0.94 spacing from y=1.42 ran to 7.88 on a 7.5in slide - the
+    # last finding was cut off the bottom edge. 0.85 keeps it on the page.
     y = 1.42
     for num, col, title, detail in findings:
-        box(s, 0.3,  y, 0.55, 0.82, fill_color=col)
-        txbox(s, num, 0.3, y+0.18, 0.55, 0.4,
+        box(s, 0.3,  y, 0.55, 0.76, fill_color=col)
+        txbox(s, num, 0.3, y+0.16, 0.55, 0.4,
               font_size=15, bold=True, color=C_TEXT, align=PP_ALIGN.CENTER)
-        box(s, 0.9, y, 12.1, 0.82, fill_color=C_CARD)
-        txbox(s, title,  1.05, y+0.05, 11.8, 0.32, font_size=12, bold=True, color=col)
-        txbox(s, detail, 1.05, y+0.38, 11.8, 0.42, font_size=10.5, color=C_SUB)
-        y += 0.94
+        box(s, 0.9, y, 12.1, 0.76, fill_color=C_CARD)
+        txbox(s, title,  1.05, y+0.03, 11.8, 0.30, font_size=12, bold=True, color=col)
+        txbox(s, detail, 1.05, y+0.34, 11.8, 0.42, font_size=10, color=C_SUB)
+        y += 0.85
 
 # ── Slide 11 — Robustness Eval ────────────────────────────────────────────────
 
@@ -726,40 +729,41 @@ def slide_next_steps_accuracy(prs, n):
     bg(s)
     slide_header(s, "Next Steps to Improve Accuracy", n, "Roadmap")
 
-    txbox(s, "Prioritised levers to push WER lower — ordered by expected impact for the high-WER languages (PA, NE, KS).",
+    txbox(s, "Written during the Whisper phase and since OVERTAKEN by results — four of these six were tried and are now "
+             "settled, two of them negatively. Kept as a record of what was predicted against what happened.",
           0.4, 1.30, 12.5, 0.28, font_size=10, italic=True, color=C_SUB)
 
     cards = [
-        ("1  ·  Scale Training Data", C_GOLD,
-         ["Biggest lever for PA / NE / KS (highest WER)",
-          "Add IndicVoices-R full split + Shrutilipi",
-          "KS starved at 20k → target 50k+ samples",
-          "Common Voice + FLEURS-R for extra hours"]),
-        ("2  ·  Increase Model Capacity", C_TEAL,
-         ["PA v3 r=16 already beats r=8 by 2–3 pp",
-          "Try r=32 / α=64 for PA, NE, KS",
-          "Expand targets: add k_proj, o_proj",
-          "Optionally add fc1/fc2 (MLP) adapters"]),
-        ("3  ·  Longer / Smarter Training", C_BLUE,
-         ["NE loss still falling at step 3000 → extend",
-          "Cosine LR schedule + warm restarts",
-          "Higher LR (7e-5) with max_grad_norm=0.5",
-          "More frequent eval near convergence"]),
-        ("4  ·  Radio-Domain Augmentation", C_PURPLE,
-         ["SpecAugment (time/freq masking)",
-          "RIR reverb + additive noise injection",
-          "MP3 / codec + bandpass augmentation",
-          "Pseudo-label real radio intercepts"]),
-        ("5  ·  Decoding-Time Gains", C_GREEN,
-         ["Tune beam width + temperature fallback",
-          "KenLM shallow fusion for low-resource langs",
-          "Repetition / no-speech threshold tuning",
-          "Script-cascade confidence calibration"]),
-        ("6  ·  Recover Mandarin Headroom", C_RED,
-         ["Val WER hit 8.97% before divergence",
-          "Resume past ckpt-400 at lower LR (2e-5)",
-          "Stronger clipping to avoid fp16 overflow",
-          "Target ZH test WER < 12%"]),
+        ("1  ·  Scale Training Data — MIXED", C_GOLD,
+         ["DONE: ks 20k → 145k clips / 335 h",
+          "But data alone was NOT the lever: ps_aug2",
+          "tripled Common Voice for no change (p=0.48)",
+          "Harmful when it UNBALANCED the mixture"]),
+        ("2  ·  Increase Model Capacity — DONE", C_TEAL,
+         ["r=32 → r=128 on a rented A6000 48 GB",
+          "MLP adapters added, as proposed here",
+          "Kashmiri 61.88 → 56.44 (capacity alone)",
+          "Pashto: no significant gain (p = 0.32)"]),
+        ("3  ·  Longer / Smarter Training — BIGGEST WIN", C_BLUE,
+         ["Two runs had stopped while still improving",
+          "Letting them converge: ks −3.84, doi −3.34 pp",
+          "Both p < 0.001, ~$5 of GPU time each",
+          "Cheapest result of the entire campaign"]),
+        ("4  ·  Radio-Domain Augmentation — DONE", C_PURPLE,
+         ["Bandpass + AWGN + MP3 applied to ps training",
+          "ps_aug fixed the 0 dB collapse: 87% → 56%",
+          "The decisive Pashto lever, not capacity",
+          "Still open: SpecAugment, RIR, pseudo-labels"]),
+        ("5  ·  Decoding-Time Gains — REJECTED", C_RED,
+         ["Beam 8: clean 50.26 → 47.37; KenLM → 46.90",
+          "But ALL 7 configs regressed 0 dB by 2–3 pp",
+          "Wrong direction for degraded radio",
+          "Production stays greedy. Negative result."]),
+        ("6  ·  Recover Mandarin Headroom — DROPPED", C_RED,
+         ["Fine-tuning REGRESSED zh (10.99 → 14.22)",
+          "Not worth resuming: zero-shot SeamlessM4T",
+          "already serves Mandarin at 11.69%",
+          "Whisper-zh retained for rollback only"]),
     ]
 
     positions = [(0.3, 1.60), (4.55, 1.60), (8.8, 1.60),
@@ -775,7 +779,8 @@ def slide_next_steps_accuracy(prs, n):
             y += 0.53
 
     box(s, 0.3, 7.14, 12.75, 0.30, fill_color=C_TEAL_L)
-    txbox(s, "Delivered: PA v3 (r=16, 21,923 samples) completed 4000 steps → 49.31% deployed, −3.24 pp below v2. Next levers below.",
+    txbox(s, "Still genuinely open: the deployed decode path scores 2.07 pp worse than the evaluation path (ks 52.33 vs 50.26, "
+             "p < 0.001) — unresolved. And Dogri is trained (46.73%) but NOT yet deployed.",
           0.45, 7.17, 12.5, 0.24, font_size=9.5, bold=True, italic=True, color=C_NAVY)
 
 # ── Slide 12 — Deployment & Conclusions ──────────────────────────────────────
@@ -797,8 +802,8 @@ def slide_12_conclusion(prs, n=24):
                    "SeamlessM4T ×7  ·  FT Whisper ×0"),
         (C_GREEN,  "All 7 Languages Now\nRun on SeamlessM4T",
                    "Whisper models kept only for rollback"),
-        (C_PURPLE, "0.25–0.51% Params\nLoRA r=8 / r=16",
-                   "No full fine-tune needed"),
+        (C_PURPLE, "Dogri — 8th language\nTRAINED, not yet served",
+                   "46.73% (from 102.39%); deployment blocked"),
     ]
     x = 0.4
     for col, title, detail in summ:
@@ -841,7 +846,7 @@ def slide_12_conclusion(prs, n=24):
         (C_GREEN,  "Robustness",    "COMPLETE — 5 cond × 7 langs; SM4T lead holds under noise"),
         (C_GOLD,   "Seamless timing", "Per-utterance segments added; per-VAD-segment ASR live"),
         (C_PURPLE, "Reports",       "Regenerated from corrected n=100 scoring (this deck)"),
-        (C_TEAL,   "Paper",         "VANI → IJAINN / SLT 2026 submission"),
+        (C_TEAL,   "Paper",         "ACM IKDD CODS 2026, Gandhinagar — deadline 13 Aug 2026; draft written"),
     ]
     y2 = 3.04
     for col, title, detail in nexts:
@@ -1077,7 +1082,9 @@ def slide_intro_problem(prs, n):
     txbox(s, "The Operational Problem", 0.55, 2.20, 5.7, 0.32,
           font_size=13, bold=True, color=RGBColor(0xFF, 0xFF, 0xFF))
     probs = [
-        "High-volume radio traffic in many low-resource\nborder languages (Punjabi, Pashto, Urdu,\nNepali, Mandarin, Hindi, Kashmiri, Dogri).\nAll eight now have fine-tuned ASR - Dogri was\nthe last, added 2026-07-28 (102.39 -> 46.73).",
+        # Keep to 3 lines: bullet_block uses fixed 0.75in spacing, so a 5-line
+        # item overruns the next bullet. Dogri's status is on the closing slide.
+        "High-volume radio traffic in eight low-resource\nborder languages (Punjabi, Pashto, Urdu, Nepali,\nMandarin, Hindi, Kashmiri, Dogri)",
         "Must run FULLY OFFLINE / air-gapped —\nno cloud, no internet at runtime",
         "Generic ASR fails on these languages AND\non the noisy, band-limited radio channel",
         "Manual transcription + translation does not\nscale to an operational intercept volume",
@@ -1272,6 +1279,92 @@ def slide_campaign_hours(prs, n):
         y += 0.28
 
 
+def slide_runpod_cloud(prs, n):
+    """The rented-GPU campaign: what Kashmiri and Pashto actually bought for it.
+
+    Deliberately NOT a second copy of slide_campaign_hours' run table. That
+    slide answers "what did each run cost"; this one answers "what did the
+    money buy", which means the significance verdicts belong on it - including
+    Pashto's, which is negative.
+    """
+    s = blank_slide(prs)
+    bg(s)
+    slide_header(s, "Renting capacity: the RunPod cloud runs — Kashmiri & Pashto", n, "Results")
+    txbox(s, "The 8 GB laptop caps LoRA at rank 32. Rank 128 trains 6.6% of the model (~107 M parameters) against "
+             "rank 32's 1.75% — it simply does not fit. Five runs on a rented RTX A6000 48 GB settled both open languages.",
+          0.4, 1.40, 12.6, 0.5, font_size=12.5, italic=True, color=C_NAVY)
+
+    # ── three stat tiles ─────────────────────────────────────────────────────
+    tiles = [
+        ("Kashmiri",  "-11.63 pp", "61.88% -> 50.26%   ·   p < 0.001", C_GREEN),
+        ("Pashto",    "-0.75 pp",  "36.91% -> 36.16%   ·   p = 0.32, n.s.", C_RED),
+        ("Total spend", "~$15",    "RTX A6000 48 GB @ $0.53/hr", C_TEAL),
+    ]
+    tx = 0.35
+    for label, big, sub, col in tiles:
+        card(s, tx, 2.02, 4.15, 1.02, accent_color=col)
+        txbox(s, label, tx + 0.20, 2.10, 2.0, 0.26, font_size=10.5, bold=True, color=C_SUB)
+        txbox(s, big, tx + 0.20, 2.32, 2.2, 0.42, font_size=23, bold=True, color=col)
+        txbox(s, sub, tx + 0.20, 2.74, 3.85, 0.24, font_size=9.5, color=C_SUB)
+        tx += 4.32
+
+    # ── Kashmiri: the three levers, in order ─────────────────────────────────
+    card(s, 0.35, 3.30, 8.32, 2.74, accent_color=C_GREEN)
+    txbox(s, "KASHMIRI — three levers, three separate wins", 0.55, 3.40, 8.0, 0.30,
+          font_size=13, bold=True, color=C_NAVY)
+    cols = [0.55, 2.30, 5.20, 6.30, 7.40]
+    txbox(s, "Run", cols[0], 3.76, 1.6, 0.24, font_size=9, bold=True, color=C_SUB)
+    txbox(s, "What changed", cols[1], 3.76, 2.8, 0.24, font_size=9, bold=True, color=C_SUB)
+    txbox(s, "WER", cols[2], 3.76, 1.0, 0.24, font_size=9, bold=True, color=C_SUB)
+    txbox(s, "Δ", cols[3], 3.76, 1.0, 0.24, font_size=9, bold=True, color=C_SUB)
+    txbox(s, "Verdict", cols[4], 3.76, 1.2, 0.24, font_size=9, bold=True, color=C_SUB)
+    ks_rows = [
+        ("ks_max2", "laptop baseline, rank 32", "61.88%", "—", "", C_SUB),
+        ("ks_cloud", "rank 32 -> 128, corpus rebuilt 145k / 335 h", "56.44%", "-5.44", "capacity", C_TEXT),
+        ("ks_cloud2", "same recipe, allowed to converge", "52.60%", "-3.84", "p < 0.001", C_GREEN),
+        ("ks_cloud3", "+ 20 unrepresentable characters repaired", "50.26%", "-2.35", "p < 0.001", C_GREEN),
+        ("ks_cloud4", "warm start, token rows at 5x LR", "50.69%", "+0.43", "p = 0.24  ✗", C_RED),
+    ]
+    y = 4.03
+    for run, what, wer, d, verdict, col in ks_rows:
+        box(s, 0.48, y, 8.06, 0.30, fill_color=C_CARD2 if col is C_SUB else C_BG)
+        txbox(s, run, cols[0], y + 0.03, 1.8, 0.26, font_size=9.5, bold=True, color=C_TEXT)
+        txbox(s, what, cols[1], y + 0.03, 3.0, 0.26, font_size=9.5, color=C_SUB)
+        txbox(s, wer, cols[2], y + 0.03, 1.0, 0.26, font_size=9.5, bold=True,
+              color=C_GREEN if run == "ks_cloud3" else C_TEXT)
+        txbox(s, d, cols[3], y + 0.03, 1.0, 0.26, font_size=9.5, color=col)
+        txbox(s, verdict, cols[4], y + 0.03, 1.3, 0.26, font_size=9.5, bold=True, color=col)
+        y += 0.33
+    txbox(s, "DEPLOYED: ks_cloud3.  Each lever was tested alone — capacity, then training length, then vocabulary.",
+          0.55, y + 0.04, 8.0, 0.26, font_size=9.5, italic=True, color=C_GREEN)
+
+    # ── Pashto: the honest negative ──────────────────────────────────────────
+    card(s, 8.83, 3.30, 4.15, 2.74, accent_color=C_RED)
+    txbox(s, "PASHTO — capacity did not help", 9.03, 3.40, 3.8, 0.30,
+          font_size=13, bold=True, color=C_NAVY)
+    _multiline(s,
+        "ps_cloud  ·  rank 128, 18,656 clips / ~30 h\n"
+        "1 h 32 m on the A6000  ·  ~$2\n\n"
+        "36.91%  ->  36.16%\n"
+        "-0.75 pp,  95% CI [-2.23, +0.70]\n"
+        "p = 0.32  —  NOT significant\n\n"
+        "Deployed anyway, on the reasoning that\n"
+        "the newer of two indistinguishable\n"
+        "adapters is a defensible choice under\n"
+        "uncertainty — but the margin is a tie,\n"
+        "not a win, and is reported as one.",
+        9.03, 3.78, 3.8, 2.0, font_size=10, color=C_SUB, align=PP_ALIGN.LEFT)
+
+    # ── closing line ─────────────────────────────────────────────────────────
+    box(s, 0.35, 6.22, 12.63, 0.62, fill_color=C_CARD)
+    box(s, 0.35, 6.22, 0.06, 0.62, fill_color=C_TEAL)
+    txbox(s, "What the money actually bought:  capacity moved Kashmiri and did nothing measurable for Pashto. "
+             "The two cheapest wins were not capacity at all — letting a run converge (~$5) and repairing 20 vocabulary "
+             "characters (~$4) together beat the rank increase.",
+          0.55, 6.32, 12.3, 0.44, font_size=10.5, color=C_TEXT)
+    return n
+
+
 def slide_finetune_summary(prs, n):
     s = blank_slide(prs)
     bg(s)
@@ -1333,12 +1426,13 @@ def main():
     slide_results_ks_ruler(prs, 17)                                      # 17  Kashmiri ruler
     slide_finetune_summary(prs, 18)                                     # 18  training campaign (one slide)
     slide_campaign_hours(prs, 19)                                       # 19  training hours + dataset sizes
-    slide_10_key_findings(prs, n=20)                                     # 20  key findings
+    slide_runpod_cloud(prs, 20)                                         # 20  RunPod cloud runs: ks + ps
+    slide_10_key_findings(prs, n=21)                                     # 21  key findings
 
     slide_section_divider(prs, 7, "Future Work",
-                          "Where VANI goes next", 21)
-    slide_next_steps_accuracy(prs, 22)                                   # 22
-    slide_12_conclusion(prs, n=23)                                       # 23
+                          "Where VANI goes next", 22)
+    slide_next_steps_accuracy(prs, 23)                                   # 23
+    slide_12_conclusion(prs, n=24)                                       # 24
 
     OUT_PATH.parent.mkdir(exist_ok=True)
     prs.save(str(OUT_PATH))
