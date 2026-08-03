@@ -91,10 +91,20 @@ BACKEND = [
     ("Mandarin", 14.22, 11.69, "zero-shot"),
 ]
 
+# Kashmiri and Dogri are NOT on the FLEURS ruler -- they are IndicVoices-R at L2,
+# n=372 and n=425. They are plotted in a separate band with their own axis note
+# rather than mixed into the six above, because a single row of a chart implying
+# one test set is exactly the ruler mix this project has had to correct twice.
+BACKEND_IVR = [
+    ("Kashmiri", 65.19, 50.26, "+ custom token"),
+    ("Dogri",   102.39, 46.73, "+ custom token, not yet served"),
+]
+
 
 def fig_backend():
-    data = sorted(BACKEND, key=lambda r: r[1] - r[2], reverse=True)
-    fig, ax = plt.subplots(figsize=(COL2, 1.62))
+    data = sorted(BACKEND, key=lambda r: r[1] - r[2], reverse=True) + BACKEND_IVR
+    n_fleurs = len(BACKEND)
+    fig, ax = plt.subplots(figsize=(COL2, 1.80))
     ys = list(range(len(data)))[::-1]
     for yi, (name, w, s, how) in zip(ys, data):
         ax.add_patch(FancyArrowPatch(
@@ -110,14 +120,25 @@ def fig_backend():
                 fontsize=6.9, color=INK, fontweight="bold")
         ax.text((w + s) / 2, yi + 0.30, f"$-${w - s:.1f}", va="bottom",
                 ha="center", fontsize=6.3, color=C_SM4T)
-        ax.text(63.5, yi, how, va="center", ha="left", fontsize=6.2,
+        ax.text(113.5, yi, how, va="center", ha="left", fontsize=6.2,
                 color=MUTED, style="italic")
+
+    # separator + per-band ruler notes: the two groups are not comparable across
+    # Band notes go in white space: the left edge below the separator is
+    # occupied by the Kashmiri row, so that one sits on the separator's right.
+    ysep = len(data) - n_fleurs - 0.5
+    ax.axhline(ysep, color=MUTED, lw=0.7, ls=(0, (2, 2)), zorder=2)
+    ax.text(0.6, len(data) - 0.42, "FLEURS, $n=100$", fontsize=6.3,
+            color=MUTED, style="italic", va="top")
+    ax.text(110, ysep + 0.10, "IndicVoices-R, L2 — a different test set",
+            fontsize=6.3, color=MUTED, style="italic", va="bottom", ha="right")
+
     ax.set_yticks(ys)
     ax.set_yticklabels([d[0] for d in data], fontsize=7.4, color=INK)
-    ax.set_xlim(0, 63)
+    ax.set_xlim(0, 113)
     ax.set_ylim(-0.65, len(data) - 0.35)
-    ax.set_xlabel("word error rate (%), FLEURS $n=100$ -- lower is better",
-                  fontsize=7.2)
+    ax.axvline(100, color=C_WHISPER, lw=0.7, ls=(0, (2, 2)), zorder=1)
+    ax.set_xlabel("word error rate (%) — lower is better", fontsize=7.2)
     # Legend above the axes: inside, it lands on the Pashto row.
     ax.legend(handles=[
         Line2D([], [], marker="o", ls="", ms=4.4, color=C_WHISPER,
@@ -159,13 +180,22 @@ PS_RUNS = [
 ]
 PS_WHISPER_REF = 38.55
 
+DOI_RUNS = [
+    ("doi_iv",  50.07, "schedule expired"),
+    ("doi_iv2", 46.73, "to convergence"),
+]
+DOI_WHISPER_REF = 88.18   # Whisper forced to Hindi -- the best untrained baseline
+
 
 def _trajectory(ax, runs, ref, ref_label, title, ylim, deployed_idx):
     xs = np.arange(len(runs))
     ys = [r[1] for r in runs]
     ax.axhline(ref, color=C_WHISPER, lw=1.1, ls=(0, (3, 2)), zorder=1)
+    # If the reference line sits near the top of the panel, its label would run
+    # into the title (Dogri's does), so drop it under the line instead.
+    _high = (ref - ylim[0]) / (ylim[1] - ylim[0]) > 0.82
     ax.text(len(runs) - 0.45, ref, ref_label, fontsize=6.2, color=C_WHISPER,
-            va="bottom", ha="right")
+            va="top" if _high else "bottom", ha="right")
     ax.plot(xs, ys, color=C_SM4T, lw=1.1, zorder=2, solid_capstyle="round")
     for i, (name, v, note) in enumerate(runs):
         ns = "n.s." in note
@@ -196,8 +226,9 @@ def _trajectory(ax, runs, ref, ref_label, title, ylim, deployed_idx):
 
 
 def fig_trajectory():
-    fig, axes = plt.subplots(1, 2, figsize=(COL2, 1.92),
-                             gridspec_kw={"width_ratios": [8, 7], "wspace": 0.17})
+    fig, axes = plt.subplots(1, 3, figsize=(COL2, 1.86),
+                             gridspec_kw={"width_ratios": [8, 7, 3.1],
+                                          "wspace": 0.22})
     _trajectory(axes[0], KS_RUNS, KS_WHISPER_REF,
                 "fine-tuned Whisper-ks  65.19",
                 "Kashmiri -- IndicVoices-R, $n=372$, L2", (45, 90), 6)
@@ -205,6 +236,11 @@ def fig_trajectory():
     _trajectory(axes[1], PS_RUNS, PS_WHISPER_REF,
                 "fine-tuned Whisper-ps  38.55",
                 "Pashto -- FLEURS, $n=100$, clean", (34, 44), 6)
+    # Dogri has only two runs, but they are the campaign's cleanest replication
+    # of the convergence result, so the panel earns its width.
+    _trajectory(axes[2], DOI_RUNS, DOI_WHISPER_REF,
+                "Whisper forced-hi  88.18",
+                "Dogri -- IndicVoices-R, $n=425$, L2", (44, 92), 1)
     fig.legend(handles=[
         Line2D([], [], marker="s", ls="", ms=4.4, color=C_SM4T,
                label="deployed"),
@@ -322,7 +358,7 @@ DOGRI = [
 
 
 def fig_dogri():
-    fig, ax = plt.subplots(figsize=(COL1, 1.58))
+    fig, ax = plt.subplots(figsize=(COL1, 1.50))
     ys = list(range(len(DOGRI)))[::-1]
     for yi, (lab, v, best) in zip(ys, DOGRI):
         ax.barh(yi, v, height=0.58, color=C_SM4T if best else C_NS,
@@ -422,6 +458,18 @@ def _check():
         row = mc.get(key)
         if isinstance(row, dict) and "seamless_asr_wer" in row:
             eq(f"BACKEND[{name}] zero-shot", dep[name], row["seamless_asr_wer"])
+    # the IndicVoices-R band of the same figure, and the Dogri trajectory panel
+    _dbl = load("doi_baselines.json")
+    _d1 = load("doi_iv_seamless_results.json")["L2"]["wer"]
+    _d2 = load("doi_iv2_seamless_results.json")["L2"]["wer"]
+    ivr = {b[0]: b for b in BACKEND_IVR}
+    eq("BACKEND_IVR[Kashmiri] before", ivr["Kashmiri"][1], traj["whisper"]["L2_wer"])
+    eq("BACKEND_IVR[Kashmiri] after", ivr["Kashmiri"][2], traj["ks_cloud3"]["L2_wer"])
+    eq("BACKEND_IVR[Dogri] before", ivr["Dogri"][1], _dbl["whisper_auto"]["L2"]["wer"])
+    eq("BACKEND_IVR[Dogri] after", ivr["Dogri"][2], _d2)
+    eq("DOI_RUNS[doi_iv]", DOI_RUNS[0][1], _d1)
+    eq("DOI_RUNS[doi_iv2]", DOI_RUNS[1][1], _d2)
+    eq("DOI_WHISPER_REF", DOI_WHISPER_REF, _dbl["whisper_hi"]["L2"]["wer"])
     whis = {b[0]: b[1] for b in BACKEND}
     for name, key in [("Punjabi", "pa"), ("Nepali", "ne"), ("Pashto", "ps"),
                       ("Hindi", "hi"), ("Urdu", "ur"), ("Mandarin", "zh")]:

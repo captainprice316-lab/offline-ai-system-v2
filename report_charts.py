@@ -51,10 +51,22 @@ HERO_DATA = [
     ("Pashto (ps)",   38.55, 36.16, "+ LoRA"),
 ]
 
+# Kashmiri and Dogri are NOT on the FLEURS ruler. They are IndicVoices-R at L2,
+# n=372 and n=425, and are drawn in a separate band below a divider with their
+# own note. Putting them in the same block as the six above is precisely the
+# ruler mix that had to be corrected out of this report twice (see the ks row
+# in 5.1 and the Dogri table in 4.5).
+HERO_IVR = [
+    ("Kashmiri (ks)", 65.19, 50.26, "+ custom token"),
+    ("Dogri (doi)",  102.39, 46.73, "+ token, not served"),
+]
+
 
 def hero_backend_dumbbell():
-    data = sorted(HERO_DATA, key=lambda r: r[1] - r[2], reverse=True)
-    fig, ax = plt.subplots(figsize=(10, 5.2))
+    data = (sorted(HERO_DATA, key=lambda r: r[1] - r[2], reverse=True)
+            + HERO_IVR)
+    n_fleurs = len(HERO_DATA)
+    fig, ax = plt.subplots(figsize=(10, 5.9))
     ys = list(range(len(data)))[::-1]
     for yi, (name, w, s, tag) in zip(ys, data):
         ax.add_patch(FancyArrowPatch((w, yi), (s, yi), arrowstyle="-|>",
@@ -70,28 +82,40 @@ def hero_backend_dumbbell():
                 fontsize=9.5, color=INK, fontweight="bold")
         ax.text((w + s) / 2, yi + 0.28, f"-{w - s:.1f} pp", va="bottom",
                 ha="center", fontsize=8.5, color=C_GOOD, fontweight="bold")
-        ax.text(-2.2, yi - 0.30, tag, va="center", ha="right",
+        ax.text(-3.5, yi - 0.30, tag, va="center", ha="right",
                 fontsize=7.5, color=MUTED, style="italic")
+
+    ysep = len(data) - n_fleurs - 0.5
+    ax.axhline(ysep, color=MUTED, lw=1.0, ls=(0, (4, 3)), zorder=2)
+    ax.text(112, ysep + 0.12,
+            "IndicVoices-R, L2 — a DIFFERENT test set; compare down, not across",
+            fontsize=8, color=MUTED, style="italic", va="bottom", ha="right")
+    ax.axvline(100, color=C_BAD, lw=1.0, ls=(0, (3, 3)), zorder=1, alpha=0.7)
+    ax.text(100.5, -0.5, "100% WER", fontsize=7.5, color=C_BAD, va="center")
+
     ax.set_yticks(ys)
     ax.set_yticklabels([d[0] for d in data], fontsize=10)
-    ax.set_xlim(0, 62)
-    ax.set_ylim(-0.6, len(data) - 0.4)
+    ax.set_xlim(0, 116)
+    ax.set_ylim(-0.75, len(data) - 0.4)
     ax.set_xlabel("Word Error Rate (%)  —  lower is better", fontsize=10.5)
     ax.set_title("Deployed SeamlessM4T backend beats fine-tuned Whisper on WER",
                  fontsize=13.5, fontweight="bold", pad=14)
-    ax.text(0.0, 1.015, "n = 100 FLEURS held-out test, same scorer",
+    ax.text(0.0, 1.015, "Top band: n = 100 FLEURS held-out. Bottom band: "
+            "IndicVoices-R n = 372 / 425 at L2 — not the same ruler.",
             transform=ax.transAxes, fontsize=9, color=MUTED)
     ax.grid(True, axis="x", alpha=0.25, linestyle="--")
     ax.set_axisbelow(True)
     for sp in ("top", "right", "left"):
         ax.spines[sp].set_visible(False)
     ax.tick_params(left=False)
+    # Above the axes: "lower right" now lands on the Dogri row's 102.4 marker.
     ax.legend(handles=[
         Line2D([0], [0], marker="o", color="w", markerfacecolor=C_WHISPER,
                markersize=11, label="Fine-tuned Whisper"),
         Line2D([0], [0], marker="o", color="w", markerfacecolor=C_SM4T,
                markersize=11, label="Deployed SeamlessM4T")],
-        loc="lower right", fontsize=9.5, frameon=False)
+        loc="lower center", bbox_to_anchor=(0.5, 1.045), ncol=2,
+        fontsize=9.5, frameon=False, columnspacing=3.0)
     fig.tight_layout()
     return _save(fig)
 

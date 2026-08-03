@@ -1517,9 +1517,15 @@ def build():
         ),
         sp(6),
         img_scaled(report_charts.hero_backend_dumbbell(), width=W * 0.92),
-        note("Figure 4: Deployed SeamlessM4T backend vs the fine-tuned Whisper model, per language "
-             "(n=100 FLEURS held-out, same scorer). Every arrow points to the deployed SeamlessM4T backend "
-             "— lower WER. Kashmiri is shown separately (§5.5.2): a different corpus and scoring ruler."),
+        note("Figure 4: Deployed SeamlessM4T backend vs the fine-tuned Whisper model, for all eight "
+             "languages. Every arrow points to the deployed backend — lower WER in every case. "
+             "<b>The two bands are different test sets and must not be compared across.</b> The top six "
+             "are FLEURS held-out, n=100. Kashmiri and Kashmiri's neighbour Dogri are absent from FLEURS "
+             "entirely, so the bottom two are the IndicVoices-R test splits (n=372 and n=425) scored at "
+             "L2 — read them down their own column. Dogri's 102.39% is what the deployed system actually "
+             "did before it had a Dogri model: Whisper's language identification misrouted the audio and "
+             "produced more errors than there were reference words, which is why that bar crosses the "
+             "100% line. Dogri's 46.73% is its best model, which is trained but NOT yet served (§4.5)."),
         sp(8),
         Table([
             [tch("Language"), tch("Baseline (large-v3)\nWER (CER)"), tch("FT Whisper\nWER (CER)"),

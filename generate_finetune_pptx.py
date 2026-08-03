@@ -1200,10 +1200,13 @@ def slide_results_hero(prs, n):
     chart_slide(
         prs, "Result: SeamlessM4T surpasses fine-tuned Whisper on WER", n, "Results",
         report_charts.hero_backend_dumbbell(),
-        caption="Deployed backend vs the fine-tuned Whisper model, per language (n=100 FLEURS held-out, same scorer). "
-                "Every language improves; the arrow points to the deployed SeamlessM4T backend. Kashmiri is shown separately "
-                "(different corpus + scoring ruler).",
-        img_width=10.5, aspect=1.923,
+        caption="All eight languages. Every one improves; the arrow points to the deployed backend. The two bands are "
+                "DIFFERENT TEST SETS — top six are FLEURS n=100; Kashmiri and Dogri are absent from FLEURS, so they are "
+                "IndicVoices-R (n=372 / 425) at L2. Read the lower band down its own column, not across. Dogri's 102.4% is "
+                "what the system actually did before it had a Dogri model — misrouted audio, more errors than reference words.",
+        # 8 rows makes the chart taller (figsize 10x5.9). At width 10.5 it is
+        # 6.2in high and pushes the caption off the bottom of the slide.
+        img_width=9.1, aspect=1.695,
     )
 
 

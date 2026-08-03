@@ -227,9 +227,14 @@ Dogri     & Devanagari  & 102.39 & \textbf{46.73} & SM4T + custom token \\
 \begin{figure*}[t]
 \centering
 \includegraphics[width=\textwidth]{backend.pdf}
-\caption{Backend replacement on the six FLEURS languages. Every language moves
-left. Three of the six needed no adaptation at all---zero-shot SeamlessM4T
-already beat a Whisper model that had been fine-tuned on that language.}
+\caption{Backend replacement across all eight languages. Every language moves
+left, and three of the six FLEURS languages needed no adaptation at
+all---zero-shot SeamlessM4T already beat a Whisper model fine-tuned on that
+language. The lower band is a \emph{different test set}: Kashmiri and Dogri are
+absent from FLEURS and are scored on IndicVoices-R at L2, so those two rows are
+comparable down the column but not across to the six above. Dogri's ``before''
+is what the deployed system actually did---misroute the audio to Whisper's
+language identification---which is why it starts beyond 100\%.}
 \label{fig:backend}
 \end{figure*}
 
@@ -238,7 +243,10 @@ Fine-tuned Whisper now serves none of the eight languages; every model remains
 on disk for rollback but none is in the serving path. For five languages,
 zero-shot SeamlessM4T won outright, by margins from 2.9~pp (Urdu) to 37.6~pp
 (Punjabi). The remaining three required adapters, and two of those required more
-than an adapter.
+than an adapter. The figure keeps those two---Kashmiri and Dogri---in a separate
+band, because neither appears in FLEURS and mixing their IndicVoices-R scores
+into the same axis as the other six would repeat a ruler error this project has
+already had to correct twice.
 
 \paragraph{The advantage widens under degradation.} A backend chosen on clean
 speech would be the wrong artefact to ship here, so we repeated the comparison
@@ -279,7 +287,7 @@ closely turned out to be measurement findings.
 \label{sec:campaign}
 
 Table~\ref{tab:runs} lists the runs on which a decision turned, and
-Figure~\ref{fig:traj} plots the two languages that took the most work. The
+Figure~\ref{fig:traj} plots the three languages that needed more than one run. The
 levers divide cleanly into those that moved word error rate and those that did
 not.
 
@@ -340,12 +348,14 @@ doi\_iv2  & Dogri    & 128/256& as above, fresh schedule     & 9{,}000 & \textbf
 \begin{figure*}[t]
 \centering
 \includegraphics[width=\textwidth]{trajectory.pdf}
-\caption{The two languages that took the most work, every run on one scorer.
-Kashmiri's decisive moves are making the added language token trainable
-(\texttt{ks\_max}) and repairing the subword vocabulary
-(\texttt{ks\_cloud3}); Pashto's is noise-augmented training
-(\texttt{ps\_aug}). Hollow markers are runs whose change from their predecessor
-does not survive a paired bootstrap---including the one we deployed.}
+\caption{Every adaptation run for the three languages that needed more than one,
+each panel on its own single scorer. Kashmiri's decisive moves are making the
+added language token trainable (\texttt{ks\_max}) and repairing the subword
+vocabulary (\texttt{ks\_cloud3}); Pashto's is noise-augmented training
+(\texttt{ps\_aug}); Dogri's two runs differ only in being allowed to finish, and
+replicate Kashmiri's convergence result on a different script and corpus. Hollow
+markers are runs whose change from their predecessor does not survive a paired
+bootstrap---including the one we deployed.}
 \label{fig:traj}
 \end{figure*}
 
