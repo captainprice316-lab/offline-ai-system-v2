@@ -20,6 +20,7 @@ import json
 import pathlib
 import re
 import sys
+import unicodedata
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 DOCS = ROOT / "docs"
@@ -127,6 +128,42 @@ else:
     notes.append("doi whisper_auto/whisper_hi are NOT in doi_baselines.json; "
                  "their figures are L0 from an overwritten run and Figure 4's "
                  "caption must say so.")
+
+# ── Section 7: the vocabulary repair, computed from the character map ────────
+# These were prose-only claims until the "four vs five letters" wording had to be
+# corrected. Now derived: which repaired characters survive the L2 diacritic
+# filter is a property of KS_EXTRA_CHARS and the DIACRITICS regex, and how many
+# reach the test set is a property of the stored references.
+sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "scripts" / "eval"))
+try:
+    from ks_ruler_study import norm as _norm, DIACRITICS as _DIA  # noqa: E402
+    from finetune_seamless import KS_EXTRA_CHARS as _KSX  # noqa: E402
+except Exception as e:                                    # pragma: no cover
+    notes.append(f"could not import the character map, vocab checks skipped: {e}")
+    _KSX = None
+
+if _KSX:
+    chk("vocab: characters repaired", 20, len(_KSX))
+    _survive = [c for c in _KSX if _DIA.sub("", c) != ""]
+    _deleted = [c for c in _KSX if _DIA.sub("", c) == ""]
+    chk("vocab: marks deleted by the L2 filter", 13, len(_deleted))
+    _letters = [c for c in _survive if unicodedata.category(c) == "Lo"]
+    chk("vocab: letters surviving L2", 5, len(_letters))
+
+    _rows = [json.loads(l) for l in
+             (ROOT / "eval_data" / "ks_cloud3_seamless_hyps.jsonl")
+             .read_text(encoding="utf-8").splitlines() if l.strip()]
+    _rows = [r for r in _rows if r.get("set") == "indicvoices_test"]
+    _refs = [_norm(r["ref"], 2) for r in _rows]
+    _present = sum(1 for c in _letters if any(c in r for r in _refs))
+    chk("vocab: of those, letters present in the test set", 4, _present)
+    _toks = [w for r in _refs for w in r.split()]
+    _hit = [w for w in _toks if any(c in w for c in _letters)]
+    chk("vocab: word tokens containing them", 747, len(_hit))
+    chk("vocab: total word tokens in test refs", 8988, len(_toks))
+    chk("vocab: share of word tokens (8.3%)", 8.3, round(100 * len(_hit) / len(_toks), 1))
+    chk("vocab: distinct word types", 211, len(set(_hit)))
 
 # ── Section 7: the vocabulary repair, measured on two rungs ──────────────────
 chk("vocab repair at L0 (74.31)", 74.31, ruler["L0"]["ks_cloud2"]["wer"])

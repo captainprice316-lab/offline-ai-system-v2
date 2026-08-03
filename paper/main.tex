@@ -39,8 +39,8 @@ single-language gain of the campaign, in a language never previously measured.
 The same technique on Kashmiri exposed a subtler defect: 20 characters of
 written Kashmiri have no token in the backbone's subword vocabulary and resolve
 to the unknown-token id, appearing in 96.9\% of training sentences; of the 747
-test words containing the four affected letters, the pre-repair model got
-\emph{all 747} wrong, and after repair it recovers 310. Finally, a retrospective
+test words containing the affected letters, the pre-repair model got \emph{all
+747} wrong, and after repair it recovers 310. Finally, a retrospective
 paired bootstrap divides the campaign sharply: backend replacement, vocabulary
 repair and training to convergence hold at $p<0.001$, whereas every
 adapter-versus-adapter decision---including one on which a deployment was
@@ -477,10 +477,12 @@ tokeniser encodes the training targets, the model was trained against corrupted
 labels for nearly every sentence it saw.
 
 \paragraph{Cost.} Of the 3{,}917 substitution errors, 662 fall on words rendered
-unrepresentable by these characters. Of the 747 test words containing the four
-affected \emph{letters}---the subset that survives diacritic normalisation---the
-model got \textbf{747 wrong. Every one.} No amount of capacity, data or training
-time could have fixed a single one of them.
+unrepresentable by these characters. Thirteen of the twenty are combining marks
+that diacritic normalisation removes before scoring; the seven that survive it
+include five \emph{letters}, four of which occur in this test set. Those four
+appear in 747 of its 8{,}988 word tokens---8.3\%, across 211 distinct word
+types---and the pre-repair model got \textbf{747 wrong. Every one.} No amount of
+capacity, data or training time could have fixed a single one of them.
 
 \paragraph{Repair and result.} We add all twenty characters as tokens,
 initialise each from its closest in-vocabulary neighbour (letters from their base
@@ -494,10 +496,11 @@ ordinary acoustic confusions rather than blank omissions.
 \paragraph{Why the aggregate gain is smaller than the defect.}
 Figure~\ref{fig:ruler} shows the repair on all five rungs of the normalisation
 ladder. On unnormalised text it is worth 9.60~pp (74.31\% to 64.71\%); at L2,
-the level we decide on, 2.34~pp. Most of the twenty characters are combining
-marks that diacritic normalisation discards anyway, so the deciding ruler sees
-only the four letters. Both numbers are real, and reporting only the larger would
-misrepresent what the repair buys under the metric we decide on.
+the level we decide on, 2.34~pp. The reason is that the diacritic filter and the
+defect overlap: 13 of the 20 repaired characters are combining marks that L2
+deletes before scoring, so the deciding ruler sees the repair almost entirely
+through the four letters. Both numbers are real, and reporting only the larger
+would misrepresent what the repair buys under the metric we decide on.
 
 \begin{figure}[t]
 \centering
